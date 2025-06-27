@@ -2,47 +2,62 @@
 
 **simple-graph-query** is a lightweight query engine for navigating and extracting tuples from finite graphs using a relational logic inspired by Alloy. It runs entirely client-side and supports a small, composable query language based on set comprehension and relational navigation.
 
-## What It Does
+## Query Syntax
 
-This tool lets you run queries like:
+- Queries are written as `{ var1[: Type1], var2[: Type2], ... | condition }`
+- Each variable can have an optional type annotation. If omitted, the type defaults to the phantom top type `univ`.
+- The condition is a string expression (e.g., `y in x.friend*`).
+
+### Examples
+
+- All variables with explicit types:
+  ```
+  { x: Person, y: Animal | y in x.friend* }
+  ```
+- Some variables with types, some default:
+  ```
+  { x: Person, y | y in x.friend* }
+  ```
+- No types specified (all default to `univ`):
+  ```
+  { x, y | y in x.friend* }
+  ```
+
+## Graph Format
+
+Graphs are JSON objects with `nodes` and `edges` arrays:
 
 ```
-{ x, y : Person | y in x.friend* }
-{ x, y : Person | x.friend = y }
-{ x : Person | x in x.friend* }
-```
-
-over JSON-encoded graphs like:
-
-```json
 {
-  "nodes": [
-    { "id": "a", "type": "Person" },
-    { "id": "b", "type": "Person" },
-    { "id": "c", "type": "Person" }
-  ],
-  "edges": [
-    { "from": "a", "to": "b", "label": "friend" },
-    { "from": "b", "to": "c", "label": "friend" }
-  ]
+  "nodes": [ { "id": "a", "type": "Person" }, ... ],
+  "edges": [ { "from": "a", "to": "b", "label": "friend" }, ... ]
 }
 ```
 
-And returns results like:
+## Parser Errors
 
-```json
-[
-  ["a", "b"],
-  ["a", "c"],
-  ["b", "c"]
-]
+- The parser will throw an `Error` with a helpful message if the query is malformed.
+- Example: `throw new Error("Parse error: expected {...|...}")`
+- If a variable definition is invalid, the error will indicate which variable is problematic.
+
+## Usage
+
+```js
+const evaluator = new Evaluator();
+evaluator.initialize({ processedData: graph, sourceData: graph });
+const result = evaluator.evaluate('{ x: Person, y | y in x.friend* }');
+console.log(result.prettyPrint());
 ```
+
+---
+
+For more, see the code and examples in the repo.
 
 ## What Logic Does It Support
 
 `simple-graph-query` evaluates first-order relational queries over finite graph structures. Specifically:
 
-- Typed variables: `{ x, y : Person | ... }`
+- Typed variables: `{ x: Person, y: Animal | ... }`
 - Set comprehension: `{ tuple | condition }`
 - Relational navigation: `x.friend`, `x.friend.friend`
 - Equality: `x.friend = y`
@@ -55,7 +70,7 @@ This is a subset of Alloy-style relational logic, evaluated over a fixed graph s
 
 1. Clone or unzip the repository.
 2. Open `public/index.html` in your browser.
-3. Paste a query like `{ x, y : Person | y in x.friend* }`.
+3. Paste a query like `{ x: Person, y | y in x.friend* }`.
 4. Click Run and view the results.
 
 ## Project Structure

@@ -1,6 +1,6 @@
 export interface Expr {
   vars: string[];
-  type: string;
+  varTypes: Record<string, string>; // variable name to type
   condition: string;
 }
 

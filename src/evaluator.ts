@@ -99,19 +99,35 @@ class Evaluator implements IEvaluator {
 
 export function runQuery(graph: Graph, query: string): string[][] {
   const parsed = parse(query);
-  const { vars, type, condition } = parsed;
-  const domain = graph.nodes.filter((n: any) => n.type === type).map((n: any) => n.id);
-  const results: string[][] = [];
-
-  for (const x of domain) {
-    for (const y of domain) {
-      const ctx: Record<string, string> = { [vars[0]]: x, [vars[1]]: y };
-      if (evaluateCondition(condition, ctx, graph)) {
-        results.push([x, y]);
-      }
+  const { vars, varTypes, condition } = parsed;
+  // Build a domain for each variable based on its type
+  const domains: Record<string, string[]> = {};
+  for (const v of vars) {
+    const t = varTypes[v];
+    if (t === 'univ') {
+      domains[v] = graph.nodes.map(n => n.id);
+    } else {
+      domains[v] = graph.nodes.filter(n => n.type === t).map(n => n.id);
     }
   }
-
+  // Generate all combinations of variable assignments
+  function* cartesian(vars: string[], domains: Record<string, string[]>, idx = 0, ctx: Record<string, string> = {}): Generator<Record<string, string>> {
+    if (idx === vars.length) {
+      yield { ...ctx };
+      return;
+    }
+    const v = vars[idx];
+    for (const val of domains[v]) {
+      ctx[v] = val;
+      yield* cartesian(vars, domains, idx + 1, ctx);
+    }
+  }
+  const results: string[][] = [];
+  for (const ctx of cartesian(vars, domains)) {
+    if (evaluateCondition(condition, ctx, graph)) {
+      results.push(vars.map(v => ctx[v]));
+    }
+  }
   return results;
 }
 
