@@ -1,23 +1,64 @@
 {
   "name": "simple-graph-query",
-  "version": "1.0.1",
-  "description": "A simple graph query library.",
-  "main": "dist/bundle.js",
-  "types": "dist/types/index.d.ts",
+  "version": "1.1.0",
+  "description": "TypeScript evaluator for Forge expressions with browser-compatible UMD bundle",
+  "main": "dist/simple-graph-query.bundle.js",
+  "types": "dist/index.d.ts",
+  "browser": "dist/simple-graph-query.bundle.js",
+  "files": [
+    "dist/simple-graph-query.bundle.js",
+    "dist/simple-graph-query.bundle.js.LICENSE.txt",
+    "dist/*.d.ts",
+    "dist/forge-antlr/*.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "forge",
+    "alloy",
+    "expression-evaluator",
+    "formal-methods",
+    "antlr",
+    "typescript",
+    "browser",
+    "umd"
+  ],
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "webpack",
+    "build:types": "tsc --emitDeclarationOnly",
+    "build:full": "tsc && webpack",
+    "prepublishOnly": "npm run build:full",
+    "serve": "python3 -m http.server 8080",
+    "test": "jest",
+    "antlr4ts": "cd src/forge-antlr && antlr4ts -visitor ForgeLexer.g4 Forge.g4 && cd ../.."
+  },
   "author": "Siddhartha Prasad",
   "license": "MIT",
-  "files": [
-    "dist",
-    "dist/types"
-  ],
-  "scripts": {
-    "build": "tsc && webpack --mode production",
-    "dev": "webpack --mode development --watch"
-  },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "webpack": "^5.0.0",
-    "webpack-cli": "^5.0.0",
-    "ts-loader": "^9.0.0"
+    "@types/jest": "^29.5.14",
+    "antlr4ts-cli": "^0.5.0-alpha.4",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "husky": "^9.1.7",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "process": "^0.11.10",
+    "stream-browserify": "^3.0.0",
+    "ts-jest": "^29.3.1",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.2",
+    "util": "^0.12.5",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@types/lodash": "^4.17.16",
+    "@types/node": "^22.14.0",
+    "antlr4ts": "^0.5.0-alpha.4",
+    "entities": "^6.0.0",
+    "lodash": "^4.17.21"
   }
 }

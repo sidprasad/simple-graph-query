@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forge Expression Evaluator Test (No Polyfills)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .error { background: #ffeeee; border-color: #ffcccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Forge Expression Evaluator Test (No Polyfills)</h1>
+        
+        <h3>Test Expression:</h3>
+        <textarea id="expression" placeholder="Enter Forge expression here...">some Board</textarea>
+        
+        <button onclick="testEvaluator()">Evaluate Expression</button>
+        
+        <div id="result" class="result"></div>
+    </div>
+
+    <script src="dist/forge-expr-evaluator.bundle.js"></script>
+    <script>
+        // Sample data from ttt-basic example (proper format)
+        const sampleDatum = {
+            "parsed": {
+                "instances": [
+                    {
+                        "types": {
+                            "Board": {
+                                "_": "type",
+                                "id": "Board",
+                                "types": ["Board"],
+                                "atoms": [
+                                    { "_": "atom", "id": "Board0", "type": "Board" },
+                                    { "_": "atom", "id": "Board1", "type": "Board" },
+                                    { "_": "atom", "id": "Board2", "type": "Board" }
+                                ]
+                            },
+                            "Player": {
+                                "_": "type", 
+                                "id": "Player",
+                                "types": ["Player"],
+                                "atoms": []
+                            },
+                            "X": {
+                                "_": "type",
+                                "id": "X",
+                                "types": ["X", "Player"], 
+                                "atoms": [
+                                    { "_": "atom", "id": "X0", "type": "X" }
+                                ]
+                            },
+                            "O": {
+                                "_": "type",
+                                "id": "O",
+                                "types": ["O", "Player"],
+                                "atoms": [
+                                    { "_": "atom", "id": "O0", "type": "O" }
+                                ] 
+                            },
+                            "Int": {
+                                "_": "type",
+                                "id": "Int",
+                                "types": ["Int"],
+                                "atoms": [
+                                    { "_": "atom", "id": "0", "type": "Int" },
+                                    { "_": "atom", "id": "1", "type": "Int" },
+                                    { "_": "atom", "id": "2", "type": "Int" }
+                                ]
+                            }
+                        },
+                        "relations": {
+                            "Board<:board": {
+                                "_": "relation",
+                                "id": "Board<:board",
+                                "name": "board",
+                                "types": ["Board", "Int", "Int", "Player"],
+                                "tuples": [
+                                    {
+                                        "_": "tuple",
+                                        "types": ["Board", "Int", "Int", "Player"],
+                                        "atoms": ["Board1", "1", "1", "X0"]
+                                    },
+                                    {
+                                        "_": "tuple", 
+                                        "types": ["Board", "Int", "Int", "Player"],
+                                        "atoms": ["Board2", "0", "2", "O0"]
+                                    }
+                                ]
+                            }
+                        },
+                        "skolems": {}
+                    }
+                ],
+                "bitwidth": 4
+            },
+            "data": "<alloy>Sample tic-tac-toe data</alloy>"
+        };
+
+        const sampleSourceCode = `
+            abstract sig Player {}
+            one sig X, O extends Player {}
+            
+            sig Board {
+                board: pfunc Int -> Int -> Player
+            }
+            
+            pred wellformed[b: Board] {
+                all row, col: Int | {
+                    (row < 0 or row > 2 or col < 0 or col > 2) implies
+                    no b.board[row][col]
+                }
+            }
+        `;
+
+        function testEvaluator() {
+            const resultDiv = document.getElementById('result');
+            const expression = document.getElementById('expression').value;
+            
+            try {
+                console.log('Testing expression:', expression);
+                console.log('ForgeExprEvaluator available:', typeof ForgeExprEvaluator);
+                console.log('sampleDatum:', sampleDatum);
+                console.log('sampleSourceCode:', sampleSourceCode);
+                
+                if (typeof ForgeExprEvaluator === 'undefined') {
+                    throw new Error('ForgeExprEvaluator is not defined - bundle loading failed');
+                }
+                
+                // Create the evaluator with sample data
+                console.log('Creating evaluator...');
+                const evaluator = new ForgeExprEvaluator.ForgeExprEvaluatorUtil(sampleDatum, sampleSourceCode);
+                console.log('Evaluator created:', evaluator);
+                
+                // Evaluate the expression
+                console.log('Evaluating expression...');
+                const result = evaluator.evaluateExpression(expression, 0);
+                console.log('Result:', result);
+                
+                if (result.error) {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h4>Evaluation Error:</h4>
+                        <p>${result.error.message}</p>
+                        ${result.stackTrace ? '<pre>' + result.stackTrace + '</pre>' : ''}
+                    `;
+                } else {
+                    resultDiv.className = 'result';
+                    resultDiv.innerHTML = `
+                        <h4>Success!</h4>
+                        <p><strong>Expression:</strong> ${expression}</p>
+                        <p><strong>Result Type:</strong> ${result.constructor?.name || typeof result}</p>
+                        <p><strong>Result Value:</strong> ${JSON.stringify(result, null, 2)}</p>
+                        <p><strong>Raw Result:</strong> ${String(result)}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h4>Error:</h4>
+                    <p>${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+                console.error('Test failed:', error);
+            }
+        }
+        
+        // Test loading on page load
+        window.onload = function() {
+            console.log('Page loaded. ForgeExprEvaluator:', typeof ForgeExprEvaluator);
+            if (typeof ForgeExprEvaluator !== 'undefined') {
+                console.log('ForgeExprEvaluator methods:', Object.keys(ForgeExprEvaluator));
+            }
+        };
+    </script>
+</body>
+</html>

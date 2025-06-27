@@ -1,26 +1,56 @@
 const path = require('path');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/index.ts',
   output: {
-    filename: 'bundle.js',
+    filename: 'simple-graph-query.bundle.js',
     path: path.resolve(__dirname, 'dist'),
-    library: 'Evaluator',
+    library: 'SimpleGraphQuery',
     libraryTarget: 'umd',
-    libraryExport: 'default', // <--- add this line
-    globalObject: 'this',
+    globalObject: 'this'
   },
+  target: 'web',
   resolve: {
     extensions: ['.ts', '.js'],
+    fallback: {
+      // Node.js polyfills for antlr4ts
+      "assert": require.resolve("assert/"),
+      "buffer": require.resolve("buffer/"),
+      "util": require.resolve("util/"),
+      "stream": require.resolve("stream-browserify"),
+      "process": require.resolve("process/browser"),
+      "os": false,
+      "path": false,
+      "fs": false
+    }
   },
+  plugins: [
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer'],
+    }),
+  ],
   module: {
     rules: [
       {
         test: /\.ts$/,
-        use: 'ts-loader',
         exclude: /node_modules/,
-      },
-    ],
+        use: {
+          loader: 'ts-loader',
+          options: {
+            configFile: 'tsconfig.json',
+            compilerOptions: {
+              declaration: false  // Disable .d.ts generation
+            }
+          }
+        }
+      }
+    ]
   },
-  mode: 'production',
+  mode: 'development',
+  devtool: 'source-map',
+  optimization: {
+    minimize: false
+  }
 };

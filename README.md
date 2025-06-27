@@ -1,88 +1,118 @@
-# simple-graph-query
+# Forge Expression Evaluator
 
-**simple-graph-query** is a lightweight query engine for navigating and extracting tuples from finite graphs using a relational logic inspired by Alloy. It runs entirely client-side and supports a small, composable query language based on set comprehension and relational navigation.
+A TypeScript library for evaluating Forge language expressions with a browser-compatible UMD bundle.
 
-## Query Syntax
+## Installation
 
-- Queries are written as `{ var1[: Type1], var2[: Type2], ... | condition }`
-- Each variable can have an optional type annotation. If omitted, the type defaults to the phantom top type `univ`.
-- The condition is a string expression (e.g., `y in x.friend*`).
-
-### Examples
-
-- All variables with explicit types:
-  ```
-  { x: Person, y: Animal | y in x.friend* }
-  ```
-- Some variables with types, some default:
-  ```
-  { x: Person, y | y in x.friend* }
-  ```
-- No types specified (all default to `univ`):
-  ```
-  { x, y | y in x.friend* }
-  ```
-
-## Graph Format
-
-Graphs are JSON objects with `nodes` and `edges` arrays:
-
+```bash
+npm install forge-expr-evaluator
 ```
-{
-  "nodes": [ { "id": "a", "type": "Person" }, ... ],
-  "edges": [ { "from": "a", "to": "b", "label": "friend" }, ... ]
-}
-```
-
-## Parser Errors
-
-- The parser will throw an `Error` with a helpful message if the query is malformed.
-- Example: `throw new Error("Parse error: expected {...|...}")`
-- If a variable definition is invalid, the error will indicate which variable is problematic.
 
 ## Usage
 
-```js
-const evaluator = new Evaluator();
-evaluator.initialize({ processedData: graph, sourceData: graph });
-const result = evaluator.evaluate('{ x: Person, y | y in x.friend* }');
-console.log(result.prettyPrint());
+### Browser (UMD Bundle)
+```html
+<script src="node_modules/forge-expr-evaluator/dist/forge-expr-evaluator.bundle.js"></script>
+<script>
+  const evaluator = new ForgeExprEvaluator.ForgeExprEvaluatorUtil(datum, sourceCode);
+  const result = evaluator.evaluateExpression("some Board", 0);
+  console.log(result);
+</script>
 ```
 
----
+### Node.js
+```javascript
+const { ForgeExprEvaluatorUtil } = require('forge-expr-evaluator');
 
-For more, see the code and examples in the repo.
+const evaluator = new ForgeExprEvaluatorUtil(datum, sourceCode);
+const result = evaluator.evaluateExpression("some Board", 0);
+console.log(result);
+```
 
-## What Logic Does It Support
+### TypeScript
+```typescript
+import { ForgeExprEvaluatorUtil, DatumParsed } from 'forge-expr-evaluator';
 
-`simple-graph-query` evaluates first-order relational queries over finite graph structures. Specifically:
+const datum: DatumParsed = {
+  parsed: {
+    instances: [/* your data */],
+    bitwidth: 4
+  },
+  data: "<alloy>...</alloy>"
+};
 
-- Typed variables: `{ x: Person, y: Animal | ... }`
-- Set comprehension: `{ tuple | condition }`
-- Relational navigation: `x.friend`, `x.friend.friend`
-- Equality: `x.friend = y`
-- Membership: `y in x.friend`
-- Transitive closure: `x.friend*`
+const sourceCode = `
+  sig Board { ... }
+  // your Forge signatures and predicates
+`;
 
-This is a subset of Alloy-style relational logic, evaluated over a fixed graph structure, with results returned as sets of tuples.
+const evaluator = new ForgeExprEvaluatorUtil(datum, sourceCode);
+const result = evaluator.evaluateExpression("some Board", 0);
+```
 
-## Getting Started
+## API
 
-1. Clone or unzip the repository.
-2. Open `public/index.html` in your browser.
-3. Paste a query like `{ x: Person, y | y in x.friend* }`.
-4. Click Run and view the results.
+### `ForgeExprEvaluatorUtil`
 
-## Project Structure
+#### Constructor
+```typescript
+new ForgeExprEvaluatorUtil(datum: DatumParsed, sourceCode: string)
+```
 
-- `src/` – parser, evaluator, and AST
-- `examples/graph.json` – sample graph data
-- `public/index.html` – minimal UI to run queries
-- `runQuery(graph, query)` – main API
+#### Methods
+```typescript
+evaluateExpression(expression: string, instanceIndex?: number): EvaluationResult
+```
 
-## TODO
+### Types
+- `DatumParsed`: Data structure containing Forge model instances
+- `EvaluationResult`: Result of expression evaluation (value or error)
+- `EvalResult`: Successful evaluation result (string | number | boolean | Tuple[])
 
-- Support for `and`, `!=`, `no`, `some`
-- Regex-style navigation (`friend|coworker`)
-- Type checking and improved error handling
+## Features
 
+- ✅ Browser-compatible UMD bundle (~688 KiB)
+- ✅ TypeScript support with full type definitions
+- ✅ Evaluates Forge expressions against model data
+- ✅ No external dependencies in the bundle
+- ✅ Works with Sterling/Alloy data formats
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Build the bundle
+npm run build
+
+# Run tests
+npm test
+
+# Serve demo locally
+npm run serve
+```
+
+## License
+
+MIT
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if needed
+5. Submit a pull request
+
+## Credits
+
+_Note_: The evaluator makes use of a Forge parser built using ANTLR; this is largely taken from
+the [parser developed by Siddhartha Prasad](https://github.com/sidprasad/forge-antlr/)
+with some minor modifications to the grammar.
+
+## Related
+
+- [Forge Language](https://forge.binghamton.edu/)
+- [Alloy](https://alloytools.org/)
+- [Sterling Visualizer](https://sterling-js.github.io/)
