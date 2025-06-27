@@ -12,32 +12,36 @@
   <pre id="output"></pre>
   <script src="../dist/bundle.js"></script>
   <script>
-    // Example graph
-    const graph = {
-      nodes: [
-        { id: 'a', type: 'Person' },
-        { id: 'b', type: 'Person' },
-        { id: 'c', type: 'Person' }
-      ],
-      edges: [
-        { from: 'a', to: 'b', label: 'knows' },
-        { from: 'b', to: 'c', label: 'knows' }
-      ]
-    };
-    
-    // Evaluator is available as SimpleGraphQuery.default
-    const Evaluator = SimpleGraphQuery.default;
-    const evaluator = new Evaluator();
-    evaluator.initialize({ processedData: graph, sourceData: graph });
-    document.getElementById('run').onclick = () => {
-      const query = document.getElementById('query').value;
-      if (evaluator.isReady()) {
-        const result = evaluator.evaluate(query);
-        document.getElementById('output').textContent = result.prettyPrint();
-      } else {
-        document.getElementById('output').textContent = 'Evaluator not ready.';
+    window.addEventListener('DOMContentLoaded', function() {
+      // Evaluator is now available as a global
+      if (typeof Evaluator === 'undefined') {
+        document.body.innerHTML += '<p style="color:red">Evaluator is not defined. Check if the bundle built correctly and is being loaded.</p>';
+        throw new Error('Evaluator is not defined');
       }
-    };
+      // Example graph
+      const graph = {
+        nodes: [
+          { id: 'a', type: 'Person' },
+          { id: 'b', type: 'Person' },
+          { id: 'c', type: 'Person' }
+        ],
+        edges: [
+          { from: 'a', to: 'b', label: 'knows' },
+          { from: 'b', to: 'c', label: 'knows' }
+        ]
+      };
+      const evaluator = new Evaluator();
+      evaluator.initialize({ processedData: graph, sourceData: graph });
+      document.getElementById('run').onclick = () => {
+        const query = document.getElementById('query').value;
+        if (evaluator.isReady()) {
+          const result = evaluator.evaluate(query);
+          document.getElementById('output').textContent = result.prettyPrint();
+        } else {
+          document.getElementById('output').textContent = 'Evaluator not ready.';
+        }
+      };
+    });
   </script>
 </body>
 </html>

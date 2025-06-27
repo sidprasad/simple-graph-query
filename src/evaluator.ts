@@ -185,4 +185,5 @@ function closure(start: string, label: string, graph: Graph): Set<string> {
   return seen;
 }
 
+export { Evaluator };
 export default Evaluator;

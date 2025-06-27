@@ -1,14 +1,19 @@
 {
   "name": "simple-graph-query",
   "version": "1.0.0",
-  "description": "A simple graph query library bundled for CDN use.",
+  "description": "A simple graph query library.",
   "main": "dist/bundle.js",
+  "types": "dist/types/index.d.ts",
+  "author": "Siddhartha Prasad",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "dist/types"
+  ],
   "scripts": {
-    "build": "webpack --mode production",
+    "build": "tsc && webpack --mode production",
     "dev": "webpack --mode development --watch"
   },
-  "author": "",
-  "license": "MIT",
   "devDependencies": {
     "typescript": "^5.0.0",
     "webpack": "^5.0.0",

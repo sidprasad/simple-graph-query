@@ -1,12 +1,13 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/evaluator.ts', // Change this to your main entry point
+  entry: './src/index.ts',
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
-    library: 'SimpleGraphQuery',
+    library: 'Evaluator',
     libraryTarget: 'umd',
+    libraryExport: 'default', // <--- add this line
     globalObject: 'this',
   },
   resolve: {
