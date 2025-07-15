@@ -398,8 +398,18 @@ describe("forge-expr-evaluator", () => {
   });
 
 
-
+  it("returns empty, not error for non-existent relation", () => {
  
+    const datum = new TTTDataInstance();
+
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    const expr = "NonExistentRelation";
+
+    const result = evaluatorUtil.evaluateExpression(expr);
+
+    expect(areEquivalentTupleArrays(result, [])).toBe(true);
+
+  });
 
   
 });
