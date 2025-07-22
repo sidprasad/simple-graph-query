@@ -3,7 +3,7 @@ import { ForgeParser, ExprContext, PredDeclContext } from './forge-antlr/ForgePa
 import { ForgeLexer } from './forge-antlr/ForgeLexer';
 import { ForgeListenerImpl } from './forge-antlr/ForgeListenerImpl';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
-import { EvalResult, ForgeExprEvaluator } from './ForgeExprEvaluator';
+import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
 import { IDataInstance, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
 
@@ -72,6 +72,11 @@ export class SimpleGraphQueryEvaluator {
       // ensure we're visiting an ExprContext
       return result;
     } catch (error) {
+      if (error instanceof NameNotFoundError) {
+        // Return an empty EvalResult for undefined names
+        let emptyResult: EvalResult = [];
+        return emptyResult;
+      }
       if (error instanceof Error) {
         const stackTrace = error.stack;
         const errorMessage = error.message;

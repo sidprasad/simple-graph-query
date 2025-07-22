@@ -49,6 +49,9 @@ type Environment = {
   type: "quantDecl" | "predArgs";
 };
 
+
+
+
 ///// HELPER FUNCTIONS /////
 function isSingleValue(value: EvalResult): value is SingleValue {
   return (
@@ -1735,7 +1738,7 @@ export class ForgeExprEvaluator
     if ( SUPPORTED_BUILTINS.includes(identifier)) {
       return identifier;
     }
-    throw new Error(`bad name ${identifier} referenced!`);
+    throw new NameNotFoundError(`bad name ${identifier} referenced!`);
   }
 
   visitQualName(ctx: QualNameContext): EvalResult {
@@ -1858,5 +1861,13 @@ export class ForgeExprEvaluator
     } else {
       throw new Error(`Unsupported operation: ${operation}`);
     }
+  }
+}
+
+// Custom error for undefined names
+export class NameNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NameNotFoundError";
   }
 }

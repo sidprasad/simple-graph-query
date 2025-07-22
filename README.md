@@ -97,22 +97,3 @@ npm run serve
 
 MIT
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if needed
-5. Submit a pull request
-
-## Credits
-
-_Note_: The evaluator makes use of a Forge parser built using ANTLR; this is largely taken from
-the [parser developed by Siddhartha Prasad](https://github.com/sidprasad/forge-antlr/)
-with some minor modifications to the grammar.
-
-## Related
-
-- [Forge Language](https://forge.binghamton.edu/)
-- [Alloy](https://alloytools.org/)
-- [Sterling Visualizer](https://sterling-js.github.io/)

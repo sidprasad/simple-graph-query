@@ -1,6 +1,6 @@
 {
   "name": "simple-graph-query",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "TypeScript evaluator for Forge expressions with browser-compatible UMD bundle",
   "main": "dist/simple-graph-query.bundle.js",
   "types": "dist/index.d.ts",
@@ -46,6 +46,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "process": "^0.11.10",
+    "semver": "^7.7.2",
     "stream-browserify": "^3.0.0",
     "ts-jest": "^29.3.1",
     "ts-loader": "^9.5.2",
