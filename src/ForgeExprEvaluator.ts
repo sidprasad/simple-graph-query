@@ -1738,6 +1738,7 @@ export class ForgeExprEvaluator
     if ( SUPPORTED_BUILTINS.includes(identifier)) {
       return identifier;
     }
+    console.warn(`Name ${identifier} not found in environment or instance data!`);
     throw new NameNotFoundError(`bad name ${identifier} referenced!`);
   }
 
