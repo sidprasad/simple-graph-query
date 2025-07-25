@@ -91,6 +91,7 @@ EVAL_TOK: 'eval';
 EXAMPLE_TOK: 'example';
 ARROW_TOK: '->';
 EQ_TOK: '=';
+LABEL_EQ_TOK: '==';
 LT_TOK: '<';
 GT_TOK: '>';
 LEQ_TOK: '<=' | '=<';

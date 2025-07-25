@@ -297,6 +297,32 @@ export class ForgeExprEvaluator
     return keys.map((key) => `${key}=${freeVarValues[key]}`).join("|");
   }
 
+  // helper function to get the label for a value (used for == comparison)
+  private getLabelForValue(value: SingleValue): SingleValue {
+    // For primitive values (numbers, booleans), the label is the value itself
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value;
+    }
+    
+    // For string values, try to find the corresponding atom and return its label
+    if (typeof value === "string") {
+      // Search through all types and atoms to find the matching atom ID
+      for (const type of this.instanceData.getTypes()) {
+        for (const atom of type.atoms) {
+          if (atom.id === value) {
+            // If the atom has a label field, return it; otherwise return the ID
+            return atom.label !== undefined ? atom.label : atom.id;
+          }
+        }
+      }
+      // If no atom found, the value itself is the label (for string literals)
+      return value;
+    }
+    
+    // Fallback: return the value itself
+    return value;
+  }
+
   // helper function
   private cacheResult(ctx: ParseTree, freeVarsKey: string, result: EvalResult) {
     if (!this.cachedResults.has(ctx)) {
@@ -921,6 +947,54 @@ export class ForgeExprEvaluator
           } else {
             // NOTE: we should never actually get here
             throw new Error("unexpected error: equality operand is not a well defined forge value!");
+          }
+          break;
+        case "==":
+          // Label comparison - works similarly to ID comparison but compares labels instead
+          if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
+            const leftLabel = this.getLabelForValue(leftChildValue);
+            const rightLabel = this.getLabelForValue(rightChildValue);
+            results = leftLabel === rightLabel;
+          } else if (isSingleValue(leftChildValue) && isTupleArray(rightChildValue)) {
+            if (
+              rightChildValue.length === 1 &&
+              rightChildValue[0].length === 1
+            ) {
+              const leftLabel = this.getLabelForValue(leftChildValue);
+              const rightLabel = this.getLabelForValue(rightChildValue[0][0]);
+              results = leftLabel === rightLabel;
+            } else {
+              results = false;
+            }
+          } else if (isTupleArray(leftChildValue) && isSingleValue(rightChildValue)) {
+            if (leftChildValue.length === 1 && leftChildValue[0].length === 1) {
+              const leftLabel = this.getLabelForValue(leftChildValue[0][0]);
+              const rightLabel = this.getLabelForValue(rightChildValue);
+              results = leftLabel === rightLabel;
+            } else {
+              results = false;
+            }
+          } else if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
+            // Compare labels for tuple arrays
+            if (leftChildValue.length !== rightChildValue.length) {
+              results = false;
+            } else {
+              results = leftChildValue.every((leftTuple, i) => {
+                const rightTuple = rightChildValue[i];
+                if (leftTuple.length !== rightTuple.length) {
+                  return false;
+                }
+                return leftTuple.every((leftVal, j) => {
+                  const rightVal = rightTuple[j];
+                  const leftLabel = this.getLabelForValue(leftVal);
+                  const rightLabel = this.getLabelForValue(rightVal);
+                  return leftLabel === rightLabel;
+                });
+              });
+            }
+          } else {
+            // NOTE: we should never actually get here
+            throw new Error("unexpected error: label equality operand is not a well defined forge value!");
           }
           break;
         case "<":

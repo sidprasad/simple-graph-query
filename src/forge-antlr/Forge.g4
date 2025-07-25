@@ -54,7 +54,7 @@ testSuiteDecl: TEST_TOK SUITE_TOK FOR_TOK name LEFT_CURLY_TOK testConstruct* RIG
 testConstruct: exampleDecl | testExpectDecl |  quantifiedPropertyDecl | propertyDecl | satisfiabilityDecl | consistencyDecl;
 
 arrowOp: (mult | SET_TOK)? ARROW_TOK (mult | SET_TOK)?;
-compareOp: IN_TOK | EQ_TOK | LT_TOK | GT_TOK | LEQ_TOK | GEQ_TOK | IS_TOK | NI_TOK;
+compareOp: IN_TOK | EQ_TOK | LABEL_EQ_TOK | LT_TOK | GT_TOK | LEQ_TOK | GEQ_TOK | IS_TOK | NI_TOK;
 letDecl: name EQ_TOK expr;
 block: LEFT_CURLY_TOK expr* RIGHT_CURLY_TOK;
 blockOrBar: block | BAR_TOK expr;
