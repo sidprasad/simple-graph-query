@@ -167,7 +167,8 @@ const tttData = `
           {
             "_": "atom",
             "id": "X0",
-            "type": "X"
+            "type": "X",
+            "label": "red"
           }
         ]
       },
@@ -191,7 +192,8 @@ const tttData = `
           {
             "_": "atom",
             "id": "O0",
-            "type": "O"
+            "type": "O",
+            "label": "blue"
           }
         ]
       }
