@@ -1,6 +1,6 @@
 # Simple Graph Query Language Documentation
 
-This library provides a TypeScript evaluator for Forge expressions with a browser-compatible UMD bundle. The language is based on Alloy/Forge and supports relational logic, temporal operators, and graph queries.
+This library provides a TypeScript evaluator for Forge expressions with a browser-compatible UMD bundle. The language is based on Alloy/Forge and supports relational logic and graph queries.
 
 ## Table of Contents
 
