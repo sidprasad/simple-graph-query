@@ -949,60 +949,6 @@ export class ForgeExprEvaluator
             throw new Error("unexpected error: equality operand is not a well defined forge value!");
           }
           break;
-<<<<<<< HEAD
-=======
-        case "==":
-          // Label comparison - works similarly to ID comparison but compares labels instead
-
-          // This is wrong though. It needs to ''find'' the labels correctly?
-
-          if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
-            const leftLabel = this.getLabelForValue(leftChildValue);
-            const rightLabel = this.getLabelForValue(rightChildValue);
-            results = leftLabel === rightLabel;
-          } else if (isSingleValue(leftChildValue) && isTupleArray(rightChildValue)) {
-            if (
-              rightChildValue.length === 1 &&
-              rightChildValue[0].length === 1
-            ) {
-              const leftLabel = this.getLabelForValue(leftChildValue);
-              const rightLabel = this.getLabelForValue(rightChildValue[0][0]);
-              results = leftLabel === rightLabel;
-            } else {
-              results = false;
-            }
-          } else if (isTupleArray(leftChildValue) && isSingleValue(rightChildValue)) {
-            if (leftChildValue.length === 1 && leftChildValue[0].length === 1) {
-              const leftLabel = this.getLabelForValue(leftChildValue[0][0]);
-              const rightLabel = this.getLabelForValue(rightChildValue);
-              results = leftLabel === rightLabel;
-            } else {
-              results = false;
-            }
-          } else if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
-            // Compare labels for tuple arrays
-            if (leftChildValue.length !== rightChildValue.length) {
-              results = false;
-            } else {
-              results = leftChildValue.every((leftTuple, i) => {
-                const rightTuple = rightChildValue[i];
-                if (leftTuple.length !== rightTuple.length) {
-                  return false;
-                }
-                return leftTuple.every((leftVal, j) => {
-                  const rightVal = rightTuple[j];
-                  const leftLabel = this.getLabelForValue(leftVal);
-                  const rightLabel = this.getLabelForValue(rightVal);
-                  return leftLabel === rightLabel;
-                });
-              });
-            }
-          } else {
-            // NOTE: we should never actually get here
-            throw new Error("unexpected error: label equality operand is not a well defined forge value!");
-          }
-          break;
->>>>>>> identifier-tests
         case "<":
           if (leftNum === undefined || rightNum === undefined) {
             throw new Error(
