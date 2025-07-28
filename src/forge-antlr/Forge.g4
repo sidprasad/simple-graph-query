@@ -40,7 +40,7 @@ testExpectDecl: TEST_TOK? EXPECT_TOK name? testBlock;
 testBlock: LEFT_CURLY_TOK testDecl* RIGHT_CURLY_TOK;
 scope: FOR_TOK number (BUT_TOK typescopeList)? | FOR_TOK typescopeList;
 typescope: EXACTLY_TOK? number qualName;
-const: NONE_TOK | UNIV_TOK | IDEN_TOK | MINUS_TOK? number;
+const: NONE_TOK | UNIV_TOK | IDEN_TOK | MINUS_TOK? number | TRUE_TOK | FALSE_TOK | TRUE_HASH_TOK | FALSE_HASH_TOK | FILE_PATH_TOK;
 
 // TODO: ERROR: WE ARE PARSING SOME QUANTIFIED PROPERTY DECL AS PROPERTYDECL 
 

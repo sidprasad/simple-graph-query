@@ -1522,6 +1522,17 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
+      if (constant.TRUE_TOK() || constant.TRUE_HASH_TOK()) {
+        return true;
+      }
+      if (constant.FALSE_TOK() || constant.FALSE_HASH_TOK()) {
+        return false;
+      }
+      if (constant.FILE_PATH_TOK()) {
+        // Handle string literals (remove quotes)
+        const text = constant.FILE_PATH_TOK()!.text;
+        return text.slice(1, -1); // Remove surrounding quotes
+      }
       return `${constant.text}`;
     }
     if (ctx.qualName()) {
