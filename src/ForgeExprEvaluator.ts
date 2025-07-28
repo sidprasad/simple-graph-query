@@ -297,6 +297,23 @@ export class ForgeExprEvaluator
     return keys.map((key) => `${key}=${freeVarValues[key]}`).join("|");
   }
 
+  // Helper method to visit an expression and treat unknown identifiers as labels for == comparison
+  private tryVisitWithUnknownAsLabel(ctx: any): EvalResult {
+    try {
+      return this.visit(ctx);
+    } catch (error) {
+      if (error instanceof NameNotFoundError) {
+        // If it's an identifier that couldn't be found, extract the identifier name and return it as a string
+        // This allows it to be used as a label in == comparisons
+        const text = ctx.text;
+        if (text && typeof text === 'string') {
+          return text;
+        }
+      }
+      throw error; // re-throw other errors
+    }
+  }
+
   // helper function to get the label for a value (used for == comparison)
   private getLabelForValue(value: SingleValue): SingleValue {
     // For primitive values (numbers, booleans), the label is the value itself
@@ -915,8 +932,16 @@ export class ForgeExprEvaluator
       if (ctx.expr6() === undefined || ctx.expr7() === undefined) {
         throw new Error("Expected the compareOp to have 2 operands!");
       }
-      const leftChildValue = this.visit(ctx.expr6()!);
-      const rightChildValue = this.visit(ctx.expr7()!);
+      let leftChildValue, rightChildValue;
+      
+      // For == operator, handle unknown identifiers as labels
+      if (ctx.compareOp()?.text === "==") {
+        leftChildValue = this.tryVisitWithUnknownAsLabel(ctx.expr6()!);
+        rightChildValue = this.tryVisitWithUnknownAsLabel(ctx.expr7()!);
+      } else {
+        leftChildValue = this.visit(ctx.expr6()!);
+        rightChildValue = this.visit(ctx.expr7()!);
+      }
       //console.log('left child value:', leftChildValue);
       //console.log('right child value:', rightChildValue);
 
@@ -1522,6 +1547,13 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
+      // Handle boolean constants
+      if (constant.text === 'true') {
+        return true;
+      }
+      if (constant.text === 'false') {
+        return false;
+      }
       return `${constant.text}`;
     }
     if (ctx.qualName()) {
@@ -1812,6 +1844,7 @@ export class ForgeExprEvaluator
     if ( SUPPORTED_BUILTINS.includes(identifier)) {
       return identifier;
     }
+    
     throw new NameNotFoundError(`bad name ${identifier} referenced!`);
   }
 
