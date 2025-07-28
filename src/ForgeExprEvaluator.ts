@@ -1522,7 +1522,15 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
-
+      
+      // Handle boolean constants
+      if (constant.text === "true") {
+        return true;
+      }
+      if (constant.text === "false") {
+        return false;
+      }
+      
       return `${constant.text}`;
     }
     if (ctx.qualName()) {
@@ -1816,6 +1824,8 @@ export class ForgeExprEvaluator
     
     // For unknown identifiers, return as string so they can be used as labels in == comparisons
     // This allows expressions like "x.color == black" to work even if "black" isn't an atom
+    // TODO: This changes the behavior from the original (which returned empty arrays for unknown identifiers)
+    // but enables label comparison functionality. May need to be more context-aware in the future.
     return identifier;
   }
 
