@@ -303,23 +303,24 @@ export class ForgeExprEvaluator
     if (typeof value === "number" || typeof value === "boolean") {
       return String(value); // [SP: Labels are always strings, so convert numbers/booleans to strings]
     }
-    
+
     // For string values, try to find the corresponding atom and return its label
     if (typeof value === "string") {
-      // Search through all types and atoms to find the matching atom ID
-      for (const type of this.instanceData.getTypes()) {
-        for (const atom of type.atoms) {
-          if (atom.id === value) {
-            // If the atom has a label field, return it; otherwise return the ID
-            return atom.label !== undefined ? atom.label : atom.id;
-          }
-        }
+
+      let atom: IAtom | undefined = this.instanceData.getAtoms().find(
+        (a) => a.id === value
+      );
+
+      if (atom) {
+        // If the atom has a label field, return it; otherwise return the ID
+        return atom.label !== undefined ? atom.label : atom.id;
       }
-      // If no atom found, the value itself is the label (for string literals)
-      return value;
+
     }
-    
+
     // Fallback: return the value itself
+    console.error(`No atom found for value: ${value}`);
+
     return value;
   }
 
@@ -337,7 +338,7 @@ export class ForgeExprEvaluator
     const result: Tuple[] = [];
     for (const t of instanceTypes) {
       const typeAtoms = t.atoms;
-      typeAtoms.forEach((atom : IAtom) => {
+      typeAtoms.forEach((atom: IAtom) => {
         let value: SingleValue = atom.id;
         // do some type conversions so we don't return a string if the value
         // is a number or boolean
@@ -1319,7 +1320,7 @@ export class ForgeExprEvaluator
         }
       }
 
-        // Box join: <expr-a>[<expr-b>] == <expr-b> . <expr-a>
+      // Box join: <expr-a>[<expr-b>] == <expr-b> . <expr-a>
       return dotJoin(insideBracesExprs, beforeBracesExpr);
     }
 
@@ -1384,15 +1385,15 @@ export class ForgeExprEvaluator
       if (!innerExpr) {
         throw new Error("@: operator requires an expression");
       }
-      
+
       try {
         const innerResult = this.visit(innerExpr);
-        
+
         // Special case: if result is empty array, it means unknown identifier, so use the text
         if (isTupleArray(innerResult) && innerResult.length === 0) {
           return innerExpr.text;
         }
-        
+
         if (isSingleValue(innerResult)) {
           return this.getLabelForValue(innerResult);
         } else if (isTupleArray(innerResult)) {
@@ -1401,7 +1402,7 @@ export class ForgeExprEvaluator
             return this.getLabelForValue(innerResult[0][0]);
           }
           // For multi-element cases, apply getLabelForValue to each tuple element
-          return innerResult.map((tuple) => 
+          return innerResult.map((tuple) =>
             tuple.map((value) => this.getLabelForValue(value))
           );
         }
@@ -1814,10 +1815,10 @@ export class ForgeExprEvaluator
     }
 
     // return identifier;
-    if ( SUPPORTED_BUILTINS.includes(identifier)) {
+    if (SUPPORTED_BUILTINS.includes(identifier)) {
       return identifier;
     }
-    
+
     // Check if this looks like a simple label identifier (for label comparison)
     // Heuristic: simple lowercase words that look like color/state names
     const labelLikePattern = /^[a-z]{3,10}$/; // 3-10 lowercase letters only
@@ -1826,7 +1827,7 @@ export class ForgeExprEvaluator
       // Return it as a string literal to enable label comparison syntax
       return identifier;
     }
-    
+
     throw new NameNotFoundError(`bad name ${identifier} referenced!`);
   }
 
