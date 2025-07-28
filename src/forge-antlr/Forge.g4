@@ -54,7 +54,7 @@ testSuiteDecl: TEST_TOK SUITE_TOK FOR_TOK name LEFT_CURLY_TOK testConstruct* RIG
 testConstruct: exampleDecl | testExpectDecl |  quantifiedPropertyDecl | propertyDecl | satisfiabilityDecl | consistencyDecl;
 
 arrowOp: (mult | SET_TOK)? ARROW_TOK (mult | SET_TOK)?;
-compareOp: IN_TOK | EQ_TOK | LABEL_EQ_TOK | LT_TOK | GT_TOK | LEQ_TOK | GEQ_TOK | IS_TOK | NI_TOK;
+compareOp: IN_TOK | EQ_TOK | LT_TOK | GT_TOK | LEQ_TOK | GEQ_TOK | IS_TOK | NI_TOK;
 letDecl: name EQ_TOK expr;
 block: LEFT_CURLY_TOK expr* RIGHT_CURLY_TOK;
 blockOrBar: block | BAR_TOK expr;
@@ -93,7 +93,7 @@ expr13: expr14 | expr13 (SUBT_TOK | SUPT_TOK) expr14;
 expr14: expr15 | expr14 LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK;
 expr15: expr16 | expr15 DOT_TOK expr16 | name LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK;
 expr16: expr17 | expr16 PRIME_TOK;
-expr17: expr18 | (TILDE_TOK | EXP_TOK | STAR_TOK) expr17;
+expr17: expr18 | (TILDE_TOK | EXP_TOK | STAR_TOK | GET_LABEL_TOK) expr17;
 expr18: const | qualName | AT_TOK name | BACKQUOTE_TOK name | THIS_TOK | LEFT_CURLY_TOK quantDeclList blockOrBar RIGHT_CURLY_TOK | LEFT_PAREN_TOK expr RIGHT_PAREN_TOK | block | sexpr;
 
 arrowExpr: qualName | qualName ARROW_TOK arrowExpr;
