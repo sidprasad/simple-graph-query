@@ -1522,15 +1522,6 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
-      
-      // Handle boolean constants
-      if (constant.text === "true") {
-        return true;
-      }
-      if (constant.text === "false") {
-        return false;
-      }
-      
       return `${constant.text}`;
     }
     if (ctx.qualName()) {
