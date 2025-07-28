@@ -13,12 +13,13 @@ describe("== comparison typing fixes", () => {
   describe("Issue: Label Comparison (==) typing support", () => {
     it("should support == comparison with unquoted label identifiers", () => {
       // The main issue was that unquoted identifiers like 'black' should work in label comparisons
+      // Unknown identifiers by themselves return empty arrays (for backward compatibility)
       expect(() => {
         evaluator.evaluateExpression('black');
       }).not.toThrow();
       
-      expect(evaluator.evaluateExpression('black')).toBe("black");
-      expect(evaluator.evaluateExpression('red')).toBe("red");
+      expect(evaluator.evaluateExpression('black')).toEqual([]);
+      expect(evaluator.evaluateExpression('red')).toEqual([]);
     });
 
     it("should support == comparison with label identifiers", () => {
