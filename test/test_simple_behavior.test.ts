@@ -10,7 +10,7 @@ describe("Understanding simplified behavior", () => {
     evaluator = new SimpleGraphQueryEvaluator(datum);
   });
 
-  it("should show how unknown identifiers work as labels", () => {
+  it("should show how @: operator works for label comparison", () => {
     console.log("\n=== Testing simplified approach ===");
     
     // Test unknown identifier directly
@@ -21,36 +21,36 @@ describe("Understanding simplified behavior", () => {
       console.log("black error:", e.message);
     }
     
-    // Test == comparison with unknown identifiers
+    // Test @: comparison with unknown identifiers
     try {
-      const result2 = evaluator.evaluateExpression('black == black');
-      console.log("black == black:", result2);
+      const result2 = evaluator.evaluateExpression('@:(black) = @:(black)');
+      console.log("@:(black) = @:(black):", result2);
     } catch (e: any) {
-      console.log("black == black error:", e.message);
+      console.log("@:(black) = @:(black) error:", e.message);
     }
     
-    // Test == comparison between known and unknown 
+    // Test @: comparison between known and unknown 
     try {
-      const result3 = evaluator.evaluateExpression('X == black');
-      console.log("X == black:", result3);
+      const result3 = evaluator.evaluateExpression('@:(X) = @:(black)');
+      console.log("@:(X) = @:(black):", result3);
     } catch (e: any) {
-      console.log("X == black error:", e.message);
+      console.log("@:(X) = @:(black) error:", e.message);
     }
     
     // Test different unknown identifiers
     try {
-      const result4 = evaluator.evaluateExpression('red == blue');
-      console.log("red == blue:", result4);
+      const result4 = evaluator.evaluateExpression('@:(red) = @:(blue)');
+      console.log("@:(red) = @:(blue):", result4);
     } catch (e: any) {
-      console.log("red == blue error:", e.message);
+      console.log("@:(red) = @:(blue) error:", e.message);
     }
     
-    // Test the problematic case from the issue
+    // Test the problematic case from the issue (now fixed)
     try {
-      const result5 = evaluator.evaluateExpression('{ x : X | x == black }');
-      console.log("{ x : X | x == black }:", result5);
+      const result5 = evaluator.evaluateExpression('{ x : X | @:(x) = @:(black) }');
+      console.log("{ x : X | @:(x) = @:(black) }:", result5);
     } catch (e: any) {
-      console.log("{ x : X | x == black } error:", e.message);
+      console.log("{ x : X | @:(x) = @:(black) } error:", e.message);
     }
     
     expect(true).toBe(true); // Just to make the test pass

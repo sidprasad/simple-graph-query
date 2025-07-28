@@ -297,24 +297,7 @@ export class ForgeExprEvaluator
     return keys.map((key) => `${key}=${freeVarValues[key]}`).join("|");
   }
 
-  // Helper method to visit an expression and treat unknown identifiers as labels for == comparison
-  private tryVisitWithUnknownAsLabel(ctx: any): EvalResult {
-    try {
-      return this.visit(ctx);
-    } catch (error) {
-      if (error instanceof NameNotFoundError) {
-        // If it's an identifier that couldn't be found, extract the identifier name and return it as a string
-        // This allows it to be used as a label in == comparisons
-        const text = ctx.text;
-        if (text && typeof text === 'string') {
-          return text;
-        }
-      }
-      throw error; // re-throw other errors
-    }
-  }
-
-  // helper function to get the label for a value (used for == comparison)
+  // helper function to get the label for a value (used for @: operator)
   private getLabelForValue(value: SingleValue): SingleValue {
     // For primitive values (numbers, booleans), the label is the value itself
     if (typeof value === "number" || typeof value === "boolean") {
@@ -932,16 +915,8 @@ export class ForgeExprEvaluator
       if (ctx.expr6() === undefined || ctx.expr7() === undefined) {
         throw new Error("Expected the compareOp to have 2 operands!");
       }
-      let leftChildValue, rightChildValue;
-      
-      // For == operator, handle unknown identifiers as labels
-      if (ctx.compareOp()?.text === "==") {
-        leftChildValue = this.tryVisitWithUnknownAsLabel(ctx.expr6()!);
-        rightChildValue = this.tryVisitWithUnknownAsLabel(ctx.expr7()!);
-      } else {
-        leftChildValue = this.visit(ctx.expr6()!);
-        rightChildValue = this.visit(ctx.expr7()!);
-      }
+      const leftChildValue = this.visit(ctx.expr6()!);
+      const rightChildValue = this.visit(ctx.expr7()!);
       //console.log('left child value:', leftChildValue);
       //console.log('right child value:', rightChildValue);
 
@@ -972,54 +947,6 @@ export class ForgeExprEvaluator
           } else {
             // NOTE: we should never actually get here
             throw new Error("unexpected error: equality operand is not a well defined forge value!");
-          }
-          break;
-        case "==":
-          // Label comparison - works similarly to ID comparison but compares labels instead
-          if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
-            const leftLabel = this.getLabelForValue(leftChildValue);
-            const rightLabel = this.getLabelForValue(rightChildValue);
-            results = leftLabel === rightLabel;
-          } else if (isSingleValue(leftChildValue) && isTupleArray(rightChildValue)) {
-            if (
-              rightChildValue.length === 1 &&
-              rightChildValue[0].length === 1
-            ) {
-              const leftLabel = this.getLabelForValue(leftChildValue);
-              const rightLabel = this.getLabelForValue(rightChildValue[0][0]);
-              results = leftLabel === rightLabel;
-            } else {
-              results = false;
-            }
-          } else if (isTupleArray(leftChildValue) && isSingleValue(rightChildValue)) {
-            if (leftChildValue.length === 1 && leftChildValue[0].length === 1) {
-              const leftLabel = this.getLabelForValue(leftChildValue[0][0]);
-              const rightLabel = this.getLabelForValue(rightChildValue);
-              results = leftLabel === rightLabel;
-            } else {
-              results = false;
-            }
-          } else if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
-            // Compare labels for tuple arrays
-            if (leftChildValue.length !== rightChildValue.length) {
-              results = false;
-            } else {
-              results = leftChildValue.every((leftTuple, i) => {
-                const rightTuple = rightChildValue[i];
-                if (leftTuple.length !== rightTuple.length) {
-                  return false;
-                }
-                return leftTuple.every((leftVal, j) => {
-                  const rightVal = rightTuple[j];
-                  const leftLabel = this.getLabelForValue(leftVal);
-                  const rightLabel = this.getLabelForValue(rightVal);
-                  return leftLabel === rightLabel;
-                });
-              });
-            }
-          } else {
-            // NOTE: we should never actually get here
-            throw new Error("unexpected error: label equality operand is not a well defined forge value!");
           }
           break;
         case "<":
@@ -1449,7 +1376,53 @@ export class ForgeExprEvaluator
     //console.log('visiting expr17:', ctx.text);
     let results: EvalResult = [];
 
+    // Handle @: operator FIRST, before visitChildren
+    if (ctx.GET_LABEL_TOK()) {
+      // @: operator - get label for value
+      // For @: operator, we need to handle unknown identifiers specially
+      const innerExpr = ctx.expr17();
+      if (!innerExpr) {
+        throw new Error("@: operator requires an expression");
+      }
+      
+      try {
+        const innerResult = this.visit(innerExpr);
+        
+        // Special case: if result is empty array, it means unknown identifier, so use the text
+        if (isTupleArray(innerResult) && innerResult.length === 0) {
+          return innerExpr.text;
+        }
+        
+        if (isSingleValue(innerResult)) {
+          return this.getLabelForValue(innerResult);
+        } else if (isTupleArray(innerResult)) {
+          // For single-element tuple arrays, return the label of the element
+          if (innerResult.length === 1 && innerResult[0].length === 1) {
+            return this.getLabelForValue(innerResult[0][0]);
+          }
+          // For multi-element cases, apply getLabelForValue to each tuple element
+          return innerResult.map((tuple) => 
+            tuple.map((value) => this.getLabelForValue(value))
+          );
+        }
+        throw new Error("@: operator can only be applied to single values or tuple arrays");
+      } catch (error) {
+        // If evaluation fails due to unknown identifier, use the text as the label
+        if (error instanceof NameNotFoundError) {
+          // Extract the identifier from the inner expression
+          // The inner expression might be "(black)" so we need to get the actual identifier
+          let identifierText = innerExpr.text;
+          if (identifierText.startsWith('(') && identifierText.endsWith(')')) {
+            identifierText = identifierText.slice(1, -1);
+          }
+          return identifierText;
+        }
+        throw error;
+      }
+    }
+
     const childrenResults = this.visitChildren(ctx);
+    //console.log('visitChildren result for', ctx.text, ':', childrenResults);
 
     if (ctx.TILDE_TOK()) {
       // this flips the order of the elements in the tuples of a relation if

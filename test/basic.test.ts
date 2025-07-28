@@ -411,7 +411,7 @@ describe("forge-expr-evaluator", () => {
 
   });
 
-  it("can distinguish between ID comparison (=) and label comparison (==)", () => {
+  it("can distinguish between ID comparison (=) and label comparison (@:)", () => {
     const datum = new TTTDataInstance();
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
 
@@ -420,8 +420,8 @@ describe("forge-expr-evaluator", () => {
     const idResult = evaluatorUtil.evaluateExpression(idComparisonExpr);
     expect(idResult).toBe(true);
 
-    // Test basic label comparison - should also work  
-    const labelComparisonExpr = 'X0 == X0';
+    // Test basic label comparison using @: operator  
+    const labelComparisonExpr = '@:(X0) = @:(X0)';
     const labelResult = evaluatorUtil.evaluateExpression(labelComparisonExpr);
     expect(labelResult).toBe(true);
 
@@ -430,12 +430,12 @@ describe("forge-expr-evaluator", () => {
     const idResult2 = evaluatorUtil.evaluateExpression(idComparisonExpr2);
     expect(idResult2).toBe(true);
 
-    const labelComparisonExpr2 = 'O0 == O0';
+    const labelComparisonExpr2 = '@:(O0) = @:(O0)';
     const labelResult2 = evaluatorUtil.evaluateExpression(labelComparisonExpr2);
     expect(labelResult2).toBe(true);
 
     // Verify the operators are recognized as different by using them in boolean expressions
-    const complexExpr = '(X0 = X0) and (X0 == X0)';
+    const complexExpr = '(X0 = X0) and (@:(X0) = @:(X0))';
     const complexResult = evaluatorUtil.evaluateExpression(complexExpr);
     expect(complexResult).toBe(true);
   });
@@ -448,28 +448,31 @@ describe("forge-expr-evaluator", () => {
     // X0 has id="X0" but label="red"
     // O0 has id="O0" but label="blue"
     
-    // Note: Since X0 and O0 reference atom IDs in expressions, 
-    // both = and == will compare the resolved atom values.
-    // The real difference would be visible if we could compare literal values,
-    // but the current grammar doesn't support string literals.
+    // Test ID comparison vs label comparison
+    const idTest = 'X0 = X0';
+    const labelTest = '@:(X0) = @:(X0)';
     
-    // For now, we test that both operators work and are syntactically different
-    const basicIdTest = 'X0 = X0';
-    const basicLabelTest = 'X0 == X0';
-    
-    expect(evaluatorUtil.evaluateExpression(basicIdTest)).toBe(true);
-    expect(evaluatorUtil.evaluateExpression(basicLabelTest)).toBe(true);
+    expect(evaluatorUtil.evaluateExpression(idTest)).toBe(true);
+    expect(evaluatorUtil.evaluateExpression(labelTest)).toBe(true);
     
     // Test inequality as well
     const idInequality = 'X0 = O0';
-    const labelInequality = 'X0 == O0';
+    const labelInequality = '@:(X0) = @:(O0)';
     
     expect(evaluatorUtil.evaluateExpression(idInequality)).toBe(false);
     expect(evaluatorUtil.evaluateExpression(labelInequality)).toBe(false);
     
-    // The functionality is there - labels are different from IDs in our test data:
-    // X0 has label "red", O0 has label "blue", but both comparisons work as expected
-    // since the expressions reference atom identifiers, not literal label values.
+    // Test that @: operator extracts labels correctly
+    // @:(X0) should return "red", @:(O0) should return "blue"
+    const x0Label = evaluatorUtil.evaluateExpression('@:(X0)');
+    const o0Label = evaluatorUtil.evaluateExpression('@:(O0)');
+    
+    expect(x0Label).toBe("red");
+    expect(o0Label).toBe("blue");
+    
+    // Verify label comparison works with different labels
+    const differentLabels = '@:(X0) = @:(O0)';
+    expect(evaluatorUtil.evaluateExpression(differentLabels)).toBe(false);
   });
 
   

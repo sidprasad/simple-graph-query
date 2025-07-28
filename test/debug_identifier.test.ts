@@ -10,7 +10,7 @@ describe("Debugging unknown identifier handling", () => {
     evaluator = new SimpleGraphQueryEvaluator(datum);
   });
 
-  it("should debug unknown identifier resolution", () => {
+  it("should debug unknown identifier resolution with @: operator", () => {
     console.log("\n=== Debugging unknown identifier handling ===");
     
     // Test 1: Simple unknown identifier
@@ -22,21 +22,21 @@ describe("Debugging unknown identifier handling", () => {
       console.log("error type:", e.constructor.name);
     }
     
-    // Test 2: Unknown identifier in == comparison
+    // Test 2: Unknown identifier in @: comparison
     try {
-      const result2 = evaluator.evaluateExpression('unknown == unknown');
-      console.log("unknown == unknown:", result2);
+      const result2 = evaluator.evaluateExpression('@:(unknown) = @:(unknown)');
+      console.log("@:(unknown) = @:(unknown):", result2);
     } catch (e: any) {
-      console.log("unknown == unknown error:", e.message);
+      console.log("@:(unknown) = @:(unknown) error:", e.message);
       console.log("error type:", e.constructor.name);
     }
     
     // Test 3: Check what expressions look like at the AST level
     try {
-      const result3 = evaluator.evaluateExpression('X == unknown');
-      console.log("X == unknown:", result3);
+      const result3 = evaluator.evaluateExpression('@:(X) = @:(unknown)');
+      console.log("@:(X) = @:(unknown):", result3);
     } catch (e: any) {
-      console.log("X == unknown error:", e.message);
+      console.log("@:(X) = @:(unknown) error:", e.message);
       console.log("error type:", e.constructor.name);
     }
     
