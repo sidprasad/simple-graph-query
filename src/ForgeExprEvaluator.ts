@@ -299,9 +299,9 @@ export class ForgeExprEvaluator
 
   // helper function to get the label for a value (used for @: operator)
   private getLabelForValue(value: SingleValue): SingleValue {
-    // For primitive values (numbers, booleans), the label is the value itself
+    // // For primitive values (numbers, booleans), the label is the value itself
     if (typeof value === "number" || typeof value === "boolean") {
-      return value;
+      return String(value); // [SP: Labels are always strings, so convert numbers/booleans to strings]
     }
     
     // For string values, try to find the corresponding atom and return its label

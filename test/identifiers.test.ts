@@ -21,11 +21,11 @@ function areEquivalentTupleArrays(result: EvaluationResult, expected: Tuple[]) {
 }
 
 describe("sgq-evaluator.identifiers  ", () => {
-  it("can run comparisons on labels", () => {
-   
+  it("can run comparisons on labels when they are strings.", () => {
+
     const datum = new RBTTDataInstance();
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
-    
+
     // Test that the expression returns all RBTreeNodes where the color is black
     const expr = "{ x : RBTreeNode | @:(x.color) = black }";
     const result = evaluatorUtil.evaluateExpression(expr);
@@ -40,5 +40,24 @@ describe("sgq-evaluator.identifiers  ", () => {
     }
   });
 
-  
+
+  it("can run comparisons on labels when they are numbers.", () => {
+
+    const datum = new RBTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const expr = "{ x : RBTreeNode | @:(x.value) = @:(12) }";
+    const result = evaluatorUtil.evaluateExpression(expr);
+
+
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(1);
+      const nodeIds = result.map(tuple => tuple[0]).sort();
+      expect(nodeIds[0]).toEqual('n13');
+    }
+  });
+
+
+
 });
