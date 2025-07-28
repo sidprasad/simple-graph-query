@@ -1,11 +1,7 @@
 import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
 
-import { TTTDataInstance } from "./tttdatainstance";
+import { TTTDataInstance } from "./testdatainstances";
 import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
-
-
-
-
 
 
 
@@ -20,7 +16,7 @@ function areEquivalentTupleArrays(result: EvaluationResult, expected: Tuple[]) {
   return false;
 }
 
-describe("forge-expr-evaluator", () => {
+describe("sgq-evaluator ", () => {
   it("can evaluate a basic expression", () => {
     // tttDatum is being read from a JSON file. This is the DatumParsed<any>
     // object that is used in Sterling -- if one is using Sterling, they should
