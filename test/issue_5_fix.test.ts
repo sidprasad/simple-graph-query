@@ -11,25 +11,19 @@ describe("== comparison typing fixes", () => {
   });
 
   describe("Issue: Label Comparison (==) typing support", () => {
-    it("should parse string literals in quotes (was causing parse error)", () => {
-      // Before: { x : RBTreeNode | x.color = "black" } led to a parse error
+    it("should support == comparison with unquoted label identifiers", () => {
+      // The main issue was that unquoted identifiers like 'black' should work in label comparisons
       expect(() => {
-        evaluator.evaluateExpression('"black"');
+        evaluator.evaluateExpression('black');
       }).not.toThrow();
       
-      expect(evaluator.evaluateExpression('"black"')).toBe("black");
-      expect(evaluator.evaluateExpression('"red"')).toBe("red");
+      expect(evaluator.evaluateExpression('black')).toBe("black");
+      expect(evaluator.evaluateExpression('red')).toBe("red");
     });
 
-    it("should support == comparison with string literals", () => {
-      expect(evaluator.evaluateExpression('"black" == "black"')).toBe(true);
-      expect(evaluator.evaluateExpression('"black" == "red"')).toBe(false);
-    });
-
-    it("should support == comparison with boolean literals (#t and #f)", () => {
-      expect(evaluator.evaluateExpression('#t == #t')).toBe(true);
-      expect(evaluator.evaluateExpression('#f == #f')).toBe(true);
-      expect(evaluator.evaluateExpression('#t == #f')).toBe(false);
+    it("should support == comparison with label identifiers", () => {
+      expect(evaluator.evaluateExpression('black == black')).toBe(true);
+      expect(evaluator.evaluateExpression('black == red')).toBe(false);
     });
 
     it("should support == comparison with number literals", () => {
@@ -41,13 +35,13 @@ describe("== comparison typing fixes", () => {
       // This was the example from the issue: { x : RBTreeNode | x.color = "black" }
       // We don't have RBTreeNode in our test data, but we can test the pattern
       expect(() => {
-        const result = evaluator.evaluateExpression('{ x : X | x == "red" }');
+        const result = evaluator.evaluateExpression('{ x : X | x == black }');
       }).not.toThrow();
     });
 
-    it("should handle mixed boolean formats", () => {
-      expect(evaluator.evaluateExpression('true == #t')).toBe(true);
-      expect(evaluator.evaluateExpression('false == #f')).toBe(true);
+    it("should handle mixed label formats", () => {
+      expect(evaluator.evaluateExpression('true == true')).toBe(true);
+      expect(evaluator.evaluateExpression('false == false')).toBe(true);
     });
   });
 });

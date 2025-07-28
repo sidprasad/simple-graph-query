@@ -1522,17 +1522,7 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
-      if (constant.TRUE_TOK() || constant.TRUE_HASH_TOK()) {
-        return true;
-      }
-      if (constant.FALSE_TOK() || constant.FALSE_HASH_TOK()) {
-        return false;
-      }
-      if (constant.FILE_PATH_TOK()) {
-        // Handle string literals (remove quotes)
-        const text = constant.FILE_PATH_TOK()!.text;
-        return text.slice(1, -1); // Remove surrounding quotes
-      }
+
       return `${constant.text}`;
     }
     if (ctx.qualName()) {
@@ -1823,7 +1813,10 @@ export class ForgeExprEvaluator
     if ( SUPPORTED_BUILTINS.includes(identifier)) {
       return identifier;
     }
-    throw new NameNotFoundError(`bad name ${identifier} referenced!`);
+    
+    // For unknown identifiers, return as string so they can be used as labels in == comparisons
+    // This allows expressions like "x.color == black" to work even if "black" isn't an atom
+    return identifier;
   }
 
   visitQualName(ctx: QualNameContext): EvalResult {
