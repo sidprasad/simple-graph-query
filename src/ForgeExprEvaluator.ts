@@ -976,6 +976,9 @@ export class ForgeExprEvaluator
           break;
         case "==":
           // Label comparison - works similarly to ID comparison but compares labels instead
+
+          // This is wrong though. It needs to ''find'' the labels correctly?
+
           if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
             const leftLabel = this.getLabelForValue(leftChildValue);
             const rightLabel = this.getLabelForValue(rightChildValue);

@@ -20,12 +20,12 @@ function areEquivalentTupleArrays(result: EvaluationResult, expected: Tuple[]) {
   return false;
 }
 
-describe("sgq-evaluator  ", () => {
+describe("sgq-evaluator.identifiers  ", () => {
   it("can run comparisons on labels", () => {
    
     const datum = new RBTTDataInstance();
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
-    const expr = "{ x : RBTreeNode | x.color == black }";
+    const expr = "{ x : RBTreeNode | (x.color) == black }";
 
     const result = evaluatorUtil.evaluateExpression(expr);
 
