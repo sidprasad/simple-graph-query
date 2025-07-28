@@ -1018,7 +1018,27 @@ class DataInstance implements IDataInstance {
   }
   getTypes(): IType[] {
     // Convert the types object to an array
-    return Object.values(this._data.types) as IType[];
+    const types = Object.values(this._data.types) as IType[];
+    
+    // Create a map of atom ID to atom data from the main atoms array
+    const atomMap = new Map<string, any>();
+    if (this._data.atoms) {
+      for (const atom of this._data.atoms) {
+        atomMap.set(atom.id, atom);
+      }
+    }
+    
+    // Merge the label information from the main atoms array into the type atoms
+    for (const type of types) {
+      for (const atom of type.atoms) {
+        const fullAtom = atomMap.get(atom.id);
+        if (fullAtom && fullAtom.label !== undefined) {
+          atom.label = fullAtom.label;
+        }
+      }
+    }
+    
+    return types;
   }
 
   getRelations(): IRelation[] {

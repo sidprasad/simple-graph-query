@@ -1818,6 +1818,15 @@ export class ForgeExprEvaluator
       return identifier;
     }
     
+    // Check if this looks like a simple label identifier (for label comparison)
+    // Heuristic: simple lowercase words that look like color/state names
+    const labelLikePattern = /^[a-z]{3,10}$/; // 3-10 lowercase letters only
+    if (labelLikePattern.test(identifier)) {
+      // This looks like a simple label (e.g., "black", "red", "blue", etc.)
+      // Return it as a string literal to enable label comparison syntax
+      return identifier;
+    }
+    
     throw new NameNotFoundError(`bad name ${identifier} referenced!`);
   }
 
