@@ -93,7 +93,7 @@ expr13: expr14 | expr13 (SUBT_TOK | SUPT_TOK) expr14;
 expr14: expr15 | expr14 LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK;
 expr15: expr16 | expr15 DOT_TOK expr16 | name LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK;
 expr16: expr17 | expr16 PRIME_TOK;
-expr17: expr18 | (TILDE_TOK | EXP_TOK | STAR_TOK | GET_LABEL_TOK) expr17;
+expr17: expr18 | (TILDE_TOK | EXP_TOK | STAR_TOK | GET_LABEL_TOK | GET_LABEL_STR_TOK | GET_LABEL_BOOL_TOK | GET_LABEL_NUM_TOK) expr17;
 expr18: const | qualName | AT_TOK name | BACKQUOTE_TOK name | THIS_TOK | LEFT_CURLY_TOK quantDeclList blockOrBar RIGHT_CURLY_TOK | LEFT_PAREN_TOK expr RIGHT_PAREN_TOK | block | sexpr;
 
 arrowExpr: qualName | qualName ARROW_TOK arrowExpr;

@@ -119,25 +119,28 @@ export class ForgeParser extends Parser {
 	public static readonly EXAMPLE_TOK = 89;
 	public static readonly ARROW_TOK = 90;
 	public static readonly GET_LABEL_TOK = 91;
-	public static readonly EQ_TOK = 92;
-	public static readonly LT_TOK = 93;
-	public static readonly GT_TOK = 94;
-	public static readonly LEQ_TOK = 95;
-	public static readonly GEQ_TOK = 96;
-	public static readonly NI_TOK = 97;
-	public static readonly NO_TOK = 98;
-	public static readonly SUM_TOK = 99;
-	public static readonly INT_TOK = 100;
-	public static readonly OPTION_TOK = 101;
-	public static readonly COMMA_TOK = 102;
-	public static readonly SLASH_TOK = 103;
-	public static readonly NUM_CONST_TOK = 104;
-	public static readonly IDENTIFIER_TOK = 105;
-	public static readonly WS = 106;
-	public static readonly CCOMMENT = 107;
-	public static readonly COMMENT = 108;
-	public static readonly MULTCOMMENT = 109;
-	public static readonly LANG_DECL = 110;
+	public static readonly GET_LABEL_STR_TOK = 92;
+	public static readonly GET_LABEL_BOOL_TOK = 93;
+	public static readonly GET_LABEL_NUM_TOK = 94;
+	public static readonly EQ_TOK = 95;
+	public static readonly LT_TOK = 96;
+	public static readonly GT_TOK = 97;
+	public static readonly LEQ_TOK = 98;
+	public static readonly GEQ_TOK = 99;
+	public static readonly NI_TOK = 100;
+	public static readonly NO_TOK = 101;
+	public static readonly SUM_TOK = 102;
+	public static readonly INT_TOK = 103;
+	public static readonly OPTION_TOK = 104;
+	public static readonly COMMA_TOK = 105;
+	public static readonly SLASH_TOK = 106;
+	public static readonly NUM_CONST_TOK = 107;
+	public static readonly IDENTIFIER_TOK = 108;
+	public static readonly WS = 109;
+	public static readonly CCOMMENT = 110;
+	public static readonly COMMENT = 111;
+	public static readonly MULTCOMMENT = 112;
+	public static readonly LANG_DECL = 113;
 	public static readonly RULE_predDecl = 0;
 	public static readonly RULE_parseExpr = 1;
 	public static readonly RULE_alloyModule = 2;
@@ -254,9 +257,9 @@ export class ForgeParser extends Parser {
 		"'since'", "'triggered'", undefined, "'always'", "'eventually'", "'after'", 
 		"'before'", "'once'", "'historically'", "'#'", "'++'", "'&'", "'<:'", 
 		"':>'", "'''", "'~'", "'^'", "'*'", "'@'", "'`'", "'this'", "'sexpr'", 
-		"'inst'", "'eval'", "'example'", "'->'", "'@:'", "'='", "'<'", "'>'", 
-		undefined, "'>='", "'ni'", "'no'", "'sum'", "'Int'", "'option'", "','", 
-		"'/'",
+		"'inst'", "'eval'", "'example'", "'->'", "'@:'", "'@str:'", "'@bool:'", 
+		"'@num:'", "'='", "'<'", "'>'", undefined, "'>='", "'ni'", "'no'", "'sum'", 
+		"'Int'", "'option'", "','", "'/'",
 	];
 	private static readonly _SYMBOLIC_NAMES: Array<string | undefined> = [
 		undefined, "OPEN_TOK", "LEFT_SQUARE_TOK", "RIGHT_SQUARE_TOK", "AS_TOK", 
@@ -275,9 +278,10 @@ export class ForgeParser extends Parser {
 		"CARD_TOK", "PPLUS_TOK", "AMP_TOK", "SUBT_TOK", "SUPT_TOK", "PRIME_TOK", 
 		"TILDE_TOK", "EXP_TOK", "STAR_TOK", "AT_TOK", "BACKQUOTE_TOK", "THIS_TOK", 
 		"SEXPR_TOK", "INST_TOK", "EVAL_TOK", "EXAMPLE_TOK", "ARROW_TOK", "GET_LABEL_TOK", 
-		"EQ_TOK", "LT_TOK", "GT_TOK", "LEQ_TOK", "GEQ_TOK", "NI_TOK", "NO_TOK", 
-		"SUM_TOK", "INT_TOK", "OPTION_TOK", "COMMA_TOK", "SLASH_TOK", "NUM_CONST_TOK", 
-		"IDENTIFIER_TOK", "WS", "CCOMMENT", "COMMENT", "MULTCOMMENT", "LANG_DECL",
+		"GET_LABEL_STR_TOK", "GET_LABEL_BOOL_TOK", "GET_LABEL_NUM_TOK", "EQ_TOK", 
+		"LT_TOK", "GT_TOK", "LEQ_TOK", "GEQ_TOK", "NI_TOK", "NO_TOK", "SUM_TOK", 
+		"INT_TOK", "OPTION_TOK", "COMMA_TOK", "SLASH_TOK", "NUM_CONST_TOK", "IDENTIFIER_TOK", 
+		"WS", "CCOMMENT", "COMMENT", "MULTCOMMENT", "LANG_DECL",
 	];
 	public static readonly VOCABULARY: Vocabulary = new VocabularyImpl(ForgeParser._LITERAL_NAMES, ForgeParser._SYMBOLIC_NAMES, []);
 
@@ -2227,6 +2231,9 @@ export class ForgeParser extends Parser {
 			case ForgeParser.THIS_TOK:
 			case ForgeParser.SEXPR_TOK:
 			case ForgeParser.GET_LABEL_TOK:
+			case ForgeParser.GET_LABEL_STR_TOK:
+			case ForgeParser.GET_LABEL_BOOL_TOK:
+			case ForgeParser.GET_LABEL_NUM_TOK:
 			case ForgeParser.SUM_TOK:
 			case ForgeParser.INT_TOK:
 			case ForgeParser.NUM_CONST_TOK:
@@ -2261,7 +2268,7 @@ export class ForgeParser extends Parser {
 			{
 			this.state = 526;
 			_la = this._input.LA(1);
-			if (!(_la === ForgeParser.IN_TOK || _la === ForgeParser.IS_TOK || ((((_la - 92)) & ~0x1F) === 0 && ((1 << (_la - 92)) & ((1 << (ForgeParser.EQ_TOK - 92)) | (1 << (ForgeParser.LT_TOK - 92)) | (1 << (ForgeParser.GT_TOK - 92)) | (1 << (ForgeParser.LEQ_TOK - 92)) | (1 << (ForgeParser.GEQ_TOK - 92)) | (1 << (ForgeParser.NI_TOK - 92)))) !== 0))) {
+			if (!(_la === ForgeParser.IN_TOK || _la === ForgeParser.IS_TOK || ((((_la - 95)) & ~0x1F) === 0 && ((1 << (_la - 95)) & ((1 << (ForgeParser.EQ_TOK - 95)) | (1 << (ForgeParser.LT_TOK - 95)) | (1 << (ForgeParser.GT_TOK - 95)) | (1 << (ForgeParser.LEQ_TOK - 95)) | (1 << (ForgeParser.GEQ_TOK - 95)) | (1 << (ForgeParser.NI_TOK - 95)))) !== 0))) {
 			this._errHandler.recoverInline(this);
 			} else {
 				if (this._input.LA(1) === Token.EOF) {
@@ -2329,7 +2336,7 @@ export class ForgeParser extends Parser {
 			this.state = 536;
 			this._errHandler.sync(this);
 			_la = this._input.LA(1);
-			while (((((_la - 9)) & ~0x1F) === 0 && ((1 << (_la - 9)) & ((1 << (ForgeParser.LEFT_CURLY_TOK - 9)) | (1 << (ForgeParser.LONE_TOK - 9)) | (1 << (ForgeParser.SOME_TOK - 9)) | (1 << (ForgeParser.ONE_TOK - 9)) | (1 << (ForgeParser.TWO_TOK - 9)) | (1 << (ForgeParser.SET_TOK - 9)) | (1 << (ForgeParser.LEFT_PAREN_TOK - 9)) | (1 << (ForgeParser.NONE_TOK - 9)) | (1 << (ForgeParser.UNIV_TOK - 9)) | (1 << (ForgeParser.IDEN_TOK - 9)) | (1 << (ForgeParser.MINUS_TOK - 9)))) !== 0) || ((((_la - 49)) & ~0x1F) === 0 && ((1 << (_la - 49)) & ((1 << (ForgeParser.ALL_TOK - 49)) | (1 << (ForgeParser.LET_TOK - 49)) | (1 << (ForgeParser.BIND_TOK - 49)) | (1 << (ForgeParser.NEG_TOK - 49)) | (1 << (ForgeParser.ALWAYS_TOK - 49)) | (1 << (ForgeParser.EVENTUALLY_TOK - 49)) | (1 << (ForgeParser.AFTER_TOK - 49)) | (1 << (ForgeParser.BEFORE_TOK - 49)) | (1 << (ForgeParser.ONCE_TOK - 49)) | (1 << (ForgeParser.HISTORICALLY_TOK - 49)) | (1 << (ForgeParser.CARD_TOK - 49)) | (1 << (ForgeParser.TILDE_TOK - 49)))) !== 0) || ((((_la - 81)) & ~0x1F) === 0 && ((1 << (_la - 81)) & ((1 << (ForgeParser.EXP_TOK - 81)) | (1 << (ForgeParser.STAR_TOK - 81)) | (1 << (ForgeParser.AT_TOK - 81)) | (1 << (ForgeParser.BACKQUOTE_TOK - 81)) | (1 << (ForgeParser.THIS_TOK - 81)) | (1 << (ForgeParser.SEXPR_TOK - 81)) | (1 << (ForgeParser.GET_LABEL_TOK - 81)) | (1 << (ForgeParser.NO_TOK - 81)) | (1 << (ForgeParser.SUM_TOK - 81)) | (1 << (ForgeParser.INT_TOK - 81)) | (1 << (ForgeParser.NUM_CONST_TOK - 81)) | (1 << (ForgeParser.IDENTIFIER_TOK - 81)))) !== 0)) {
+			while (((((_la - 9)) & ~0x1F) === 0 && ((1 << (_la - 9)) & ((1 << (ForgeParser.LEFT_CURLY_TOK - 9)) | (1 << (ForgeParser.LONE_TOK - 9)) | (1 << (ForgeParser.SOME_TOK - 9)) | (1 << (ForgeParser.ONE_TOK - 9)) | (1 << (ForgeParser.TWO_TOK - 9)) | (1 << (ForgeParser.SET_TOK - 9)) | (1 << (ForgeParser.LEFT_PAREN_TOK - 9)) | (1 << (ForgeParser.NONE_TOK - 9)) | (1 << (ForgeParser.UNIV_TOK - 9)) | (1 << (ForgeParser.IDEN_TOK - 9)) | (1 << (ForgeParser.MINUS_TOK - 9)))) !== 0) || ((((_la - 49)) & ~0x1F) === 0 && ((1 << (_la - 49)) & ((1 << (ForgeParser.ALL_TOK - 49)) | (1 << (ForgeParser.LET_TOK - 49)) | (1 << (ForgeParser.BIND_TOK - 49)) | (1 << (ForgeParser.NEG_TOK - 49)) | (1 << (ForgeParser.ALWAYS_TOK - 49)) | (1 << (ForgeParser.EVENTUALLY_TOK - 49)) | (1 << (ForgeParser.AFTER_TOK - 49)) | (1 << (ForgeParser.BEFORE_TOK - 49)) | (1 << (ForgeParser.ONCE_TOK - 49)) | (1 << (ForgeParser.HISTORICALLY_TOK - 49)) | (1 << (ForgeParser.CARD_TOK - 49)) | (1 << (ForgeParser.TILDE_TOK - 49)))) !== 0) || ((((_la - 81)) & ~0x1F) === 0 && ((1 << (_la - 81)) & ((1 << (ForgeParser.EXP_TOK - 81)) | (1 << (ForgeParser.STAR_TOK - 81)) | (1 << (ForgeParser.AT_TOK - 81)) | (1 << (ForgeParser.BACKQUOTE_TOK - 81)) | (1 << (ForgeParser.THIS_TOK - 81)) | (1 << (ForgeParser.SEXPR_TOK - 81)) | (1 << (ForgeParser.GET_LABEL_TOK - 81)) | (1 << (ForgeParser.GET_LABEL_STR_TOK - 81)) | (1 << (ForgeParser.GET_LABEL_BOOL_TOK - 81)) | (1 << (ForgeParser.GET_LABEL_NUM_TOK - 81)) | (1 << (ForgeParser.NO_TOK - 81)) | (1 << (ForgeParser.SUM_TOK - 81)) | (1 << (ForgeParser.INT_TOK - 81)) | (1 << (ForgeParser.NUM_CONST_TOK - 81)) | (1 << (ForgeParser.IDENTIFIER_TOK - 81)))) !== 0)) {
 				{
 				{
 				this.state = 533;
@@ -3483,6 +3490,9 @@ export class ForgeParser extends Parser {
 			case ForgeParser.THIS_TOK:
 			case ForgeParser.SEXPR_TOK:
 			case ForgeParser.GET_LABEL_TOK:
+			case ForgeParser.GET_LABEL_STR_TOK:
+			case ForgeParser.GET_LABEL_BOOL_TOK:
+			case ForgeParser.GET_LABEL_NUM_TOK:
 			case ForgeParser.NO_TOK:
 			case ForgeParser.SUM_TOK:
 			case ForgeParser.INT_TOK:
@@ -3678,6 +3688,9 @@ export class ForgeParser extends Parser {
 			case ForgeParser.THIS_TOK:
 			case ForgeParser.SEXPR_TOK:
 			case ForgeParser.GET_LABEL_TOK:
+			case ForgeParser.GET_LABEL_STR_TOK:
+			case ForgeParser.GET_LABEL_BOOL_TOK:
+			case ForgeParser.GET_LABEL_NUM_TOK:
 			case ForgeParser.SUM_TOK:
 			case ForgeParser.INT_TOK:
 			case ForgeParser.NUM_CONST_TOK:
@@ -3831,6 +3844,9 @@ export class ForgeParser extends Parser {
 			case ForgeParser.THIS_TOK:
 			case ForgeParser.SEXPR_TOK:
 			case ForgeParser.GET_LABEL_TOK:
+			case ForgeParser.GET_LABEL_STR_TOK:
+			case ForgeParser.GET_LABEL_BOOL_TOK:
+			case ForgeParser.GET_LABEL_NUM_TOK:
 			case ForgeParser.SUM_TOK:
 			case ForgeParser.INT_TOK:
 			case ForgeParser.NUM_CONST_TOK:
@@ -4407,11 +4423,14 @@ export class ForgeParser extends Parser {
 			case ForgeParser.EXP_TOK:
 			case ForgeParser.STAR_TOK:
 			case ForgeParser.GET_LABEL_TOK:
+			case ForgeParser.GET_LABEL_STR_TOK:
+			case ForgeParser.GET_LABEL_BOOL_TOK:
+			case ForgeParser.GET_LABEL_NUM_TOK:
 				this.enterOuterAlt(_localctx, 2);
 				{
 				this.state = 867;
 				_la = this._input.LA(1);
-				if (!(((((_la - 80)) & ~0x1F) === 0 && ((1 << (_la - 80)) & ((1 << (ForgeParser.TILDE_TOK - 80)) | (1 << (ForgeParser.EXP_TOK - 80)) | (1 << (ForgeParser.STAR_TOK - 80)) | (1 << (ForgeParser.GET_LABEL_TOK - 80)))) !== 0))) {
+				if (!(((((_la - 80)) & ~0x1F) === 0 && ((1 << (_la - 80)) & ((1 << (ForgeParser.TILDE_TOK - 80)) | (1 << (ForgeParser.EXP_TOK - 80)) | (1 << (ForgeParser.STAR_TOK - 80)) | (1 << (ForgeParser.GET_LABEL_TOK - 80)) | (1 << (ForgeParser.GET_LABEL_STR_TOK - 80)) | (1 << (ForgeParser.GET_LABEL_BOOL_TOK - 80)) | (1 << (ForgeParser.GET_LABEL_NUM_TOK - 80)))) !== 0))) {
 				this._errHandler.recoverInline(this);
 				} else {
 					if (this._input.LA(1) === Token.EOF) {
@@ -4890,7 +4909,7 @@ export class ForgeParser extends Parser {
 				this.state = 939;
 				this._errHandler.sync(this);
 				_la = this._input.LA(1);
-				while (_la === ForgeParser.MINUS_TOK || ((((_la - 74)) & ~0x1F) === 0 && ((1 << (_la - 74)) & ((1 << (ForgeParser.CARD_TOK - 74)) | (1 << (ForgeParser.BACKQUOTE_TOK - 74)) | (1 << (ForgeParser.THIS_TOK - 74)) | (1 << (ForgeParser.NO_TOK - 74)) | (1 << (ForgeParser.SUM_TOK - 74)) | (1 << (ForgeParser.INT_TOK - 74)) | (1 << (ForgeParser.NUM_CONST_TOK - 74)) | (1 << (ForgeParser.IDENTIFIER_TOK - 74)))) !== 0)) {
+				while (_la === ForgeParser.MINUS_TOK || ((((_la - 74)) & ~0x1F) === 0 && ((1 << (_la - 74)) & ((1 << (ForgeParser.CARD_TOK - 74)) | (1 << (ForgeParser.BACKQUOTE_TOK - 74)) | (1 << (ForgeParser.THIS_TOK - 74)) | (1 << (ForgeParser.NO_TOK - 74)) | (1 << (ForgeParser.SUM_TOK - 74)) | (1 << (ForgeParser.INT_TOK - 74)))) !== 0) || _la === ForgeParser.NUM_CONST_TOK || _la === ForgeParser.IDENTIFIER_TOK) {
 					{
 					{
 					this.state = 936;
@@ -5514,7 +5533,7 @@ export class ForgeParser extends Parser {
 
 	private static readonly _serializedATNSegments: number = 2;
 	private static readonly _serializedATNSegment0: string =
-		"\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03p\u03FC\x04\x02" +
+		"\x03\uC91D\uCABA\u058D\uAFBA\u4F53\u0607\uEA8B\uC241\x03s\u03FC\x04\x02" +
 		"\t\x02\x04\x03\t\x03\x04\x04\t\x04\x04\x05\t\x05\x04\x06\t\x06\x04\x07" +
 		"\t\x07\x04\b\t\b\x04\t\t\t\x04\n\t\n\x04\v\t\v\x04\f\t\f\x04\r\t\r\x04" +
 		"\x0E\t\x0E\x04\x0F\t\x0F\x04\x10\t\x10\x04\x11\t\x11\x04\x12\t\x12\x04" +
@@ -5617,8 +5636,8 @@ export class ForgeParser extends Parser {
 		"\x8E\x02\x90\x02\x92\x02\x94\x02\x96\x02\x98\x02\x9A\x02\x9C\x02\x9E\x02" +
 		"\xA0\x02\xA2\x02\xA4\x02\xA6\x02\xA8\x02\xAA\x02\x02\x10\x03\x02\x10\x13" +
 		"\x04\x02\x10\x10\x12\x16\x05\x02\x10\x10\x12\x12\x14\x16\x03\x02 !\x03" +
-		"\x02*.\x04\x02*+--\x03\x0245\x03\x0267\x05\x02\x0E\x0E))^c\x04\x02\x10" +
-		"\x14dd\x04\x02\x0F\x0F((\x03\x02OP\x04\x02RT]]\x04\x02\\\\hh\x02\u044E" +
+		"\x02*.\x04\x02*+--\x03\x0245\x03\x0267\x05\x02\x0E\x0E))af\x04\x02\x10" +
+		"\x14gg\x04\x02\x0F\x0F((\x03\x02OP\x04\x02RT]`\x04\x02\\\\kk\x02\u044E" +
 		"\x02\xAC\x03\x02\x02\x02\x04\xBB\x03\x02\x02\x02\x06\xD0\x03\x02\x02\x02" +
 		"\b\xE4\x03\x02\x02\x02\n\xF7\x03\x02\x02\x02\f\xFA\x03\x02\x02\x02\x0E" +
 		"\u011A\x03\x02\x02\x02\x10\u011C\x03\x02\x02\x02\x12\u011E\x03\x02\x02" +
@@ -5809,51 +5828,51 @@ export class ForgeParser extends Parser {
 		"\u020F\x05\x10\t\x02\u020D\u020F\x07\x14\x02\x02\u020E\u020C\x03\x02\x02" +
 		"\x02\u020E\u020D\x03\x02\x02\x02\u020E\u020F\x03\x02\x02\x02\u020F?\x03" +
 		"\x02\x02\x02\u0210\u0211\t\n\x02\x02\u0211A\x03\x02\x02\x02\u0212\u0213" +
-		"\x05N(\x02\u0213\u0214\x07^\x02\x02\u0214\u0215\x05`1\x02\u0215C\x03\x02" +
+		"\x05N(\x02\u0213\u0214\x07a\x02\x02\u0214\u0215\x05`1\x02\u0215C\x03\x02" +
 		"\x02\x02\u0216\u021A\x07\v\x02\x02\u0217\u0219\x05`1\x02\u0218\u0217\x03" +
 		"\x02\x02\x02\u0219\u021C\x03\x02\x02\x02\u021A\u0218\x03\x02\x02\x02\u021A" +
 		"\u021B\x03\x02\x02\x02\u021B\u021D\x03\x02\x02\x02\u021C\u021A\x03\x02" +
 		"\x02\x02\u021D\u021E\x07\f\x02\x02\u021EE\x03\x02\x02\x02\u021F\u0223" +
 		"\x05D#\x02\u0220\u0221\x072\x02\x02\u0221\u0223\x05`1\x02\u0222\u021F" +
 		"\x03\x02\x02\x02\u0222\u0220\x03\x02\x02\x02\u0223G\x03\x02\x02\x02\u0224" +
-		"\u0229\x073\x02\x02\u0225\u0229\x07d\x02\x02\u0226\u0229\x07e\x02\x02" +
+		"\u0229\x073\x02\x02\u0225\u0229\x07g\x02\x02\u0226\u0229\x07h\x02\x02" +
 		"\u0227\u0229\x05\x10\t\x02\u0228\u0224\x03\x02\x02\x02\u0228\u0225\x03" +
 		"\x02\x02\x02\u0228\u0226\x03\x02\x02\x02\u0228\u0227\x03\x02\x02\x02\u0229" +
-		"I\x03\x02\x02\x02\u022A\u022B\x07W\x02\x02\u022B\u022D\x07i\x02\x02\u022C" +
+		"I\x03\x02\x02\x02\u022A\u022B\x07W\x02\x02\u022B\u022D\x07l\x02\x02\u022C" +
 		"\u022A\x03\x02\x02\x02\u022C\u022D\x03\x02\x02\x02\u022D\u0233\x03\x02" +
-		"\x02\x02\u022E\u022F\x05N(\x02\u022F\u0230\x07i\x02\x02\u0230\u0232\x03" +
+		"\x02\x02\u022E\u022F\x05N(\x02\u022F\u0230\x07l\x02\x02\u0230\u0232\x03" +
 		"\x02\x02\x02\u0231\u022E\x03\x02\x02\x02\u0232\u0235\x03\x02\x02\x02\u0233" +
 		"\u0231\x03\x02\x02\x02\u0233\u0234\x03\x02\x02\x02\u0234\u0236\x03\x02" +
 		"\x02\x02\u0235\u0233\x03\x02\x02\x02\u0236\u023A\x05N(\x02\u0237\u023A" +
-		"\x07f\x02\x02\u0238\u023A\x07e\x02\x02\u0239\u022C\x03\x02\x02\x02\u0239" +
+		"\x07i\x02\x02\u0238\u023A\x07h\x02\x02\u0239\u022C\x03\x02\x02\x02\u0239" +
 		"\u0237\x03\x02\x02\x02\u0239\u0238\x03\x02\x02\x02\u023AK\x03\x02\x02" +
-		"\x02\u023B\u023C\x07g\x02\x02\u023C\u0243\x05J&\x02\u023D\u0244\x05J&" +
+		"\x02\u023B\u023C\x07j\x02\x02\u023C\u0243\x05J&\x02\u023D\u0244\x05J&" +
 		"\x02\u023E\u0244\x07\x07\x02\x02\u023F\u0241\x07(\x02\x02\u0240\u023F" +
 		"\x03\x02\x02\x02\u0240\u0241\x03\x02\x02\x02\u0241\u0242\x03\x02\x02\x02" +
 		"\u0242\u0244\x05\x9CO\x02\u0243\u023D\x03\x02\x02\x02\u0243\u023E\x03" +
 		"\x02\x02\x02\u0243\u0240\x03\x02\x02\x02\u0244M\x03\x02\x02\x02\u0245" +
-		"\u0246\x07k\x02\x02\u0246O\x03\x02\x02\x02\u0247\u024D\x05N(\x02\u0248" +
-		"\u0249\x05N(\x02\u0249\u024A\x07h\x02\x02\u024A\u024B\x05P)\x02\u024B" +
+		"\u0246\x07n\x02\x02\u0246O\x03\x02\x02\x02\u0247\u024D\x05N(\x02\u0248" +
+		"\u0249\x05N(\x02\u0249\u024A\x07k\x02\x02\u024A\u024B\x05P)\x02\u024B" +
 		"\u024D\x03\x02\x02\x02\u024C\u0247\x03\x02\x02\x02\u024C\u0248\x03\x02" +
 		"\x02\x02\u024DQ\x03\x02\x02\x02\u024E\u0254\x05J&\x02\u024F\u0250\x05" +
-		"J&\x02\u0250\u0251\x07h\x02\x02\u0251\u0252\x05R*\x02\u0252\u0254\x03" +
+		"J&\x02\u0250\u0251\x07k\x02\x02\u0251\u0252\x05R*\x02\u0252\u0254\x03" +
 		"\x02\x02\x02\u0253\u024E\x03\x02\x02\x02\u0253\u024F\x03\x02\x02\x02\u0254" +
 		"S\x03\x02\x02\x02\u0255\u025B\x05\x16\f\x02\u0256\u0257\x05\x16\f\x02" +
-		"\u0257\u0258\x07h\x02\x02\u0258\u0259\x05T+\x02\u0259\u025B\x03\x02\x02" +
+		"\u0257\u0258\x07k\x02\x02\u0258\u0259\x05T+\x02\u0259\u025B\x03\x02\x02" +
 		"\x02\u025A\u0255\x03\x02\x02\x02\u025A\u0256\x03\x02\x02\x02\u025BU\x03" +
 		"\x02\x02\x02\u025C\u0262\x05\x18\r\x02\u025D\u025E\x05\x18\r\x02\u025E" +
-		"\u025F\x07h\x02\x02\u025F\u0260\x05V,\x02\u0260\u0262\x03\x02\x02\x02" +
+		"\u025F\x07k\x02\x02\u025F\u0260\x05V,\x02\u0260\u0262\x03\x02\x02\x02" +
 		"\u0261\u025C\x03\x02\x02\x02\u0261\u025D\x03\x02\x02\x02\u0262W\x03\x02" +
 		"\x02\x02\u0263\u0269\x05\x1A\x0E\x02\u0264\u0265\x05\x1A\x0E\x02\u0265" +
-		"\u0266\x07h\x02\x02\u0266\u0267\x05X-\x02\u0267\u0269\x03\x02\x02\x02" +
+		"\u0266\x07k\x02\x02\u0266\u0267\x05X-\x02\u0267\u0269\x03\x02\x02\x02" +
 		"\u0268\u0263\x03\x02\x02\x02\u0268\u0264\x03\x02\x02\x02\u0269Y\x03\x02" +
 		"\x02\x02\u026A\u0270\x05B\"\x02\u026B\u026C\x05B\"\x02\u026C\u026D\x07" +
-		"h\x02\x02\u026D\u026E\x05Z.\x02\u026E\u0270\x03\x02\x02\x02\u026F\u026A" +
+		"k\x02\x02\u026D\u026E\x05Z.\x02\u026E\u0270\x03\x02\x02\x02\u026F\u026A" +
 		"\x03\x02\x02\x02\u026F\u026B\x03\x02\x02\x02\u0270[\x03\x02\x02\x02\u0271" +
-		"\u0277\x05.\x18\x02\u0272\u0273\x05.\x18\x02\u0273\u0274\x07h\x02\x02" +
+		"\u0277\x05.\x18\x02\u0272\u0273\x05.\x18\x02\u0273\u0274\x07k\x02\x02" +
 		"\u0274\u0275\x05\\/\x02\u0275\u0277\x03\x02\x02\x02\u0276\u0271\x03\x02" +
 		"\x02\x02\u0276\u0272\x03\x02\x02\x02\u0277]\x03\x02\x02\x02\u0278\u027E" +
-		"\x05`1\x02\u0279\u027A\x05`1\x02\u027A\u027B\x07h\x02\x02\u027B\u027C" +
+		"\x05`1\x02\u0279\u027A\x05`1\x02\u027A\u027B\x07k\x02\x02\u027B\u027C" +
 		"\x05^0\x02\u027C\u027E\x03\x02\x02\x02\u027D\u0278\x03\x02\x02\x02\u027D" +
 		"\u0279\x03\x02\x02\x02\u027E_\x03\x02\x02\x02\u027F\u0290\x05b2\x02\u0280" +
 		"\u0281\x079\x02\x02\u0281\u0282\x05Z.\x02\u0282\u0283\x05F$\x02\u0283" +
@@ -5975,11 +5994,11 @@ export class ForgeParser extends Parser {
 		"\u0395\x05N(\x02\u0395\u0396\x07)\x02\x02\u0396\u0397\x05`1\x02\u0397" +
 		"\u0398\x07\"\x02\x02\u0398\u0399\x05\x9EP\x02\u0399\x97\x03\x02\x02\x02" +
 		"\u039A\u039B\x05N(\x02\u039B\u039C\x07\x18\x02\x02\u039C\u039D\x05\x8A" +
-		"F\x02\u039D\u039E\x07^\x02\x02\u039E\u039F\x05`1\x02\u039F\x99\x03\x02" +
+		"F\x02\u039D\u039E\x07a\x02\x02\u039E\u039F\x05`1\x02\u039F\x99\x03\x02" +
 		"\x02\x02\u03A0\u03A6\x05\x9CO\x02\u03A1\u03A2\x05\x9CO\x02\u03A2\u03A3" +
-		"\x07h\x02\x02\u03A3\u03A4\x05\x9AN\x02\u03A4\u03A6\x03\x02\x02\x02\u03A5" +
+		"\x07k\x02\x02\u03A3\u03A4\x05\x9AN\x02\u03A4\u03A6\x03\x02\x02\x02\u03A5" +
 		"\u03A0\x03\x02\x02\x02\u03A5\u03A1\x03\x02\x02\x02\u03A6\x9B\x03\x02\x02" +
-		"\x02\u03A7\u03A8\x07j\x02\x02\u03A8\x9D\x03\x02\x02\x02\u03A9\u03AD\x07" +
+		"\x02\u03A7\u03A8\x07m\x02\x02\u03A8\x9D\x03\x02\x02\x02\u03A9\u03AD\x07" +
 		"\v\x02\x02\u03AA\u03AC\x05\xA2R\x02\u03AB\u03AA\x03\x02\x02\x02\u03AC" +
 		"\u03AF\x03\x02\x02\x02\u03AD\u03AB\x03\x02\x02\x02\u03AD\u03AE\x03\x02" +
 		"\x02\x02\u03AE\u03B0\x03\x02\x02\x02\u03AF\u03AD\x03\x02\x02\x02\u03B0" +
@@ -5991,7 +6010,7 @@ export class ForgeParser extends Parser {
 		"\u03BC\u03B7\x03\x02\x02\x02\u03BC\u03B9\x03\x02\x02\x02\u03BC\u03BA\x03" +
 		"\x02\x02\x02\u03BD\xA1\x03\x02\x02\x02\u03BE\u03BF\x05\xA4S\x02\u03BF" +
 		"\u03C0\x05@!\x02\u03C0\u03C1\x05\xA6T\x02\u03C1\u03C6\x03\x02\x02\x02" +
-		"\u03C2\u03C3\x07d\x02\x02\u03C3\u03C6\x05\xA4S\x02\u03C4\u03C6\x05J&\x02" +
+		"\u03C2\u03C3\x07g\x02\x02\u03C3\u03C6\x05\xA4S\x02\u03C4\u03C6\x05J&\x02" +
 		"\u03C5\u03BE\x03\x02\x02\x02\u03C5\u03C2\x03\x02\x02\x02\u03C5\u03C4\x03" +
 		"\x02\x02\x02\u03C6\xA3\x03\x02\x02\x02\u03C7\u03C8\x07L\x02\x02\u03C8" +
 		"\u03D2\x05J&\x02\u03C9\u03D2\x05J&\x02\u03CA\u03CD\x05\xA0Q\x02\u03CB" +
@@ -8759,6 +8778,9 @@ export class Expr17Context extends ParserRuleContext {
 	public EXP_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.EXP_TOK, 0); }
 	public STAR_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.STAR_TOK, 0); }
 	public GET_LABEL_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.GET_LABEL_TOK, 0); }
+	public GET_LABEL_STR_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.GET_LABEL_STR_TOK, 0); }
+	public GET_LABEL_BOOL_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.GET_LABEL_BOOL_TOK, 0); }
+	public GET_LABEL_NUM_TOK(): TerminalNode | undefined { return this.tryGetToken(ForgeParser.GET_LABEL_NUM_TOK, 0); }
 	constructor(parent: ParserRuleContext | undefined, invokingState: number) {
 		super(parent, invokingState);
 	}

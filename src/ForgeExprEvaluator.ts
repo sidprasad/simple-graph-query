@@ -299,14 +299,13 @@ export class ForgeExprEvaluator
 
   // helper function to get the label for a value (used for @: operator)
   private getLabelForValue(value: SingleValue): SingleValue {
-    // // For primitive values (numbers, booleans), the label is the value itself
+    // For primitive values (numbers, booleans), the label is the value itself converted to string
     if (typeof value === "number" || typeof value === "boolean") {
       return String(value); // [SP: Labels are always strings, so convert numbers/booleans to strings]
     }
 
     // For string values, try to find the corresponding atom and return its label
     if (typeof value === "string") {
-
       let atom: IAtom | undefined = this.instanceData.getAtoms().find(
         (a) => a.id === value
       );
@@ -315,13 +314,48 @@ export class ForgeExprEvaluator
         // If the atom has a label field, return it; otherwise return the ID
         return atom.label !== undefined ? atom.label : atom.id;
       }
-
     }
 
     // Fallback: return the value itself
     console.error(`No atom found for value: ${value}`);
-
     return value;
+  }
+
+  // helper function to get the label as string (used for @: and @str: operators)
+  private getLabelAsString(value: SingleValue): string {
+    const label = this.getLabelForValue(value);
+    return String(label);
+  }
+
+  // helper function to get the label as boolean (used for @bool: operator)
+  private getLabelAsBoolean(value: SingleValue): boolean {
+    const label = this.getLabelForValue(value);
+    const labelStr = String(label).toLowerCase();
+    
+    // Convert string representations to boolean
+    if (labelStr === 'true') return true;
+    if (labelStr === 'false') return false;
+    
+    // For numbers: 0 is false, anything else is true
+    const labelNum = Number(label);
+    if (!isNaN(labelNum)) {
+      return labelNum !== 0;
+    }
+    
+    // For other strings: empty string is false, anything else is true
+    return labelStr !== '';
+  }
+
+  // helper function to get the label as number (used for @num: operator)
+  private getLabelAsNumber(value: SingleValue): number {
+    const label = this.getLabelForValue(value);
+    const labelNum = Number(label);
+    
+    if (isNaN(labelNum)) {
+      throw new Error(`Cannot convert label "${label}" to number`);
+    }
+    
+    return labelNum;
   }
 
   // helper function
@@ -1377,13 +1411,32 @@ export class ForgeExprEvaluator
     //console.log('visiting expr17:', ctx.text);
     let results: EvalResult = [];
 
-    // Handle @: operator FIRST, before visitChildren
-    if (ctx.GET_LABEL_TOK()) {
-      // @: operator - get label for value
-      // For @: operator, we need to handle unknown identifiers specially
+    // Handle label operators FIRST, before visitChildren
+    if (ctx.GET_LABEL_TOK() || ctx.GET_LABEL_STR_TOK() || ctx.GET_LABEL_BOOL_TOK() || ctx.GET_LABEL_NUM_TOK()) {
+      // Label operators - get label for value with specified type
       const innerExpr = ctx.expr17();
       if (!innerExpr) {
-        throw new Error("@: operator requires an expression");
+        throw new Error("Label operator requires an expression");
+      }
+
+      // Determine which type conversion to use
+      let convertFunction: (value: SingleValue) => SingleValue;
+      let operatorName: string;
+      
+      if (ctx.GET_LABEL_TOK()) {
+        convertFunction = (value) => this.getLabelAsString(value);
+        operatorName = "@:";
+      } else if (ctx.GET_LABEL_STR_TOK()) {
+        convertFunction = (value) => this.getLabelAsString(value);
+        operatorName = "@str:";
+      } else if (ctx.GET_LABEL_BOOL_TOK()) {
+        convertFunction = (value) => this.getLabelAsBoolean(value);
+        operatorName = "@bool:";
+      } else if (ctx.GET_LABEL_NUM_TOK()) {
+        convertFunction = (value) => this.getLabelAsNumber(value);
+        operatorName = "@num:";
+      } else {
+        throw new Error("Unknown label operator");
       }
 
       try {
@@ -1391,32 +1444,47 @@ export class ForgeExprEvaluator
 
         // Special case: if result is empty array, it means unknown identifier, so use the text
         if (isTupleArray(innerResult) && innerResult.length === 0) {
-          return innerExpr.text;
+          // For unknown identifiers, try to convert the text directly
+          let text = innerExpr.text;
+          // Remove parentheses if present
+          if (text.startsWith('(') && text.endsWith(')')) {
+            text = text.slice(1, -1);
+          }
+          try {
+            return convertFunction(text);
+          } catch (error) {
+            // If conversion fails, fall back to string for unknown identifiers
+            return text;
+          }
         }
 
         if (isSingleValue(innerResult)) {
-          return this.getLabelForValue(innerResult);
+          return convertFunction(innerResult);
         } else if (isTupleArray(innerResult)) {
-          // For single-element tuple arrays, return the label of the element
+          // For single-element tuple arrays, return the converted label of the element
           if (innerResult.length === 1 && innerResult[0].length === 1) {
-            return this.getLabelForValue(innerResult[0][0]);
+            return convertFunction(innerResult[0][0]);
           }
-          // For multi-element cases, apply getLabelForValue to each tuple element
+          // For multi-element cases, apply conversion to each tuple element
           return innerResult.map((tuple) =>
-            tuple.map((value) => this.getLabelForValue(value))
+            tuple.map((value) => convertFunction(value))
           );
         }
-        throw new Error("@: operator can only be applied to single values or tuple arrays");
+        throw new Error(`${operatorName} operator can only be applied to single values or tuple arrays`);
       } catch (error) {
         // If evaluation fails due to unknown identifier, use the text as the label
         if (error instanceof NameNotFoundError) {
           // Extract the identifier from the inner expression
-          // The inner expression might be "(black)" so we need to get the actual identifier
           let identifierText = innerExpr.text;
           if (identifierText.startsWith('(') && identifierText.endsWith(')')) {
             identifierText = identifierText.slice(1, -1);
           }
-          return identifierText;
+          try {
+            return convertFunction(identifierText);
+          } catch (conversionError) {
+            // If conversion fails, fall back to string for unknown identifiers
+            return identifierText;
+          }
         }
         throw error;
       }
