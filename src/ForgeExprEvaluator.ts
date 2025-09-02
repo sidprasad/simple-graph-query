@@ -297,30 +297,47 @@ export class ForgeExprEvaluator
     return keys.map((key) => `${key}=${freeVarValues[key]}`).join("|");
   }
 
-  // helper function to get the label for a value (used for @: operator)
-  private getLabelForValue(value: SingleValue): SingleValue {
-    // // For primitive values (numbers, booleans), the label is the value itself
-    if (typeof value === "number" || typeof value === "boolean") {
-      return String(value); // [SP: Labels are always strings, so convert numbers/booleans to strings]
+  // helper function to parse a string value to its most appropriate type
+  private parseValueWithTypeInference(str: string): SingleValue {
+    // Try to parse as boolean
+    if (str === "true") return true;
+    if (str === "false") return false;
+
+    // Try to parse as number
+    const numValue = Number(str);
+    if (!isNaN(numValue) && isFinite(numValue) && str.trim() === numValue.toString()) {
+      return numValue;
     }
 
-    // For string values, try to find the corresponding atom and return its label
-    if (typeof value === "string") {
+    // Return as string if no other type fits
+    return str;
+  }
 
+  // helper function to get the label for a value (used for @: operator)
+  private getLabelForValue(value: SingleValue): SingleValue {
+    // For primitive values (numbers, booleans), return them in their natural type
+    if (typeof value === "number" || typeof value === "boolean") {
+      return value; // Return the value as-is instead of converting to string
+    }
+
+    // For string values, try to find the corresponding atom and return its label with type inference
+    if (typeof value === "string") {
       let atom: IAtom | undefined = this.instanceData.getAtoms().find(
         (a) => a.id === value
       );
 
       if (atom) {
-        // If the atom has a label field, return it; otherwise return the ID
-        return atom.label !== undefined ? atom.label : atom.id;
+        // If the atom has a label field, parse it with type inference; otherwise return the ID
+        const label = atom.label !== undefined ? atom.label : atom.id;
+        return this.parseValueWithTypeInference(label);
       }
 
+      // If no atom found, try to parse the string value itself with type inference
+      return this.parseValueWithTypeInference(value);
     }
 
     // Fallback: return the value itself
     console.error(`No atom found for value: ${value}`);
-
     return value;
   }
 
@@ -1391,7 +1408,13 @@ export class ForgeExprEvaluator
 
         // Special case: if result is empty array, it means unknown identifier, so use the text
         if (isTupleArray(innerResult) && innerResult.length === 0) {
-          return innerExpr.text;
+          // Try to parse the text as a literal value with type inference
+          let innerText = innerExpr.text;
+          // Remove parentheses if present
+          if (innerText.startsWith('(') && innerText.endsWith(')')) {
+            innerText = innerText.slice(1, -1);
+          }
+          return this.parseValueWithTypeInference(innerText);
         }
 
         if (isSingleValue(innerResult)) {
