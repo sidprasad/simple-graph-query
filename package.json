@@ -33,7 +33,9 @@
     "prepublishOnly": "npm run build:full",
     "serve": "python3 -m http.server 8080",
     "test": "jest",
-    "antlr4ts": "cd src/forge-antlr && antlr4ts -visitor ForgeLexer.g4 Forge.g4 && cd ../.."
+    "antlr4ts": "cd src/forge-antlr && antlr4ts -visitor ForgeLexer.g4 Forge.g4 && cd ../..",
+    "docs": "node scripts/generate-docs.js",
+    "docs:watch": "node scripts/generate-docs.js && echo 'Documentation updated!'"
   },
   "author": "Siddhartha Prasad",
   "license": "MIT",
