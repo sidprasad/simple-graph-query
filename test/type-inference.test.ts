@@ -132,4 +132,34 @@ describe("@: operator with string-first approach", () => {
     expect(result2).toBe("0.5");
     expect(typeof result2).toBe('string');
   });
+
+  it("should return numeric values for decimal number literals with @num:", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // Test decimal number literals with @num: - returns numbers
+    const result1 = evaluatorUtil.evaluateExpression('@num:(3.14)');
+    expect(result1).toBe(3.14);
+    expect(typeof result1).toBe('number');
+
+    const result2 = evaluatorUtil.evaluateExpression('@num:(0.5)');
+    expect(result2).toBe(0.5);
+    expect(typeof result2).toBe('number');
+
+    const result3 = evaluatorUtil.evaluateExpression('@num:(42.0)');
+    expect(result3).toBe(42.0);
+    expect(typeof result3).toBe('number');
+  });
+
+  it("should support decimal numbers in arithmetic operations", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // Test decimal arithmetic
+    const result1 = evaluatorUtil.evaluateExpression('add[@num:(3.14), @num:(2.86)]');
+    expect(result1).toBe(6);
+
+    const result2 = evaluatorUtil.evaluateExpression('multiply[@num:(0.5), @num:(4.0)]');
+    expect(result2).toBe(2);
+  });
 });

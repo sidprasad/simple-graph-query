@@ -106,7 +106,7 @@ INT_TOK: 'Int';
 OPTION_TOK: 'option';
 COMMA_TOK: ',';
 SLASH_TOK: '/';
-NUM_CONST_TOK: [0-9]+;
+NUM_CONST_TOK: [0-9]+ ('.' [0-9]+)?;
 IDENTIFIER_TOK: [a-zA-Z_$/] [a-zA-Z_0-9$/]*;
 
 WS: [ \t\r\n]+ -> skip;
