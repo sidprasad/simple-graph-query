@@ -1887,12 +1887,14 @@ export class ForgeExprEvaluator
       return identifier;
     }
 
-    // Check if this looks like a simple label identifier (for label comparison)
-    // Heuristic: simple words that look like color/state names (case-insensitive)
-    const labelLikePattern = /^[a-zA-Z]{3,10}$/; // 3-10 letters (any case)
+    // Check if this looks like a label identifier (for label comparison).
+    // We use a heuristic to distinguish label literals from typos:
+    // - Simple lowercase words or words with only first letter capitalized are likely labels
+    // - Multi-word or PascalCase identifiers (e.g., NonExistentRelation) are likely typos
+    // This allows identifiers like "Black", "red", "blue", "None", etc. to work as labels
+    // while still catching likely mistakes like "NonExistentRelation" as errors.
+    const labelLikePattern = /^[a-z]+$|^[A-Z][a-z0-9]*$/;
     if (labelLikePattern.test(identifier)) {
-      // This looks like a simple label (e.g., "black", "Black", "red", "Red", etc.)
-      // Return it as a string literal to enable label comparison syntax
       return identifier;
     }
 
