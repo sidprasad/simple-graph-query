@@ -1888,12 +1888,10 @@ export class ForgeExprEvaluator
     }
 
     // Check if this looks like a label identifier (for label comparison).
-    // We use a heuristic to distinguish label literals from typos:
-    // - Simple lowercase words or words with only first letter capitalized are likely labels
-    // - Multi-word or PascalCase identifiers (e.g., NonExistentRelation) are likely typos
-    // This allows identifiers like "Black", "red", "blue", "None", etc. to work as labels
-    // while still catching likely mistakes like "NonExistentRelation" as errors.
-    const labelLikePattern = /^[a-z]+$|^[A-Z][a-z0-9]*$/;
+    // Labels can be any alphanumeric string with underscores.
+    // This allows identifiers like "Black", "red", "my_label", "Color_123", etc.
+    // to be treated as string literals in label comparisons (e.g., @:y = Black).
+    const labelLikePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
     if (labelLikePattern.test(identifier)) {
       return identifier;
     }

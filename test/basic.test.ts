@@ -394,7 +394,7 @@ describe("sgq-evaluator ", () => {
   });
 
 
-  it("returns empty, not error for non-existent relation", () => {
+  it("treats unknown identifiers as string literals (label behavior)", () => {
  
     const datum = new TTTDataInstance();
 
@@ -403,7 +403,8 @@ describe("sgq-evaluator ", () => {
 
     const result = evaluatorUtil.evaluateExpression(expr);
 
-    expect(areEquivalentTupleArrays(result, [])).toBe(true);
+    // With the permissive label pattern, unknown identifiers are treated as string literals
+    expect(result).toBe("NonExistentRelation");
 
   });
 
