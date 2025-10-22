@@ -1887,12 +1887,12 @@ export class ForgeExprEvaluator
       return identifier;
     }
 
-    // Check if this looks like a simple label identifier (for label comparison)
-    // Heuristic: simple lowercase words that look like color/state names
-    const labelLikePattern = /^[a-z]{3,10}$/; // 3-10 lowercase letters only
+    // Check if this looks like a label identifier (for label comparison).
+    // Labels can be any alphanumeric string with underscores.
+    // This allows identifiers like "Black", "red", "my_label", "Color_123", etc.
+    // to be treated as string literals in label comparisons (e.g., @:y = Black).
+    const labelLikePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
     if (labelLikePattern.test(identifier)) {
-      // This looks like a simple label (e.g., "black", "red", "blue", etc.)
-      // Return it as a string literal to enable label comparison syntax
       return identifier;
     }
 

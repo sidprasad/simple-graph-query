@@ -1,6 +1,6 @@
 import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
 
-import { RBTTDataInstance } from "./testdatainstances";
+import { RBTTDataInstance, LabelTestDataInstance } from "./testdatainstances";
 import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
 
 
@@ -58,6 +58,27 @@ describe("sgq-evaluator.identifiers  ", () => {
     }
   });
 
+  it("can run comparisons on labels with mixed-case identifiers (issue fix)", () => {
+    // This test verifies the fix for the label extraction issue
+    // where "{y : Color | @:y = Black}" was returning empty
+    const datum = new LabelTestDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // Test with "Black" (uppercase first letter)
+    const expr1 = "{y : Color | @:y = Black}";
+    const result1 = evaluatorUtil.evaluateExpression(expr1);
+    expect(areEquivalentTupleArrays(result1, [["atom3"]])).toBe(true);
+
+    // Test with "Red" (uppercase first letter)
+    const expr2 = "{y : Color | @:y = Red}";
+    const result2 = evaluatorUtil.evaluateExpression(expr2);
+    expect(areEquivalentTupleArrays(result2, [["atom6"]])).toBe(true);
+
+    // Test that lowercase doesn't match (case-sensitive comparison)
+    const expr3 = "{y : Color | @:y = black}";
+    const result3 = evaluatorUtil.evaluateExpression(expr3);
+    expect(areEquivalentTupleArrays(result3, [])).toBe(true);
+  });
 
 
 });
