@@ -1076,3 +1076,166 @@ export class RBTTDataInstance extends DataInstance implements IDataInstance {
     super(rbttData);
   }
 }
+
+// Test data for label extraction with mixed-case identifiers (from issue)
+const labelTestData = `
+{
+  "atoms": [
+    {
+      "id": "atom0",
+      "type": "RBTree",
+      "label": "RBTree"
+    },
+    {
+      "id": "atom1",
+      "type": "Node",
+      "label": "Node"
+    },
+    {
+      "id": "atom2",
+      "type": "u32",
+      "label": "5"
+    },
+    {
+      "id": "atom3",
+      "type": "Color",
+      "label": "Black"
+    },
+    {
+      "id": "atom4",
+      "type": "Node",
+      "label": "Node"
+    },
+    {
+      "id": "atom5",
+      "type": "u32",
+      "label": "3"
+    },
+    {
+      "id": "atom6",
+      "type": "Color",
+      "label": "Red"
+    },
+    {
+      "id": "atom7",
+      "type": "None",
+      "label": "None"
+    },
+    {
+      "id": "atom8",
+      "type": "Node",
+      "label": "Node"
+    },
+    {
+      "id": "atom9",
+      "type": "u32",
+      "label": "7"
+    }
+  ],
+  "types": {
+    "RBTree": {
+      "id": "RBTree",
+      "types": ["RBTree"],
+      "atoms": [
+        {"id": "atom0", "type": "RBTree"}
+      ],
+      "meta": {"builtin": false}
+    },
+    "Node": {
+      "id": "Node",
+      "types": ["Node"],
+      "atoms": [
+        {"id": "atom1", "type": "Node"},
+        {"id": "atom4", "type": "Node"},
+        {"id": "atom8", "type": "Node"}
+      ],
+      "meta": {"builtin": false}
+    },
+    "u32": {
+      "id": "u32",
+      "types": ["u32"],
+      "atoms": [
+        {"id": "atom2", "type": "u32"},
+        {"id": "atom5", "type": "u32"},
+        {"id": "atom9", "type": "u32"}
+      ],
+      "meta": {"builtin": false}
+    },
+    "Color": {
+      "id": "Color",
+      "types": ["Color"],
+      "atoms": [
+        {"id": "atom3", "type": "Color"},
+        {"id": "atom6", "type": "Color"}
+      ],
+      "meta": {"builtin": false}
+    },
+    "None": {
+      "id": "None",
+      "types": ["None"],
+      "atoms": [
+        {"id": "atom7", "type": "None"}
+      ],
+      "meta": {"builtin": false}
+    }
+  },
+  "relations": {
+    "root": {
+      "id": "root",
+      "name": "root",
+      "types": ["RBTree", "atom"],
+      "tuples": [
+        {
+          "atoms": ["atom0", "atom1"],
+          "types": ["RBTree", "atom"]
+        }
+      ]
+    },
+    "color": {
+      "id": "color",
+      "name": "color",
+      "types": ["Node", "atom"],
+      "tuples": [
+        {
+          "atoms": ["atom1", "atom3"],
+          "types": ["Node", "atom"]
+        },
+        {
+          "atoms": ["atom4", "atom6"],
+          "types": ["Node", "atom"]
+        },
+        {
+          "atoms": ["atom8", "atom6"],
+          "types": ["Node", "atom"]
+        }
+      ]
+    },
+    "key": {
+      "id": "key",
+      "name": "key",
+      "types": ["Node", "atom"],
+      "tuples": [
+        {
+          "atoms": ["atom1", "atom2"],
+          "types": ["Node", "atom"]
+        },
+        {
+          "atoms": ["atom4", "atom5"],
+          "types": ["Node", "atom"]
+        },
+        {
+          "atoms": ["atom8", "atom9"],
+          "types": ["Node", "atom"]
+        }
+      ]
+    }
+  },
+  "skolems": {}
+}
+`;
+
+export class LabelTestDataInstance extends DataInstance implements IDataInstance {
+  constructor() {
+    super(labelTestData);
+  }
+}
