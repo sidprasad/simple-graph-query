@@ -76,6 +76,9 @@ return leftChildValue.filter(tuple => rightSet.has(tupleToKey(tuple)));
 
 ```typescript
 function dotJoin(left: EvalResult, right: EvalResult): EvalResult {
+  const leftExpr = isSingleValue(left) ? [[left]] : left;
+  const rightExpr = isSingleValue(right) ? [[right]] : right;
+  
   // Index right tuples by their first element
   const rightIndex = new Map<SingleValue, Tuple[]>();
   for (const rightTuple of rightExpr) {
