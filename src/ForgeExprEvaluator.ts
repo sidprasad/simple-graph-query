@@ -93,14 +93,19 @@ function isString(value: EvalResult): value is string {
   return typeof value === "string";
 }
 
+// Helper to create a string key from a tuple for fast lookup
+function tupleToKey(tuple: Tuple): string {
+  return JSON.stringify(tuple);
+}
+
 function areTuplesEqual(a: Tuple, b: Tuple): boolean {
   return a.length === b.length && a.every((val, i) => val === b[i]);
 }
 
 function isTupleArraySubset(a: Tuple[], b: Tuple[]): boolean {
-  return a.every((tupleA) =>
-    b.some((tupleB) => areTuplesEqual(tupleA, tupleB))
-  );
+  // Optimize using Set for O(n) lookup instead of O(n²)
+  const bSet = new Set(b.map(tupleToKey));
+  return a.every((tupleA) => bSet.has(tupleToKey(tupleA)));
 }
 
 export function areTupleArraysEqual(a: Tuple[], b: Tuple[]): boolean {
@@ -111,9 +116,13 @@ export function areTupleArraysEqual(a: Tuple[], b: Tuple[]): boolean {
 }
 
 function deduplicateTuples(tuples: Tuple[]): Tuple[] {
+  // Optimize using Set for O(n) deduplication instead of O(n²)
+  const seen = new Set<string>();
   const result: Tuple[] = [];
   for (const tuple of tuples) {
-    if (!result.some((existing) => areTuplesEqual(existing, tuple))) {
+    const key = tupleToKey(tuple);
+    if (!seen.has(key)) {
+      seen.add(key);
       result.push(tuple);
     }
   }
@@ -124,17 +133,23 @@ function getCombinations(arrays: Tuple[][]): Tuple[] {
   // first, turn each string[][] into a string[] by flattening
   const valueSets: SingleValue[][] = arrays.map((tuple) => tuple.flat());
 
-  // now, recursively compute the cartesian product
-  function cartesianProduct(arrays: SingleValue[][]): Tuple[] {
-    if (arrays.length === 0) return [[]];
-    const [first, ...rest] = arrays;
-    const restProduct = cartesianProduct(rest);
-    return first.flatMap((value) =>
-      restProduct.map((product) => [value, ...product])
-    );
+  // Early exit for empty arrays
+  if (valueSets.length === 0) return [[]];
+  if (valueSets.some(arr => arr.length === 0)) return [];
+
+  // Iterative approach for better performance on large cartesian products
+  let result: Tuple[] = [[]];
+  for (const valueSet of valueSets) {
+    const newResult: Tuple[] = [];
+    for (const existing of result) {
+      for (const value of valueSet) {
+        newResult.push([...existing, value]);
+      }
+    }
+    result = newResult;
   }
 
-  return cartesianProduct(valueSets);
+  return result;
 }
 
 function transitiveClosure(pairs: Tuple[]): Tuple[] {
@@ -191,17 +206,30 @@ function dotJoin(left: EvalResult, right: EvalResult): EvalResult {
   const leftExpr = isSingleValue(left) ? [[left]] : left;
   const rightExpr = isSingleValue(right) ? [[right]] : right;
 
+  // Optimize join using a Map for O(n+m) instead of O(n*m) lookup
+  // Group right tuples by their first element for fast lookup
+  const rightIndex = new Map<SingleValue, Tuple[]>();
+  for (const rightTuple of rightExpr) {
+    const key = rightTuple[0];
+    if (!rightIndex.has(key)) {
+      rightIndex.set(key, []);
+    }
+    rightIndex.get(key)!.push(rightTuple);
+  }
+
   const result: Tuple[] = [];
-  leftExpr.forEach((leftTuple) => {
-    rightExpr.forEach((rightTuple) => {
-      if (leftTuple[leftTuple.length - 1] === rightTuple[0]) {
+  for (const leftTuple of leftExpr) {
+    const joinKey = leftTuple[leftTuple.length - 1];
+    const matchingRightTuples = rightIndex.get(joinKey);
+    if (matchingRightTuples) {
+      for (const rightTuple of matchingRightTuples) {
         result.push([
           ...leftTuple.slice(0, leftTuple.length - 1),
           ...rightTuple.slice(1),
         ]);
       }
-    });
-  });
+    }
+  }
 
   if (result.some(tuple => tuple.length === 0)) {
     throw new Error("Join would create a relation of arity 0");
@@ -294,7 +322,12 @@ export class ForgeExprEvaluator
   private constructFreeVariableKey(freeVarValues: Record<string, EvalResult>): string {
     const keys = Object.keys(freeVarValues);
     keys.sort(); // sort the keys to ensure consistent ordering
-    return keys.map((key) => `${key}=${freeVarValues[key]}`).join("|");
+    // Use JSON.stringify for complex values to ensure proper serialization
+    return keys.map((key) => {
+      const value = freeVarValues[key];
+      const valueStr = Array.isArray(value) ? JSON.stringify(value) : String(value);
+      return `${key}=${valueStr}`;
+    }).join("|");
   }
 
   // helper function to get the label for a value (used for @: operator)
@@ -1180,8 +1213,9 @@ export class ForgeExprEvaluator
           return leftChildValue;
         }
         if (leftChildValue[0].length === rightChildValue[0].length) {
-          return leftChildValue.filter(
-            (tuple) => !rightChildValue.some((rightTuple) => areTuplesEqual(tuple, rightTuple)));
+          // Optimize set difference using Set for O(n+m) instead of O(n*m)
+          const rightSet = new Set(rightChildValue.map(tupleToKey));
+          return leftChildValue.filter(tuple => !rightSet.has(tupleToKey(tuple)));
         }
       } else {
         throw new Error("unexpected error: expressions subtracted are not well defined!");
@@ -1260,9 +1294,9 @@ export class ForgeExprEvaluator
           return [];
         }
         if (leftChildValue[0].length === rightChildValue[0].length) {
-          return leftChildValue.filter((tuple) =>
-            rightChildValue.some((rightTuple) => areTuplesEqual(tuple, rightTuple))
-          );
+          // Optimize set intersection using Set for O(n+m) instead of O(n*m)
+          const rightSet = new Set(rightChildValue.map(tupleToKey));
+          return leftChildValue.filter(tuple => rightSet.has(tupleToKey(tuple)));
         }
       } else {
         throw new Error("unexpected error: expressions intersected are not well defined!");
