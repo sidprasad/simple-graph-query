@@ -199,8 +199,6 @@ describe("Minimal test for nested quantifier bug", () => {
     // Expected: [[C, A]] only
     const query = "{ c, p1 : Person | p1 in c.parent and (some p2 : c.parent | p1 != p2 and p2 in p1.younger) }";
     const result = evaluator.evaluateExpression(query);
-    console.log("Query:", query);
-    console.log("Result:", JSON.stringify(result));
     
     expect(Array.isArray(result)).toBe(true);
     const resultStrings = (result as any[][]).map((t: any[]) => JSON.stringify(t));
@@ -220,21 +218,18 @@ describe("Person query from issue", () => {
   it("can evaluate simple parent relation", () => {
     const query = "Claire.parent";
     const result = evaluator.evaluateExpression(query);
-    console.log("Claire.parent result:", JSON.stringify(result));
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("can evaluate simple younger relation", () => {
     const query = "Jay.younger";
     const result = evaluator.evaluateExpression(query);
-    console.log("Jay.younger result:", JSON.stringify(result));
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("can evaluate membership test", () => {
     const query = "Dede in Jay.younger";
     const result = evaluator.evaluateExpression(query);
-    console.log("Dede in Jay.younger result:", result);
     expect(typeof result === "boolean").toBe(true);
   });
 
@@ -249,24 +244,16 @@ describe("Person query from issue", () => {
     
     const query1 = "some p2 : Claire.parent | p2 != Jay and p2 in Jay.younger";
     const result1 = evaluator.evaluateExpression(query1);
-    console.log("Query 1:", query1);
-    console.log("Result 1:", result1);
-    console.log("Jay.younger:", evaluator.evaluateExpression("Jay.younger"));
-    console.log("Dede.younger:", evaluator.evaluateExpression("Dede.younger"));
     expect(result1).toBe(false); // Dede is not in Jay.younger
     
     const query2 = "some p2 : Claire.parent | p2 != Dede and p2 in Dede.younger";
     const result2 = evaluator.evaluateExpression(query2);
-    console.log("Query 2:", query2);
-    console.log("Result 2:", result2);
     expect(result2).toBe(true); // Jay is in Dede.younger
   });
 
   it("can evaluate the problematic query", () => {
     const query = "{ c, p1 : Person | p1 in c.parent and (some p2 : c.parent | p1 != p2 and p2 in p1.younger) }";
-    console.log("Testing query:", query);
     const result = evaluator.evaluateExpression(query);
-    console.log("Result:", JSON.stringify(result, null, 2));
     
     // Expected results based on manual verification:
     // ["Claire", "Dede"], ["Mitchel", "Dede"], ["Joe", "Jay"], 

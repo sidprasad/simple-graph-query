@@ -209,25 +209,15 @@ export class ForgeExprFreeVariableFinder
           "Expected the quantifier to have a bar followed by an expr!"
         );
       }
-      let allFreeVars: FreeVariables;
+      let barExprFreeVars: FreeVariables;
       if (blockOrBar.block() !== undefined) {
-        allFreeVars = this.visit(blockOrBar.block()!);
+        barExprFreeVars = this.visit(blockOrBar.block()!);
       } else {
-        allFreeVars = this.visit(blockOrBar.expr()!);
+        barExprFreeVars = this.visit(blockOrBar.expr()!);
       }
 
-      // Merge free variables from quantDeclList
-      for (const [key, value] of quantDeclListFreeVars) {
-        if (!allFreeVars.has(key)) {
-          allFreeVars.set(key, value);
-        } else {
-          // Merge the sets
-          const existing = allFreeVars.get(key)!;
-          for (const v of value) {
-            existing.add(v);
-          }
-        }
-      }
+      // Merge free variables from quantDeclList and barExpr
+      const allFreeVars = this.aggregateResult(barExprFreeVars, quantDeclListFreeVars);
 
       // the context node for the quantifier as a whole shouldn't have _all_ of these
       // free vars; specifically, it should not include the vars that are being
