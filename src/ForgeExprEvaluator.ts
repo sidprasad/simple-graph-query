@@ -1745,7 +1745,9 @@ export class ForgeExprEvaluator
       }
 
       this.environmentStack.pop();
-      return result;
+      
+      // Deduplicate results to ensure set semantics
+      return deduplicateTuples(result);
     }
     if (ctx.LEFT_PAREN_TOK()) {
       // NOTE: we just return the result of evaluating the expr that is inside

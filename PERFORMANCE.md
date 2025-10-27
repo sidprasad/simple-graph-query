@@ -302,7 +302,32 @@ if (this.parseTreeCache.has(forgeExpr)) {
 - Parse tree caching provides **12x speedup** on repeated evaluations of the same query
 - Label conversion optimizations reduce overhead in numeric comparisons
 - Environment reuse reduces memory allocation overhead in loops
+- Deduplication ensures set comprehensions return proper sets without duplicates
 - Combined with JIT warm-up, queries like `{ i, i2 : Int | @num:i2 = multiply[@num:i, 2] }` improve from ~200ms (cold start) to ~17ms (warm, cached)
+
+### 10. Set Comprehension Deduplication
+
+**Problem**: Set comprehensions should return sets (no duplicate tuples), but the implementation was not deduplicating results, leading to duplicate tuples in some scenarios and harming performance.
+
+**Solution**: Add deduplication to set comprehension results to ensure proper set semantics.
+
+```typescript
+// In set comprehension evaluation:
+for (let i = 0; i < product.length; i++) {
+  const tuple = product[i];
+  // ... update environment and evaluate condition
+  if (barExprValue) {
+    result.push(tuple);
+  }
+}
+
+this.environmentStack.pop();
+
+// Deduplicate results to ensure set semantics
+return deduplicateTuples(result);
+```
+
+**Impact**: Ensures correctness and can improve performance by avoiding processing duplicate tuples in subsequent operations.
 
 ## Conclusion
 
