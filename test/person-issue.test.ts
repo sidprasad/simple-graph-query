@@ -135,6 +135,84 @@ class PersonDataInstance implements IDataInstance {
   }
 }
 
+// Simpler minimal test data
+const simpleData = `
+{
+  "types": {
+    "Person": {
+      "_": "type",
+      "id": "Person",
+      "types": ["Person"],
+      "atoms": [
+        {"_": "atom", "id": "A", "type": "Person"},
+        {"_": "atom", "id": "B", "type": "Person"},
+        {"_": "atom", "id": "C", "type": "Person"}
+      ],
+      "meta": {"builtin": false}
+    }
+  },
+  "relations": {
+    "parent": {
+      "_": "relation",
+      "id": "parent",
+      "name": "parent",
+      "types": ["Person", "Person"],
+      "tuples": [
+        {"_": "tuple", "types": ["Person", "Person"], "atoms": ["C", "A"]},
+        {"_": "tuple", "types": ["Person", "Person"], "atoms": ["C", "B"]}
+      ]
+    },
+    "younger": {
+      "_": "relation",
+      "id": "younger",
+      "name": "younger",
+      "types": ["Person", "Person"],
+      "tuples": [
+        {"_": "tuple", "types": ["Person", "Person"], "atoms": ["A", "B"]}
+      ]
+    }
+  },
+  "skolems": {}
+}
+`;
+
+describe("Minimal test for nested quantifier bug", () => {
+  const datum = new PersonDataInstance(simpleData);
+  const evaluator = new SimpleGraphQueryEvaluator(datum);
+
+  it("has correct test data", () => {
+    expect(evaluator.evaluateExpression("C.parent")).toEqual([["A"], ["B"]]);
+    expect(evaluator.evaluateExpression("A.younger")).toEqual([["B"]]);
+    expect(evaluator.evaluateExpression("B.younger")).toEqual([]);
+  });
+
+  it("evaluates simple membership correctly", () => {
+    expect(evaluator.evaluateExpression("B in A.younger")).toBe(true);
+    expect(evaluator.evaluateExpression("A in B.younger")).toBe(false);
+  });
+
+  it("reproduces the nested quantifier bug", () => {
+    // For (C, A): some p2 in {A, B} where p2 != A and p2 in A.younger
+    //   p2=B: B != A? YES. B in A.younger? YES -> TRUE
+    // For (C, B): some p2 in {A, B} where p2 != B and p2 in B.younger
+    //   p2=A: A != B? YES. A in B.younger? NO -> FALSE
+    // Expected: [[C, A]] only
+    const query = "{ c, p1 : Person | p1 in c.parent and (some p2 : c.parent | p1 != p2 and p2 in p1.younger) }";
+    const result = evaluator.evaluateExpression(query);
+    console.log("Query:", query);
+    console.log("Result:", JSON.stringify(result));
+    
+    expect(Array.isArray(result)).toBe(true);
+    const resultStrings = (result as any[][]).map((t: any[]) => JSON.stringify(t));
+    
+    // Should include [C, A]
+    expect(resultStrings).toContain(JSON.stringify(["C", "A"]));
+    
+    // Should NOT include [C, B]
+    expect(resultStrings).not.toContain(JSON.stringify(["C", "B"]));
+  });
+});
+
 describe("Person query from issue", () => {
   const datum = new PersonDataInstance(personData);
   const evaluator = new SimpleGraphQueryEvaluator(datum);
