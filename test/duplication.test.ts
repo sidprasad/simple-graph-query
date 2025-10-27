@@ -98,14 +98,27 @@ class TestDataInstance implements IDataInstance {
       }
     }
     
-    // Merge the label information from the main atoms array into the type atoms
+    // Deduplicate and merge atom information for each type
     for (const type of types) {
+      const uniqueAtomMap = new Map<string, IAtom>();
+      
       for (const atom of type.atoms) {
+        // Skip if we've already seen this atom ID in this type
+        if (uniqueAtomMap.has(atom.id)) {
+          continue;
+        }
+        
+        // Merge label information from the main atoms array
         const fullAtom = atomMap.get(atom.id);
         if (fullAtom && fullAtom.label !== undefined) {
           atom.label = fullAtom.label;
         }
+        
+        uniqueAtomMap.set(atom.id, atom);
       }
+      
+      // Replace the atoms array with deduplicated atoms
+      type.atoms = Array.from(uniqueAtomMap.values());
     }
     
     return types;
@@ -116,7 +129,18 @@ class TestDataInstance implements IDataInstance {
   }
 
   getAtoms(): IAtom[] {
-    return this.getTypes().flatMap(type => type.atoms);
+    // Collect all atoms from all types and deduplicate by atom ID
+    const atomMap = new Map<string, IAtom>();
+    
+    for (const type of this.getTypes()) {
+      for (const atom of type.atoms) {
+        if (!atomMap.has(atom.id)) {
+          atomMap.set(atom.id, atom);
+        }
+      }
+    }
+    
+    return Array.from(atomMap.values());
   }
 
   getAtomType(id: string): IType {
@@ -146,13 +170,12 @@ describe("Duplication issue", () => {
       // Check for duplicates
       const uniqueIds = new Set(atomIds);
       
-      console.log("Result atoms:", atomIds);
-      console.log("Unique atoms:", Array.from(uniqueIds));
-      console.log("Total atoms:", atomIds.length);
-      console.log("Unique atoms count:", uniqueIds.size);
-      
       // There should be no duplicates
       expect(atomIds.length).toBe(uniqueIds.size);
+      
+      // Verify we have the expected atoms
+      expect(uniqueIds.size).toBe(10);
+      expect(uniqueIds).toEqual(new Set(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']));
     }
   });
   
@@ -162,9 +185,6 @@ describe("Duplication issue", () => {
     
     const atomIds = atoms.map(atom => atom.id);
     const uniqueIds = new Set(atomIds);
-    
-    console.log("getAtoms() returned:", atomIds.length, "atoms");
-    console.log("Unique atoms:", uniqueIds.size);
     
     // There should be no duplicates
     expect(atomIds.length).toBe(uniqueIds.size);

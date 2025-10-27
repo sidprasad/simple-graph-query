@@ -1028,14 +1028,27 @@ class DataInstance implements IDataInstance {
       }
     }
     
-    // Merge the label information from the main atoms array into the type atoms
+    // Deduplicate and merge atom information for each type
     for (const type of types) {
+      const uniqueAtomMap = new Map<string, IAtom>();
+      
       for (const atom of type.atoms) {
+        // Skip if we've already seen this atom ID in this type
+        if (uniqueAtomMap.has(atom.id)) {
+          continue;
+        }
+        
+        // Merge label information from the main atoms array
         const fullAtom = atomMap.get(atom.id);
         if (fullAtom && fullAtom.label !== undefined) {
           atom.label = fullAtom.label;
         }
+        
+        uniqueAtomMap.set(atom.id, atom);
       }
+      
+      // Replace the atoms array with deduplicated atoms
+      type.atoms = Array.from(uniqueAtomMap.values());
     }
     
     return types;
@@ -1047,8 +1060,18 @@ class DataInstance implements IDataInstance {
   }
 
   getAtoms(): IAtom[] {
-    // Collect all atoms from all types
-    return this.getTypes().flatMap(type => type.atoms);
+    // Collect all atoms from all types and deduplicate by atom ID
+    const atomMap = new Map<string, IAtom>();
+    
+    for (const type of this.getTypes()) {
+      for (const atom of type.atoms) {
+        if (!atomMap.has(atom.id)) {
+          atomMap.set(atom.id, atom);
+        }
+      }
+    }
+    
+    return Array.from(atomMap.values());
   }
 
   getAtomType(id: string): IType {
