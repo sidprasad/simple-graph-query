@@ -1042,7 +1042,7 @@ class DataInstance implements IDataInstance {
         const fullAtom = atomMap.get(atom.id);
         const mergedAtom: IAtom = {
           ...atom,
-          label: fullAtom?.label !== undefined ? fullAtom.label : atom.label
+          label: fullAtom?.label ?? atom.label
         };
         
         uniqueAtomMap.set(atom.id, mergedAtom);
