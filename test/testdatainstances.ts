@@ -1033,15 +1033,15 @@ class DataInstance implements IDataInstance {
       const uniqueAtomMap = new Map<string, IAtom>();
       
       for (const atom of type.atoms) {
-        // Skip if we've already seen this atom ID in this type
-        if (uniqueAtomMap.has(atom.id)) {
-          continue;
-        }
-        
-        // Merge label information from the main atoms array
+        // Merge label information from the main atoms array before checking for duplicates
         const fullAtom = atomMap.get(atom.id);
         if (fullAtom && fullAtom.label !== undefined) {
           atom.label = fullAtom.label;
+        }
+        
+        // Skip if we've already seen this atom ID in this type
+        if (uniqueAtomMap.has(atom.id)) {
+          continue;
         }
         
         uniqueAtomMap.set(atom.id, atom);
