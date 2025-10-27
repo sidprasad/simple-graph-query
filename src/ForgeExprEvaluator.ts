@@ -424,9 +424,18 @@ export class ForgeExprEvaluator
   private getIden(): Tuple[] {
     const instanceTypes = this.instanceData.getTypes();
     const result: Tuple[] = [];
+    // Track unique atom IDs to avoid duplicates
+    const seenAtomIds = new Set<string>();
+    
     for (const t of instanceTypes) {
       const typeAtoms = t.atoms;
       typeAtoms.forEach((atom: IAtom) => {
+        // Skip if we've already seen this atom ID
+        if (seenAtomIds.has(atom.id)) {
+          return;
+        }
+        seenAtomIds.add(atom.id);
+        
         let value: SingleValue = atom.id;
         // do some type conversions so we don't return a string if the value
         // is a number or boolean
@@ -1835,9 +1844,15 @@ export class ForgeExprEvaluator
     );
     if (typeNames.includes(identifier)) {
       const typeAtoms = this.instanceData.getTypes().find(t => t.id === identifier)?.atoms || [];
-      const desiredValues: SingleValue[] = typeAtoms.map(
-        (atom: IAtom) => atom.id
-      );
+      // Deduplicate atoms by ID to handle data sources with duplicate entries
+      const uniqueAtomIds = new Set<string>();
+      const desiredValues: SingleValue[] = [];
+      for (const atom of typeAtoms) {
+        if (!uniqueAtomIds.has(atom.id)) {
+          uniqueAtomIds.add(atom.id);
+          desiredValues.push(atom.id);
+        }
+      }
       result = desiredValues.map((singleValue) => [singleValue]);
     }
 
@@ -1985,7 +2000,15 @@ export class ForgeExprEvaluator
       if (!intType) {
         throw new Error('Type "Int" not found in instance data');
       }
-      const intVals = intType.atoms.map((atom: IAtom) => [Number(atom.id)]);
+      // Deduplicate atoms by ID to handle data sources with duplicate entries
+      const uniqueAtomIds = new Set<string>();
+      const intVals: Tuple[] = [];
+      for (const atom of intType.atoms) {
+        if (!uniqueAtomIds.has(atom.id)) {
+          uniqueAtomIds.add(atom.id);
+          intVals.push([Number(atom.id)]);
+        }
+      }
       return intVals;
     }
 
