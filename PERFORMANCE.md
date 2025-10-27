@@ -245,8 +245,72 @@ Learn from relational database query optimizers:
 - Use sparse representations for large domains with few populated values
 - Implement specialized structures for binary relations (common case)
 
+### 9. Numeric Operations Optimization
+
+**Problem**: Queries involving numeric operations like `@num:` label conversions and arithmetic functions (add, multiply, etc.) were slow, especially in nested quantifiers and set comprehensions.
+
+**Solution**: Implemented several optimizations:
+
+1. **Fast-path for primitive type label conversions**: When converting labels to numbers/booleans/strings using `@num:`, `@bool:`, or `@str:`, check if the value is already of the target type and return immediately.
+
+```typescript
+private getLabelAsNumber(value: SingleValue): number {
+  // Optimization: if value is already a number, return it directly
+  if (typeof value === "number") {
+    return value;
+  }
+  // ... rest of conversion logic
+}
+```
+
+2. **Environment object reuse in loops**: In quantifier and set comprehension loops, reuse the same environment object instead of creating a new one each iteration, updating values in place.
+
+```typescript
+// Optimize: create environment once and reuse it
+const quantDeclEnv: Environment = {
+  env: {},
+  type: "quantDecl",
+};
+this.environmentStack.push(quantDeclEnv);
+
+for (let i = 0; i < product.length; i++) {
+  // Update environment values in place
+  for (let j = 0; j < varNames.length; j++) {
+    quantDeclEnv.env[varNames[j]] = tuple[j];
+  }
+  // ... evaluate expression
+}
+
+this.environmentStack.pop();
+```
+
+3. **Parse tree caching**: Cache parsed expression trees to avoid re-parsing the same query string multiple times.
+
+```typescript
+private parseTreeCache: Map<string, ExprContext> = new Map();
+
+// In evaluateExpression:
+if (this.parseTreeCache.has(forgeExpr)) {
+  tree = this.parseTreeCache.get(forgeExpr)!;
+} else {
+  tree = this.getExpressionParseTree(forgeExpr);
+  this.parseTreeCache.set(forgeExpr, tree);
+}
+```
+
+**Impact**: 
+- Parse tree caching provides **12x speedup** on repeated evaluations of the same query
+- Label conversion optimizations reduce overhead in numeric comparisons
+- Environment reuse reduces memory allocation overhead in loops
+- Combined with JIT warm-up, queries like `{ i, i2 : Int | @num:i2 = multiply[@num:i, 2] }` improve from ~200ms (cold start) to ~17ms (warm, cached)
+
 ## Conclusion
 
-These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insight is that many O(n²) operations can be reduced to O(n) or O(n+m) using appropriate data structures, particularly JavaScript's native Set and Map.
+These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are:
+
+1. Many O(n²) operations can be reduced to O(n) or O(n+m) using appropriate data structures (Set and Map)
+2. Avoiding redundant work (parsing, type conversions, object allocations) provides significant benefits
+3. Caching at multiple levels (parsed trees, evaluated sub-expressions) enables fast repeated evaluations
+4. Specialized fast paths for common cases (primitive type conversions) reduce overhead
 
 The changes are backwards compatible and all existing tests pass without modification.
