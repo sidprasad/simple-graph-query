@@ -155,6 +155,59 @@ private constructFreeVariableKey(freeVarValues: Record<string, EvalResult>): str
 
 **Impact**: More reliable caching for complex expressions.
 
+### 7. Transitive Closure (^) Optimization
+
+**Problem**: The BFS implementation used `queue.shift()` which is O(n) in JavaScript arrays, leading to O(n²) performance for queue operations during graph traversal.
+
+**Solution**: Use index-based queue traversal instead of `shift()` for O(1) queue access.
+
+```typescript
+function transitiveClosure(pairs: Tuple[]): Tuple[] {
+  // ... build adjacency list ...
+  
+  for (const start of graph.keys()) {
+    const visited = new Set<SingleValue>();
+    const queue: SingleValue[] = [...(graph.get(start) ?? [])];
+    let queueIndex = 0; // Use index instead of shift() for O(1) access
+    
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex++]; // O(1) instead of shift()'s O(n)
+      if (visited.has(current)) continue;
+      visited.add(current);
+      
+      transitiveClosureSet.add(JSON.stringify([start, current]));
+      // ... process neighbors ...
+    }
+  }
+}
+```
+
+**Impact**: Eliminates O(n) queue.shift() operations, improving BFS performance from O(V*E*n) to O(V*E) where V is vertices, E is edges, and n is queue size.
+
+### 8. Reflexive Transitive Closure (*) Optimization
+
+**Problem**: The operation combined transitive closure with identity using `deduplicateTuples()` which had O(n²) complexity.
+
+**Solution**: Use Set-based deduplication for O(n) complexity when combining results.
+
+```typescript
+if (ctx.STAR_TOK()) {
+  const transitiveClosureResult = transitiveClosure(childrenResults);
+  const idenResult = this.getIden();
+  // Optimize: Use Set for efficient deduplication
+  const resultSet = new Set<string>();
+  for (const tuple of idenResult) {
+    resultSet.add(tupleToKey(tuple));
+  }
+  for (const tuple of transitiveClosureResult) {
+    resultSet.add(tupleToKey(tuple));
+  }
+  return Array.from(resultSet).map(key => JSON.parse(key));
+}
+```
+
+**Impact**: Reduces deduplication from O(n²) to O(n), significantly improving performance for reflexive transitive closure operations.
+
 ## Performance Test Results
 
 New performance tests were added in `test/performance.test.ts` to validate the optimizations:
@@ -163,6 +216,9 @@ New performance tests were added in `test/performance.test.ts` to validate the o
 - **Set comprehensions**: Complete in < 500ms for cartesian products with filtering
 - **Repeated evaluations**: Consistent performance < 100ms per evaluation
 - **Complex joins**: Complete in < 100ms
+- **Transitive closure**: Complete in < 100ms for typical graph structures
+- **Reflexive transitive closure**: Complete in < 150ms including identity computation
+- **Multiple set comprehensions**: Complete in < 500ms with optimized cartesian products
 
 ## Future Optimization Opportunities
 
