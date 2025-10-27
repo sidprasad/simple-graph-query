@@ -29,6 +29,8 @@ export class SimpleGraphQueryEvaluator {
   datum: IDataInstance;
   forgeListener : ForgeListenerImpl = new ForgeListenerImpl();
   walker : ParseTreeWalker = new ParseTreeWalker();
+  // Cache for parsed expressions to avoid re-parsing the same expression
+  private parseTreeCache: Map<string, ExprContext> = new Map();
 
   constructor(datum: IDataInstance) {
     this.datum = datum;
@@ -52,22 +54,30 @@ export class SimpleGraphQueryEvaluator {
 
   evaluateExpression(forgeExpr: string): EvaluationResult {
 
-
-    try {    // now, we can actually evaluate the expression
-      var tree = this.getExpressionParseTree(forgeExpr);
-    }
-    catch (e) {
-      // if we can't parse the expression, we return an error
-      return {
-        error: new Error(`Error parsing expression "${forgeExpr}"`)
-      };
+    // Check cache first
+    let tree: ExprContext;
+    if (this.parseTreeCache.has(forgeExpr)) {
+      tree = this.parseTreeCache.get(forgeExpr)!;
+    } else {
+      try {    // now, we can actually evaluate the expression
+        const parsedTree = this.getExpressionParseTree(forgeExpr);
+        tree = parsedTree instanceof ExprContext ? parsedTree : parsedTree.getChild(0) as ExprContext;
+        // Cache the parsed tree
+        this.parseTreeCache.set(forgeExpr, tree);
+      }
+      catch (e) {
+        // if we can't parse the expression, we return an error
+        return {
+          error: new Error(`Error parsing expression "${forgeExpr}"`)
+        };
+      }
     }
 
     const evaluator = new ForgeExprEvaluator(this.datum);
 
     try {
 
-      let result: EvalResult | undefined = evaluator.visit(tree instanceof ExprContext ? tree : tree.getChild(0));
+      let result: EvalResult | undefined = evaluator.visit(tree);
 
       // ensure we're visiting an ExprContext
       return result;

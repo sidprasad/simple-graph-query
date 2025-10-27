@@ -358,12 +358,26 @@ export class ForgeExprEvaluator
 
   // helper function to get the label as string (used for @: and @str: operators)
   private getLabelAsString(value: SingleValue): string {
+    // Optimization: for primitive types, convert directly
+    if (typeof value === "number" || typeof value === "boolean") {
+      return String(value);
+    }
     const label = this.getLabelForValue(value);
     return String(label);
   }
 
   // helper function to get the label as boolean (used for @bool: operator)
   private getLabelAsBoolean(value: SingleValue): boolean {
+    // Optimization: for boolean values, return directly
+    if (typeof value === "boolean") {
+      return value;
+    }
+    
+    // Optimization: for number values, apply rule directly
+    if (typeof value === "number") {
+      return value !== 0;
+    }
+    
     const label = this.getLabelForValue(value);
     const labelStr = String(label).toLowerCase();
     
@@ -383,6 +397,11 @@ export class ForgeExprEvaluator
 
   // helper function to get the label as number (used for @num: operator)
   private getLabelAsNumber(value: SingleValue): number {
+    // Optimization: if value is already a number, return it directly
+    if (typeof value === "number") {
+      return value;
+    }
+    
     const label = this.getLabelForValue(value);
     const labelNum = Number(label);
     
@@ -580,6 +599,13 @@ export class ForgeExprEvaluator
       let foundTrue = false;
       let foundFalse = false;
 
+      // Optimize: create environment once and reuse it
+      const quantDeclEnv: Environment = {
+        env: {},
+        type: "quantDecl",
+      };
+      this.environmentStack.push(quantDeclEnv);
+
       for (let i = 0; i < product.length; i++) {
         const tuple = product[i];
         if (isDisjoint) {
@@ -597,17 +623,10 @@ export class ForgeExprEvaluator
             continue;
           }
         }
-        const quantDeclEnv: Environment = {
-          env: {},
-          type: "quantDecl",
-        };
+        // Update environment values in place
         for (let j = 0; j < varNames.length; j++) {
-          const varName = varNames[j];
-          const varValue = tuple[j];
-          quantDeclEnv.env[varName] = varValue;
+          quantDeclEnv.env[varNames[j]] = tuple[j];
         }
-
-        this.environmentStack.push(quantDeclEnv);
 
         // now, we want to evaluate the barExpr
         const barExprValue = this.visit(barExpr);
@@ -623,15 +642,15 @@ export class ForgeExprEvaluator
           foundFalse = true;
         }
 
-        this.environmentStack.pop();
-
         // short-circuit if possible
         if (ctx.quant()!.ALL_TOK() && foundFalse) {
+          this.environmentStack.pop();
           const value = false;
           this.cacheResult(ctx, freeVarsKey, value);
           return value;
         }
         if (ctx.quant()!.NO_TOK() && foundTrue) {
+          this.environmentStack.pop();
           const value = false;
           this.cacheResult(ctx, freeVarsKey, value);
           return value;
@@ -639,22 +658,27 @@ export class ForgeExprEvaluator
         if (ctx.quant()!.mult()) {
           const multExpr = ctx.quant()!.mult()!;
           if (multExpr.LONE_TOK() && result.length > 1) {
+            this.environmentStack.pop();
             const value = false;
             this.cacheResult(ctx, freeVarsKey, value);
             return value;
           }
           if (multExpr.SOME_TOK() && foundTrue) {
+            this.environmentStack.pop();
             const value = true;
             this.cacheResult(ctx, freeVarsKey, value);
             return value;
           }
           if (multExpr.ONE_TOK() && result.length > 1) {
+            this.environmentStack.pop();
             const value = false;
             this.cacheResult(ctx, freeVarsKey, value);
             return value;
           }
         }
       }
+
+      this.environmentStack.pop();
 
       if (ctx.quant()!.ALL_TOK()) {
         const value = !foundFalse;
@@ -1695,19 +1719,19 @@ export class ForgeExprEvaluator
 
       const result: Tuple[] = [];
 
+      // Optimize: create environment once and reuse it
+      const quantDeclEnv: Environment = {
+        env: {},
+        type: "quantDecl",
+      };
+      this.environmentStack.push(quantDeclEnv);
+
       for (let i = 0; i < product.length; i++) {
         const tuple = product[i];
-        const quantDeclEnv: Environment = {
-          env: {},
-          type: "quantDecl",
-        };
+        // Update environment values in place
         for (let j = 0; j < varNames.length; j++) {
-          const varName = varNames[j];
-          const varValue = tuple[j];
-          quantDeclEnv.env[varName] = varValue;
+          quantDeclEnv.env[varNames[j]] = tuple[j];
         }
-
-        this.environmentStack.push(quantDeclEnv);
 
         // now, we want to evaluate the barExpr
         const barExprValue = this.visit(barExpr);
@@ -1718,10 +1742,9 @@ export class ForgeExprEvaluator
           // will error if not boolean val, which we want
           result.push(tuple);
         }
-
-        this.environmentStack.pop();
       }
 
+      this.environmentStack.pop();
       return result;
     }
     if (ctx.LEFT_PAREN_TOK()) {
