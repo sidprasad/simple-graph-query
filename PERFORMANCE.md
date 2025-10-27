@@ -157,7 +157,7 @@ private constructFreeVariableKey(freeVarValues: Record<string, EvalResult>): str
 
 ### 7. Transitive Closure (^) Optimization
 
-**Problem**: The BFS implementation used `queue.shift()` which is O(n) in JavaScript arrays, leading to O(n²) performance for queue operations during graph traversal.
+**Problem**: The BFS implementation used `queue.shift()` which is O(n) in JavaScript arrays. Each shift operation requires moving all remaining elements, making each dequeue operation expensive during graph traversal.
 
 **Solution**: Use index-based queue traversal instead of `shift()` for O(1) queue access.
 

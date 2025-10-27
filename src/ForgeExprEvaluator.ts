@@ -164,10 +164,7 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
 
   // build an adjacency list
   const graph = new Map<SingleValue, Set<SingleValue>>();
-  const allNodes = new Set<SingleValue>();
   for (const [from, to] of pairs) {
-    allNodes.add(from);
-    allNodes.add(to);
     if (!graph.has(from)) {
       graph.set(from, new Set());
     }
