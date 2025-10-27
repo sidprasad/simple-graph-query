@@ -171,21 +171,23 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
     graph.get(from)!.add(to);
   }
 
-  // perform BFS from each node to get the transitive closure
+  // Use more efficient BFS with index-based queue to avoid O(n) shift() operations
   // NOTE: we use Set<string> instead of Set<[SingleValue, SingleValue]> since
   // TS would compute equality over the object's reference instead of the value
   // when the value is an array
-  const transitiveClosure = new Set<string>();
+  const transitiveClosureSet = new Set<string>();
+  
   for (const start of graph.keys()) {
     const visited = new Set<SingleValue>();
     const queue: SingleValue[] = [...(graph.get(start) ?? [])];
-
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    let queueIndex = 0; // Use index instead of shift() for O(1) access
+    
+    while (queueIndex < queue.length) {
+      const current = queue[queueIndex++];
       if (visited.has(current)) continue;
       visited.add(current);
 
-      transitiveClosure.add(JSON.stringify([start, current]));
+      transitiveClosureSet.add(JSON.stringify([start, current]));
 
       const neighbors = graph.get(current);
       if (neighbors) {
@@ -199,7 +201,7 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
   }
 
   // convert the result back to a Tuple[] and return
-  return Array.from(transitiveClosure).map((pair) => JSON.parse(pair));
+  return Array.from(transitiveClosureSet).map((pair) => JSON.parse(pair));
 }
 
 function dotJoin(left: EvalResult, right: EvalResult): EvalResult {
@@ -1545,7 +1547,15 @@ export class ForgeExprEvaluator
       if (isTupleArray(childrenResults)) {
         const transitiveClosureResult = transitiveClosure(childrenResults);
         const idenResult = this.getIden();
-        return deduplicateTuples([...idenResult, ...transitiveClosureResult]);
+        // Optimize: Use Set for efficient deduplication instead of deduplicateTuples
+        const resultSet = new Set<string>();
+        for (const tuple of idenResult) {
+          resultSet.add(tupleToKey(tuple));
+        }
+        for (const tuple of transitiveClosureResult) {
+          resultSet.add(tupleToKey(tuple));
+        }
+        return Array.from(resultSet).map(key => JSON.parse(key));
       }
     }
 

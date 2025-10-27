@@ -112,4 +112,66 @@ describe("Performance tests", () => {
     expect(elapsed).toBeLessThan(100);
     expect(Array.isArray(result)).toBe(true);
   });
+
+  it("efficiently evaluates transitive closure", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const startTime = performance.now();
+    
+    // Test transitive closure on a relation
+    const expr = "^(Game0.next)";
+    const result = evaluatorUtil.evaluateExpression(expr);
+    
+    const endTime = performance.now();
+    const elapsed = endTime - startTime;
+    
+    // Should complete quickly with optimized BFS
+    expect(elapsed).toBeLessThan(100);
+    expect(Array.isArray(result)).toBe(true);
+    // Verify it computed the transitive closure
+    expect((result as Tuple[]).length).toBeGreaterThan(0);
+  });
+
+  it("efficiently evaluates reflexive transitive closure", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const startTime = performance.now();
+    
+    // Test reflexive transitive closure on a relation
+    const expr = "*(Game.next)";
+    const result = evaluatorUtil.evaluateExpression(expr);
+    
+    const endTime = performance.now();
+    const elapsed = endTime - startTime;
+    
+    // Should complete quickly with optimized implementation
+    expect(elapsed).toBeLessThan(150);
+    expect(Array.isArray(result)).toBe(true);
+    // Reflexive transitive closure should include identity elements
+    expect((result as Tuple[]).length).toBeGreaterThan(0);
+  });
+
+  it("efficiently evaluates multiple set comprehensions", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const startTime = performance.now();
+    
+    // Multiple set comprehensions that should benefit from optimized cartesian products
+    const expr1 = "{i: Int | i > 0}";
+    const result1 = evaluatorUtil.evaluateExpression(expr1);
+    
+    const expr2 = "{x, y: Int | x < y}";
+    const result2 = evaluatorUtil.evaluateExpression(expr2);
+    
+    const endTime = performance.now();
+    const elapsed = endTime - startTime;
+    
+    // Should complete quickly with optimized cartesian product
+    expect(elapsed).toBeLessThan(500);
+    expect(Array.isArray(result1)).toBe(true);
+    expect(Array.isArray(result2)).toBe(true);
+  });
 });
