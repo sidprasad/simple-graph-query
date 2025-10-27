@@ -306,11 +306,17 @@ if (this.parseTreeCache.has(forgeExpr)) {
 
 ## Conclusion
 
-These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are:
+These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are organized by optimization category:
 
-1. Many O(n²) operations can be reduced to O(n) or O(n+m) using appropriate data structures (Set and Map)
-2. Avoiding redundant work (parsing, type conversions, object allocations) provides significant benefits
-3. Caching at multiple levels (parsed trees, evaluated sub-expressions) enables fast repeated evaluations
-4. Specialized fast paths for common cases (primitive type conversions) reduce overhead
+### Algorithmic Complexity Improvements (Optimizations 1-8)
+- Many O(n²) operations can be reduced to O(n) or O(n+m) using appropriate data structures (Set and Map)
+- Using index-based iteration instead of array.shift() improves queue operations from O(n) to O(1)
+- Specialized data structures (Maps for joins, Sets for deduplication) provide significant speedups
 
-The changes are backwards compatible and all existing tests pass without modification.
+### Overhead Reduction (Optimization 9)
+- Avoiding redundant work (parsing, type conversions, object allocations) provides significant benefits
+- Caching at multiple levels (parsed trees, evaluated sub-expressions) enables fast repeated evaluations
+- Specialized fast paths for common cases (primitive type conversions) reduce overhead
+- Environment object reuse in loops reduces memory allocation pressure
+
+All changes are backwards compatible and all existing tests pass without modification.
