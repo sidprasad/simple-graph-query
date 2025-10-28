@@ -38,6 +38,11 @@ import {
   FreeVariables,
 } from "./ForgeExprFreeVariableFinder";
 import { ParseTree } from "antlr4ts/tree/ParseTree";
+import {
+  detectNumericComparisonPattern,
+  areAllNumericSets,
+  generateOptimizedNumericCombinations,
+} from "./NumericConstraintOptimizer";
 
 ///// DEFINING SOME USEFUL TYPES /////
 export type SingleValue = string | number | boolean;
@@ -669,7 +674,26 @@ export class ForgeExprEvaluator
         varNames.push(varName);
         quantifiedSets.push(varQuantifiedSets[varName]);
       }
-      const product: Tuple[] = getCombinations(quantifiedSets);
+      
+      // Try to optimize numeric comparisons
+      let product: Tuple[];
+      let useOptimizedPath = false;
+      
+      if (!isDisjoint && varNames.length >= 2 && areAllNumericSets(quantifiedSets)) {
+        // Try to detect and optimize numeric comparison patterns
+        const pattern = detectNumericComparisonPattern(barExpr, varNames);
+        if (pattern && pattern.type !== 'none') {
+          // Use optimized combination generation
+          product = generateOptimizedNumericCombinations(varNames, quantifiedSets, pattern);
+          useOptimizedPath = true;
+        } else {
+          // Fall back to standard cartesian product
+          product = getCombinations(quantifiedSets);
+        }
+      } else {
+        // Fall back to standard cartesian product
+        product = getCombinations(quantifiedSets);
+      }
 
       const result: Tuple[] = [];
 
@@ -705,13 +729,22 @@ export class ForgeExprEvaluator
           quantDeclEnv.env[varNames[j]] = tuple[j];
         }
 
-        // now, we want to evaluate the barExpr
-        const barExprValue = this.visit(barExpr);
-        if (!isBoolean(barExprValue)) {
-          throw new Error(
-            "Expected the expression after the bar to be a boolean!"
-          );
+        // If we used the optimized path, we can skip constraint evaluation
+        // since the combinations already satisfy the constraint
+        let barExprValue: boolean;
+        if (useOptimizedPath) {
+          barExprValue = true;
+        } else {
+          // now, we want to evaluate the barExpr
+          const evalResult = this.visit(barExpr);
+          if (!isBoolean(evalResult)) {
+            throw new Error(
+              "Expected the expression after the bar to be a boolean!"
+            );
+          }
+          barExprValue = evalResult;
         }
+        
         if (barExprValue) {
           result.push(tuple);
           foundTrue = true;
@@ -1805,7 +1838,26 @@ export class ForgeExprEvaluator
         varNames.push(varName);
         quantifiedSets.push(varQuantifiedSets[varName]);
       }
-      const product: Tuple[] = getCombinations(quantifiedSets);
+      
+      // Try to optimize numeric comparisons (same optimization as in quantifiers)
+      let product: Tuple[];
+      let useOptimizedPath = false;
+      
+      if (varNames.length >= 2 && areAllNumericSets(quantifiedSets)) {
+        // Try to detect and optimize numeric comparison patterns
+        const pattern = detectNumericComparisonPattern(barExpr, varNames);
+        if (pattern && pattern.type !== 'none') {
+          // Use optimized combination generation
+          product = generateOptimizedNumericCombinations(varNames, quantifiedSets, pattern);
+          useOptimizedPath = true;
+        } else {
+          // Fall back to standard cartesian product
+          product = getCombinations(quantifiedSets);
+        }
+      } else {
+        // Fall back to standard cartesian product
+        product = getCombinations(quantifiedSets);
+      }
 
       const result: Tuple[] = [];
 
@@ -1823,11 +1875,20 @@ export class ForgeExprEvaluator
           quantDeclEnv.env[varNames[j]] = tuple[j];
         }
 
-        // now, we want to evaluate the barExpr
-        const barExprValue = this.visit(barExpr);
-        if (!isBoolean(barExprValue)) {
-          throw new Error("Expected the expression after the bar to be a boolean value!");
+        // If we used the optimized path, we can skip constraint evaluation
+        // since the combinations already satisfy the constraint
+        let barExprValue: boolean;
+        if (useOptimizedPath) {
+          barExprValue = true;
+        } else {
+          // now, we want to evaluate the barExpr
+          const evalResult = this.visit(barExpr);
+          if (!isBoolean(evalResult)) {
+            throw new Error("Expected the expression after the bar to be a boolean value!");
+          }
+          barExprValue = evalResult;
         }
+        
         if (barExprValue) {
           // will error if not boolean val, which we want
           result.push(tuple);

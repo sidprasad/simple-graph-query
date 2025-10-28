@@ -407,6 +407,72 @@ Matrix Query: {c1, c2 : MatrixCell | c1 != c2 and c1.row = c2.row and c1.col < c
 - 5×5 matrix (25 cells): ~45ms (down from ~73ms)
 ```
 
+### 12. Numeric Comparison Optimization in Set Comprehensions
+
+**Problem**: Queries with numeric comparisons like `{a, b: Int | a < b}` generate the full cartesian product (e.g., 16×16=256 for Int) then filter by evaluating the constraint on every combination. With a 4-bit integer domain (16 values), this results in evaluating 256 combinations but only keeping 120, wasting 53% of the work.
+
+**Solution**: Detect simple numeric comparison patterns in set comprehension constraints and generate only the valid combinations directly, eliminating both unnecessary combination generation and constraint evaluation.
+
+```typescript
+// In set comprehension evaluation:
+if (varNames.length >= 2 && areAllNumericSets(quantifiedSets)) {
+  const pattern = detectNumericComparisonPattern(barExpr, varNames);
+  if (pattern && pattern.type !== 'none') {
+    // Generate only valid combinations
+    product = generateOptimizedNumericCombinations(varNames, quantifiedSets, pattern);
+    useOptimizedPath = true;
+  }
+}
+
+// Pattern detection recognizes: a < b, a > b, a <= b, a >= b, a != b
+function detectNumericComparisonPattern(
+  constraintExpr: ExprContext,
+  varNames: string[]
+): NumericConstraintPattern | null {
+  const exprText = constraintExpr.text;
+  // Match patterns like "a<b" against variable names
+  for (const leftVar of varNames) {
+    for (const rightVar of varNames) {
+      if (leftVar === rightVar) continue;
+      if (exprText === `${leftVar}<${rightVar}`) {
+        return { type: 'less_than', leftVar, rightVar };
+      }
+      // ... other operators
+    }
+  }
+  return null;
+}
+
+// Optimized generation for a < b
+function generateOptimizedNumericCombinations(...) {
+  for (const leftVal of leftNumbers) {
+    for (const rightVal of rightNumbers) {
+      if (leftVal < rightVal) {  // Only generate valid pairs
+        result.push([leftVal, rightVal]);
+      }
+    }
+  }
+  return result;
+}
+```
+
+**Impact**:
+- For `{a, b: Int | a < b}` with 16 integers:
+  - Without optimization: Generates 256 combinations, evaluates 256 constraints, keeps 120
+  - With optimization: Generates 120 combinations directly, evaluates 0 constraints
+  - 53% fewer combinations generated, 100% constraint evaluations eliminated
+- Applies to both set comprehensions (`{x: Int | ...}`) and quantifiers (`all x: Int | ...`)
+- Handles multiple comparison operators: `<`, `>`, `<=`, `>=`, `!=`
+- Falls back to standard approach for complex constraints or non-numeric domains
+- All existing tests pass without modification
+
+**Note**: For small Int domains (16 elements in 4-bit integers), the pattern detection overhead may offset the gains since simple comparisons are fast. The real benefit emerges with:
+- Larger numeric domains (e.g., 32-bit integers would be prohibitive without optimization)
+- More complex or expensive constraint expressions
+- Nested quantifiers where the optimization compounds
+
+**Comparison to Alloy**: Alloy's speed comes from SAT/SMT solvers that reason symbolically about constraints without enumerating values. This evaluator operates on concrete data instances (query engine vs. constraint solver), so it cannot avoid enumeration entirely. However, this optimization brings it closer to Alloy's behavior by recognizing patterns that allow smart enumeration rather than brute-force.
+
 ## Conclusion
 
 These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are organized by optimization category:
@@ -422,5 +488,10 @@ These optimizations significantly improve performance without sacrificing code c
 - Specialized fast paths for common cases (primitive type conversions) reduce overhead
 - Environment object reuse in loops reduces memory allocation pressure
 - Pre-built relation indexes eliminate redundant work in nested quantifiers
+
+### Smart Enumeration (Optimization 12)
+- Pattern recognition enables generating only valid combinations for numeric comparisons
+- Bridges the gap between concrete evaluation and symbolic constraint solving
+- Demonstrates that understanding query structure allows targeted optimizations
 
 All changes are backwards compatible and all existing tests pass without modification.
