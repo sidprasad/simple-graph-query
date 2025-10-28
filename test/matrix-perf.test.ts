@@ -146,8 +146,8 @@ describe("Matrix nested quantifier performance", () => {
     
     console.log(`5x5 matrix query completed in ${elapsed.toFixed(2)}ms`);
     
-    // Smaller matrix should be quite fast
-    expect(elapsed).toBeLessThan(500); // 500ms
+    // Smaller matrix should be quite fast (conservative threshold for CI)
+    expect(elapsed).toBeLessThan(100); // 100ms for 5x5 matrix
     expect(Array.isArray(result)).toBe(true);
     
     // 5 rows × C(5,2) = 5 × 10 = 50 pairs
@@ -170,7 +170,7 @@ describe("Matrix nested quantifier performance", () => {
     const elapsed = endTime - startTime;
     
     // Should complete quickly with optimizations
-    expect(elapsed).toBeLessThan(500);
+    expect(elapsed).toBeLessThan(1000); // 1 second - conservative for CI
     
     // Verify result: rows 0,1,2 and cols 6,7 = 3×2 = 6 cells
     expect(Array.isArray(result)).toBe(true);

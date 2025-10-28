@@ -404,7 +404,7 @@ private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string)
 ```
 Matrix Query: {c1, c2 : MatrixCell | c1 != c2 and c1.row = c2.row and c1.col < c2.col}
 - 16×16 matrix (256 cells): ~3 seconds (down from ~25 seconds)
-- 5×5 matrix (25 cells): ~34ms (down from ~73ms)
+- 5×5 matrix (25 cells): ~45ms (down from ~73ms)
 ```
 
 ## Conclusion
