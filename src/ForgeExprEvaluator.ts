@@ -237,7 +237,8 @@ function dotJoin(left: EvalResult, right: EvalResult): EvalResult {
     throw new Error("Join would create a relation of arity 0");
   }
 
-  return result;
+  // Deduplicate results to ensure set semantics
+  return deduplicateTuples(result);
 }
 
 function bitwidthWraparound(value: number, bitwidth: number): number {
