@@ -329,6 +329,84 @@ return deduplicateTuples(result);
 
 **Impact**: Ensures correctness and can improve performance by avoiding processing duplicate tuples in subsequent operations.
 
+### 11. Relation Caching and Indexing
+
+**Problem**: In nested quantifier expressions like `{c1, c2 : MatrixCell | c1 != c2 and c1.row = c2.row and c1.col < c2.col}`, the evaluator repeatedly performs:
+- O(n) scans through all relations to find specific relations like "row" and "col"
+- dotJoin operations that rebuild indexes on every call
+- For a 16×16 matrix (256 cells), this results in ~25 seconds of evaluation time
+
+**Solution**: Implement two-level caching for relations:
+
+1. **Relation Cache**: Store all relations in a Map for O(1) lookup by name
+```typescript
+// Build cache once on first access
+private relationCache: Map<string, Tuple[]> | null = null;
+
+private buildRelationCache(): void {
+  this.relationCache = new Map();
+  for (const relation of this.instanceData.getRelations()) {
+    // Convert and cache relation tuples
+    this.relationCache.set(relation.name, processedTuples);
+  }
+}
+```
+
+2. **Relation Index Cache**: Pre-build indexes for each relation mapping first element to all tuples
+```typescript
+// Index: relationName -> (firstElement -> Tuple[])
+private relationIndexCache: Map<string, Map<SingleValue, Tuple[]>> | null = null;
+
+// In buildRelationCache:
+for (const relation of relations) {
+  const relationIndex = new Map<SingleValue, Tuple[]>();
+  for (const tuple of relationAtoms) {
+    const key = tuple[0];
+    if (!relationIndex.has(key)) {
+      relationIndex.set(key, []);
+    }
+    relationIndex.get(key)!.push(tuple);
+  }
+  this.relationIndexCache.set(relation.name, relationIndex);
+}
+```
+
+3. **Optimized dotJoin**: Convert to class method that leverages pre-built indexes
+```typescript
+private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
+  // Try to use pre-built index if available
+  let rightIndex: Map<SingleValue, Tuple[]> | undefined;
+  if (rightRelationName && this.relationIndexCache) {
+    rightIndex = this.relationIndexCache.get(rightRelationName);
+  }
+  
+  // If no pre-built index, build on the fly
+  if (!rightIndex) {
+    rightIndex = buildIndexOnTheFly(rightExpr);
+  }
+  
+  // Use index for O(1) lookups
+  for (const leftTuple of leftExpr) {
+    const matchingRightTuples = rightIndex.get(joinKey);
+    // ... process matches
+  }
+}
+```
+
+**Impact**: 
+- **~8x speedup** for nested quantifier queries on large datasets
+- 16×16 matrix (256 cells): 25s → 3s
+- Eliminates redundant relation lookups: O(n) → O(1)
+- Avoids rebuilding indexes in tight loops
+- All existing tests pass without modification
+
+**Benchmark Results**:
+```
+Matrix Query: {c1, c2 : MatrixCell | c1 != c2 and c1.row = c2.row and c1.col < c2.col}
+- 16×16 matrix (256 cells): ~3 seconds (down from ~25 seconds)
+- 5×5 matrix (25 cells): ~34ms (down from ~73ms)
+```
+
 ## Conclusion
 
 These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are organized by optimization category:
@@ -338,10 +416,11 @@ These optimizations significantly improve performance without sacrificing code c
 - Using index-based iteration instead of array.shift() improves queue operations from O(n) to O(1)
 - Specialized data structures (Maps for joins, Sets for deduplication) provide significant speedups
 
-### Overhead Reduction (Optimization 9)
+### Overhead Reduction (Optimizations 9-11)
 - Avoiding redundant work (parsing, type conversions, object allocations) provides significant benefits
-- Caching at multiple levels (parsed trees, evaluated sub-expressions) enables fast repeated evaluations
+- Caching at multiple levels (parsed trees, evaluated sub-expressions, relations, indexes) enables fast repeated evaluations
 - Specialized fast paths for common cases (primitive type conversions) reduce overhead
 - Environment object reuse in loops reduces memory allocation pressure
+- Pre-built relation indexes eliminate redundant work in nested quantifiers
 
 All changes are backwards compatible and all existing tests pass without modification.

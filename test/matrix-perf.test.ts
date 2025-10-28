@@ -121,16 +121,16 @@ describe("Matrix nested quantifier performance", () => {
     console.log(`Query completed in ${elapsed.toFixed(2)}ms`);
     console.log(`Result has ${Array.isArray(result) ? result.length : 0} tuples`);
     
-    // This should complete in a reasonable time (not minutes)
-    // Currently this might be slow, but after optimization should be < 10 seconds
-    expect(elapsed).toBeLessThan(30000); // 30 seconds max
+    // With optimization, should complete much faster than before (~3s vs ~25s)
+    expect(elapsed).toBeLessThan(10000); // 10 seconds max (was 30s before)
     
     // Verify result is correct - should have pairs where same row, different col
+    // For a 16x16 matrix: 16 rows × C(16,2) = 16 × 120 = 1920 pairs
     expect(Array.isArray(result)).toBe(true);
     if (Array.isArray(result)) {
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.length).toBe(1920);
     }
-  }, 60000); // 60 second timeout for this test
+  }, 30000); // 30 second timeout for this test
   
   it("smaller matrix (5x5) should be fast", () => {
     const datum = createMatrixDataInstance(5);
@@ -147,7 +147,60 @@ describe("Matrix nested quantifier performance", () => {
     console.log(`5x5 matrix query completed in ${elapsed.toFixed(2)}ms`);
     
     // Smaller matrix should be quite fast
-    expect(elapsed).toBeLessThan(5000); // 5 seconds
+    expect(elapsed).toBeLessThan(500); // 500ms
     expect(Array.isArray(result)).toBe(true);
-  }, 10000);
+    
+    // 5 rows × C(5,2) = 5 × 10 = 50 pairs
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(50);
+    }
+  }, 5000);
+  
+  it("handles queries with numeric comparisons efficiently", () => {
+    const datum = createMatrixDataInstance(8);
+    const evaluator = new SimpleGraphQueryEvaluator(datum);
+    
+    const startTime = performance.now();
+    
+    // Query with numeric field comparisons
+    const query = "{c : MatrixCell | c.row < 3 and c.col > 5}";
+    const result = evaluator.evaluateExpression(query);
+    
+    const endTime = performance.now();
+    const elapsed = endTime - startTime;
+    
+    // Should complete quickly with optimizations
+    expect(elapsed).toBeLessThan(500);
+    
+    // Verify result: rows 0,1,2 and cols 6,7 = 3×2 = 6 cells
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(6);
+    }
+  }, 5000);
+  
+  it("handles same field comparisons between different variables", () => {
+    const datum = createMatrixDataInstance(6);
+    const evaluator = new SimpleGraphQueryEvaluator(datum);
+    
+    const startTime = performance.now();
+    
+    // Query comparing same field on two different variables
+    const query = "{c1, c2 : MatrixCell | c1.col = c2.col and c1.row < c2.row}";
+    const result = evaluator.evaluateExpression(query);
+    
+    const endTime = performance.now();
+    const elapsed = endTime - startTime;
+    
+    console.log(`Same field comparison query completed in ${elapsed.toFixed(2)}ms`);
+    
+    // Should complete in reasonable time
+    expect(elapsed).toBeLessThan(1000);
+    
+    // Verify result: 6 cols × C(6,2) = 6 × 15 = 90 pairs
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      expect(result.length).toBe(90);
+    }
+  }, 5000);
 });
