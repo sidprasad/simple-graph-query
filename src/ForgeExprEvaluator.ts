@@ -1840,6 +1840,8 @@ export class ForgeExprEvaluator
       }
       
       // Try to optimize numeric comparisons (same optimization as in quantifiers)
+      // Note: Set comprehensions don't support the 'disj' keyword, so we don't check for it here.
+      // Quantifiers do support 'disj', so they check !isDisjoint before optimizing.
       let product: Tuple[];
       let useOptimizedPath = false;
       

@@ -16,6 +16,10 @@ export interface NumericConstraintPattern {
  * Detects if a constraint expression is a simple numeric comparison between two variables.
  * Currently detects patterns like: a < b, a > b, a <= b, a >= b, a != b
  * 
+ * Note: Uses string matching on expression text which is simple but may miss expressions
+ * with extra whitespace or parentheses. This is intentionally conservative - we prefer
+ * to fall back to the standard approach rather than risk incorrect optimization.
+ * 
  * @param constraintExpr The constraint expression to analyze
  * @param varNames The variable names in scope
  * @returns Pattern info if detected, null otherwise
@@ -28,28 +32,32 @@ export function detectNumericComparisonPattern(
   const exprText = constraintExpr.text;
   
   // Check if this is a simple binary comparison between two variables
-  // Pattern: <varName1> <compareOp> <varName2>
+  // Pattern: <varName1><compareOp><varName2> (no whitespace in text representation)
+  // Note: The AST text property concatenates tokens without whitespace
   
   // Try to extract comparison operator and operands
   for (const leftVar of varNames) {
     for (const rightVar of varNames) {
       if (leftVar === rightVar) continue;
       
-      // Check for different comparison operators
-      if (exprText === `${leftVar}<${rightVar}` || exprText === `${leftVar} < ${rightVar}`) {
+      // Check for different comparison operators (whitespace already removed in text)
+      if (exprText === `${leftVar}<${rightVar}`) {
         return { type: 'less_than', leftVar, rightVar };
       }
-      if (exprText === `${leftVar}>${rightVar}` || exprText === `${leftVar} > ${rightVar}`) {
+      if (exprText === `${leftVar}>${rightVar}`) {
         return { type: 'greater_than', leftVar, rightVar };
       }
-      if (exprText === `${leftVar}<=${rightVar}` || exprText === `${leftVar} <= ${rightVar}`) {
+      if (exprText === `${leftVar}<=${rightVar}`) {
         return { type: 'less_equal', leftVar, rightVar };
       }
-      if (exprText === `${leftVar}>=${rightVar}` || exprText === `${leftVar} >= ${rightVar}`) {
+      if (exprText === `${leftVar}>=${rightVar}`) {
         return { type: 'greater_equal', leftVar, rightVar };
       }
-      if (exprText === `${leftVar}!=${rightVar}` || exprText === `${leftVar} != ${rightVar}` ||
-          exprText === `not${leftVar}=${rightVar}` || exprText === `not ${leftVar} = ${rightVar}`) {
+      if (exprText === `${leftVar}!=${rightVar}`) {
+        return { type: 'not_equal', leftVar, rightVar };
+      }
+      // Also check for negated equality: not a = b
+      if (exprText === `not${leftVar}=${rightVar}`) {
         return { type: 'not_equal', leftVar, rightVar };
       }
     }
@@ -74,9 +82,13 @@ export function areAllNumericSets(sets: Tuple[][]): boolean {
 
 /**
  * Extracts numbers from tuples that contain single numbers.
+ * Precondition: This should only be called after areAllNumericSets validation.
  */
 function extractNumbers(tuples: Tuple[]): number[] {
-  return tuples.map(t => t[0] as number);
+  return tuples.map(t => {
+    // Safe to cast because areAllNumericSets guarantees single-number tuples
+    return t[0] as number;
+  });
 }
 
 /**
@@ -103,8 +115,12 @@ export function generateOptimizedNumericCombinations(
   const rightIdx = varIndexMap.get(pattern.rightVar);
   
   if (leftIdx === undefined || rightIdx === undefined) {
-    // Pattern doesn't match our variables, fall back
-    return [];
+    // Pattern variables don't match our variable set - this shouldn't happen
+    // if detectNumericComparisonPattern is working correctly, but return null
+    // to signal that optimization cannot be applied (caller will fall back)
+    throw new Error(
+      `Internal error: Pattern variables ${pattern.leftVar}, ${pattern.rightVar} not found in variable list`
+    );
   }
   
   // Extract numeric values
