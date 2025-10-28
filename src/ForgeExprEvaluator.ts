@@ -204,43 +204,6 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
   return Array.from(transitiveClosureSet).map((pair) => JSON.parse(pair));
 }
 
-function dotJoin(left: EvalResult, right: EvalResult): EvalResult {
-  const leftExpr = isSingleValue(left) ? [[left]] : left;
-  const rightExpr = isSingleValue(right) ? [[right]] : right;
-
-  // Optimize join using a Map for O(n+m) instead of O(n*m) lookup
-  // Group right tuples by their first element for fast lookup
-  const rightIndex = new Map<SingleValue, Tuple[]>();
-  for (const rightTuple of rightExpr) {
-    const key = rightTuple[0];
-    if (!rightIndex.has(key)) {
-      rightIndex.set(key, []);
-    }
-    rightIndex.get(key)!.push(rightTuple);
-  }
-
-  const result: Tuple[] = [];
-  for (const leftTuple of leftExpr) {
-    const joinKey = leftTuple[leftTuple.length - 1];
-    const matchingRightTuples = rightIndex.get(joinKey);
-    if (matchingRightTuples) {
-      for (const rightTuple of matchingRightTuples) {
-        result.push([
-          ...leftTuple.slice(0, leftTuple.length - 1),
-          ...rightTuple.slice(1),
-        ]);
-      }
-    }
-  }
-
-  if (result.some(tuple => tuple.length === 0)) {
-    throw new Error("Join would create a relation of arity 0");
-  }
-
-  // Deduplicate results to ensure set semantics
-  return deduplicateTuples(result);
-}
-
 function bitwidthWraparound(value: number, bitwidth: number): number {
   const modulus = Math.pow(2, bitwidth); // total number of Int values
   const halfValue = Math.pow(2, bitwidth - 1); // halfway point
@@ -285,6 +248,13 @@ export class ForgeExprEvaluator
   private cachedResults: Map<ParseTree, Map<string, EvalResult>> = new Map();
 
   private instanceData: IDataInstance;
+  
+  // Cache for relation lookups to avoid O(n) scans
+  private relationCache: Map<string, Tuple[]> | null = null;
+  
+  // Index for relations: Map<relationName, Map<firstElement, Tuple[]>>
+  // This allows O(1) lookup for patterns like atom.field
+  private relationIndexCache: Map<string, Map<SingleValue, Tuple[]>> | null = null;
 
   constructor(
     datum: IDataInstance,
@@ -300,6 +270,61 @@ export class ForgeExprEvaluator
   }
 
 
+  // helper function to build relation cache and indexes
+  private buildRelationCache(): void {
+    if (this.relationCache !== null) {
+      return; // already built
+    }
+    
+    this.relationCache = new Map();
+    this.relationIndexCache = new Map();
+    const relations = this.instanceData.getRelations();
+    
+    const isConvertibleToNumber = (value: SingleValue) => {
+      return typeof value === "string" && !isNaN(Number(value));
+    };
+    
+    const isConvertibleToBoolean = (value: SingleValue) => {
+      if (typeof value === "boolean") return false; // already boolean
+      return value === "true" || value === "#t" || value === "false" || value === "#f";
+    };
+    
+    const convertToBoolean = (value: SingleValue) => {
+      if (typeof value === "boolean") return value;
+      if (value === "true" || value === "#t") return true;
+      if (value === "false" || value === "#f") return false;
+      throw new Error(`Cannot convert ${value} to boolean`);
+    };
+    
+    for (const relation of relations) {
+      let relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) => tuple.atoms);
+      
+      // Convert numeric and boolean strings to their actual types
+      relationAtoms = relationAtoms.map((tuple) =>
+        tuple.map((value) =>
+          isConvertibleToNumber(value) ? Number(value) : value
+        )
+      );
+      relationAtoms = relationAtoms.map((tuple) =>
+        tuple.map((value) => isConvertibleToBoolean(value) ? convertToBoolean(value) : value)
+      );
+      
+      this.relationCache.set(relation.name, relationAtoms);
+      
+      // Build index for this relation: first element -> all tuples starting with that element
+      const relationIndex = new Map<SingleValue, Tuple[]>();
+      for (const tuple of relationAtoms) {
+        if (tuple.length > 0) {
+          const key = tuple[0];
+          if (!relationIndex.has(key)) {
+            relationIndex.set(key, []);
+          }
+          relationIndex.get(key)!.push(tuple);
+        }
+      }
+      this.relationIndexCache.set(relation.name, relationIndex);
+    }
+  }
 
   //helper function
   private updateFreeVariables(freeVars: FreeVariables) {
@@ -411,6 +436,51 @@ export class ForgeExprEvaluator
     }
     
     return labelNum;
+  }
+
+  // Optimized dotJoin that can use pre-built relation indexes
+  private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
+    const leftExpr = isSingleValue(left) ? [[left]] : left;
+    const rightExpr = isSingleValue(right) ? [[right]] : right;
+
+    // Try to use pre-built index if available
+    let rightIndex: Map<SingleValue, Tuple[]> | undefined;
+    if (rightRelationName && this.relationIndexCache) {
+      rightIndex = this.relationIndexCache.get(rightRelationName);
+    }
+    
+    // If no pre-built index, build one on the fly
+    if (!rightIndex) {
+      rightIndex = new Map<SingleValue, Tuple[]>();
+      for (const rightTuple of rightExpr) {
+        const key = rightTuple[0];
+        if (!rightIndex.has(key)) {
+          rightIndex.set(key, []);
+        }
+        rightIndex.get(key)!.push(rightTuple);
+      }
+    }
+
+    const result: Tuple[] = [];
+    for (const leftTuple of leftExpr) {
+      const joinKey = leftTuple[leftTuple.length - 1];
+      const matchingRightTuples = rightIndex.get(joinKey);
+      if (matchingRightTuples) {
+        for (const rightTuple of matchingRightTuples) {
+          result.push([
+            ...leftTuple.slice(0, leftTuple.length - 1),
+            ...rightTuple.slice(1),
+          ]);
+        }
+      }
+    }
+
+    if (result.some(tuple => tuple.length === 0)) {
+      throw new Error("Join would create a relation of arity 0");
+    }
+
+    // Deduplicate results to ensure set semantics
+    return deduplicateTuples(result);
   }
 
   // helper function
@@ -1422,7 +1492,7 @@ export class ForgeExprEvaluator
       }
 
       // Box join: <expr-a>[<expr-b>] == <expr-b> . <expr-a>
-      return dotJoin(insideBracesExprs, beforeBracesExpr);
+      return this.dotJoin(insideBracesExprs, beforeBracesExpr);
     }
 
     return this.visitChildren(ctx);
@@ -1436,10 +1506,25 @@ export class ForgeExprEvaluator
       if (ctx.expr15() === undefined || ctx.expr16() === undefined) {
         throw new Error("Expected the dot operator to have 2 operands of the right type!");
       }
+      
       const beforeDotExpr = this.visit(ctx.expr15()!);
       const afterDotExpr = this.visit(ctx.expr16()!);
+      
+      // Try to extract the relation name if the right side is a simple identifier/relation name
+      let rightRelationName: string | undefined;
+      // Simple heuristic: check if it's a tuple array (likely a relation)
+      // and if so, try to find which relation it matches
+      if (isTupleArray(afterDotExpr) && this.relationCache) {
+        // Check if this matches any cached relation
+        for (const [relName, relTuples] of this.relationCache.entries()) {
+          if (relTuples === afterDotExpr) {
+            rightRelationName = relName;
+            break;
+          }
+        }
+      }
 
-      return dotJoin(beforeDotExpr, afterDotExpr);
+      return this.dotJoin(beforeDotExpr, afterDotExpr, rightRelationName);
     }
 
     if (ctx.LEFT_SQUARE_TOK()) {
@@ -1932,22 +2017,10 @@ export class ForgeExprEvaluator
     };
     // end of 3 helper functions
 
-    // check if it is a relation
-    const relations = this.instanceData.getRelations();
-    for (const relation of relations) {
-      if (relation.name === identifier) {
-        let relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) => tuple.atoms);
-
-        relationAtoms = relationAtoms.map((tuple) =>
-          tuple.map((value) =>
-            isConvertibleToNumber(value) ? Number(value) : value
-          )
-        );
-        relationAtoms = relationAtoms.map((tuple) =>
-          tuple.map((value) => isConvertibleToBoolean(value) ? convertToBoolean(value) : value)
-        );
-        return relationAtoms;
-      }
+    // check if it is a relation - use cache for faster lookups
+    this.buildRelationCache();
+    if (this.relationCache!.has(identifier)) {
+      return this.relationCache!.get(identifier)!;
     }
 
     if (result !== undefined) {
