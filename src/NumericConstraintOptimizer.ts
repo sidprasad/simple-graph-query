@@ -85,10 +85,7 @@ export function areAllNumericSets(sets: Tuple[][]): boolean {
  * Precondition: This should only be called after areAllNumericSets validation.
  */
 function extractNumbers(tuples: Tuple[]): number[] {
-  return tuples.map(t => {
-    // Safe to cast because areAllNumericSets guarantees single-number tuples
-    return t[0] as number;
-  });
+  return tuples.map(t => t[0] as number);
 }
 
 /**
@@ -116,8 +113,8 @@ export function generateOptimizedNumericCombinations(
   
   if (leftIdx === undefined || rightIdx === undefined) {
     // Pattern variables don't match our variable set - this shouldn't happen
-    // if detectNumericComparisonPattern is working correctly, but return null
-    // to signal that optimization cannot be applied (caller will fall back)
+    // if detectNumericComparisonPattern is working correctly, but throw an error
+    // to prevent incorrect results (caller should have validated pattern matches variables)
     throw new Error(
       `Internal error: Pattern variables ${pattern.leftVar}, ${pattern.rightVar} not found in variable list`
     );
