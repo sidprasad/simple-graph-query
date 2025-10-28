@@ -547,9 +547,6 @@ export class ForgeExprEvaluator
     if (foundAllVars && this.cachedResults.has(ctx)) {
       if (this.cachedResults.get(ctx)!.has(freeVarsKey)) {
         // cache hit!
-        // console.log('cache hit for ctx:', ctx.text);
-        // console.log('freeVarsKey:', freeVarsKey);
-        // console.log('cachedResults:', this.cachedResults.get(ctx));
         return this.cachedResults.get(ctx)!.get(freeVarsKey)!;
       }
     }
@@ -1441,8 +1438,6 @@ export class ForgeExprEvaluator
       }
       const beforeDotExpr = this.visit(ctx.expr15()!);
       const afterDotExpr = this.visit(ctx.expr16()!);
-      // console.log('beforeExpr:', beforeDotExpr);
-      // console.log('afterExpr:', afterDotExpr);
 
       return dotJoin(beforeDotExpr, afterDotExpr);
     }

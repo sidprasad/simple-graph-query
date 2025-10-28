@@ -192,6 +192,11 @@ export class ForgeExprFreeVariableFinder
 
       // we need to get all the vars referenced here other than the vars
       // bound by the quantifier (in quantDeclListVars)
+      
+      // First, get free variables from the quantDeclList itself
+      // (e.g., in "some p2 : c.parent | ...", c is a free variable)
+      const quantDeclListFreeVars = this.visit(ctx.quantDeclList()!);
+      
       const blockOrBar = ctx.blockOrBar();
       if (blockOrBar === undefined) {
         throw new Error("expected to quantify over something!");
@@ -204,12 +209,15 @@ export class ForgeExprFreeVariableFinder
           "Expected the quantifier to have a bar followed by an expr!"
         );
       }
-      let allFreeVars: FreeVariables;
+      let barExprFreeVars: FreeVariables;
       if (blockOrBar.block() !== undefined) {
-        allFreeVars = this.visit(blockOrBar.block()!);
+        barExprFreeVars = this.visit(blockOrBar.block()!);
       } else {
-        allFreeVars = this.visit(blockOrBar.expr()!);
+        barExprFreeVars = this.visit(blockOrBar.expr()!);
       }
+
+      // Merge free variables from quantDeclList and barExpr
+      const allFreeVars = this.aggregateResult(barExprFreeVars, quantDeclListFreeVars);
 
       // the context node for the quantifier as a whole shouldn't have _all_ of these
       // free vars; specifically, it should not include the vars that are being
