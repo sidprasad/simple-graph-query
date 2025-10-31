@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Limit Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        button { padding: 10px 20px; margin: 5px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; }
+        .success { background: #eeffee; border-color: #ccffcc; }
+        .error { background: #ffeeee; border-color: #ffcccc; }
+        .info { background: #eeeeff; border-color: #ccccff; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Memory Limit Test</h1>
+        <p>This page tests the memory management features of the simple-graph-query evaluator.</p>
+        
+        <h3>Test: Small Cache with Complex Query</h3>
+        <button onclick="testSmallCache()">Run Test with Small Cache (10 entries)</button>
+        <div id="smallCacheResult" class="result info">Click button to run test...</div>
+        
+        <h3>Test: Default Cache with Complex Query</h3>
+        <button onclick="testDefaultCache()">Run Test with Default Cache (1000 entries)</button>
+        <div id="defaultCacheResult" class="result info">Click button to run test...</div>
+        
+        <h3>Test: Large Cache with Complex Query</h3>
+        <button onclick="testLargeCache()">Run Test with Large Cache (5000 entries)</button>
+        <div id="largeCacheResult" class="result info">Click button to run test...</div>
+        
+        <h3>Memory Usage (if available)</h3>
+        <button onclick="checkMemory()">Check Memory Usage</button>
+        <div id="memoryResult" class="result info">Click button to check memory...</div>
+    </div>
+
+    <script src="dist/simple-graph-query.bundle.js"></script>
+    <script>
+        // Create a test data instance with MatrixCell atoms
+        function createMatrixData(size) {
+            const matrixCellAtoms = [];
+            const rowTuples = [];
+            const colTuples = [];
+            
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const cellId = `Cell_${i}_${j}`;
+                    matrixCellAtoms.push({
+                        "_": "atom",
+                        id: cellId,
+                        type: "MatrixCell"
+                    });
+                    
+                    rowTuples.push({
+                        atoms: [cellId, String(i)],
+                        types: ["MatrixCell", "Int"]
+                    });
+                    
+                    colTuples.push({
+                        atoms: [cellId, String(j)],
+                        types: ["MatrixCell", "Int"]
+                    });
+                }
+            }
+            
+            return {
+                parsed: {
+                    instances: [{
+                        types: {
+                            "MatrixCell": {
+                                "_": "type",
+                                "id": "MatrixCell",
+                                "types": ["MatrixCell"],
+                                "atoms": matrixCellAtoms,
+                                "isBuiltin": false
+                            }
+                        },
+                        relations: {
+                            "row": {
+                                "_": "relation",
+                                "id": "row",
+                                "name": "row",
+                                "types": ["MatrixCell", "Int"],
+                                "tuples": rowTuples
+                            },
+                            "col": {
+                                "_": "relation",
+                                "id": "col",
+                                "name": "col",
+                                "types": ["MatrixCell", "Int"],
+                                "tuples": colTuples
+                            }
+                        },
+                        skolems: {}
+                    }],
+                    bitwidth: 4
+                },
+                data: "<alloy>Matrix data</alloy>"
+            };
+        }
+
+        function runComplexQuery(cacheSize, resultElementId) {
+            const resultDiv = document.getElementById(resultElementId);
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = '<p>Running query...</p>';
+            
+            try {
+                const matrixSize = 8; // 8x8 = 64 cells
+                const datum = createMatrixData(matrixSize);
+                
+                console.log(`Testing with ${matrixSize}x${matrixSize} matrix, cache size: ${cacheSize}`);
+                
+                const startTime = performance.now();
+                
+                // Create evaluator with specified cache size
+                const evaluator = new SimpleGraphQuery.SimpleGraphQueryEvaluator(datum, cacheSize);
+                
+                // Complex query that will stress the cache
+                const query = "{c1, c2 : MatrixCell | c1 != c2 and c1.row = c2.row}";
+                const result = evaluator.evaluateExpression(query);
+                
+                const endTime = performance.now();
+                const elapsed = (endTime - startTime).toFixed(2);
+                
+                if (result.error) {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h4>Error:</h4>
+                        <p>${result.error.message}</p>
+                    `;
+                } else {
+                    const resultCount = Array.isArray(result) ? result.length : 'N/A';
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h4>Success!</h4>
+                        <p><strong>Matrix Size:</strong> ${matrixSize}x${matrixSize} (${matrixSize * matrixSize} cells)</p>
+                        <p><strong>Cache Size:</strong> ${cacheSize} entries</p>
+                        <p><strong>Query:</strong> ${query}</p>
+                        <p><strong>Time:</strong> ${elapsed}ms</p>
+                        <p><strong>Results:</strong> ${resultCount} tuples</p>
+                        <p><strong>Status:</strong> Query completed without crashing! 🎉</p>
+                    `;
+                    console.log(`Query completed in ${elapsed}ms with ${resultCount} results`);
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h4>Error:</h4>
+                    <p>${error.message}</p>
+                    <pre>${error.stack}</pre>
+                `;
+                console.error('Test failed:', error);
+            }
+        }
+
+        function testSmallCache() {
+            runComplexQuery(10, 'smallCacheResult');
+        }
+
+        function testDefaultCache() {
+            runComplexQuery(1000, 'defaultCacheResult');
+        }
+
+        function testLargeCache() {
+            runComplexQuery(5000, 'largeCacheResult');
+        }
+
+        function checkMemory() {
+            const resultDiv = document.getElementById('memoryResult');
+            
+            if (performance.memory) {
+                const used = (performance.memory.usedJSHeapSize / 1048576).toFixed(2);
+                const total = (performance.memory.totalJSHeapSize / 1048576).toFixed(2);
+                const limit = (performance.memory.jsHeapSizeLimit / 1048576).toFixed(2);
+                
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h4>Memory Usage:</h4>
+                    <p><strong>Used:</strong> ${used} MB</p>
+                    <p><strong>Total:</strong> ${total} MB</p>
+                    <p><strong>Limit:</strong> ${limit} MB</p>
+                    <p><em>Note: This API is only available in Chrome/Chromium browsers.</em></p>
+                `;
+            } else {
+                resultDiv.className = 'result info';
+                resultDiv.innerHTML = `
+                    <p>Memory API not available in this browser.</p>
+                    <p>Try opening this page in Chrome/Chromium to see memory usage.</p>
+                `;
+            }
+        }
+
+        // Test loading on page load
+        window.onload = function() {
+            console.log('Page loaded. SimpleGraphQuery available:', typeof SimpleGraphQuery !== 'undefined');
+            if (typeof SimpleGraphQuery !== 'undefined') {
+                console.log('SimpleGraphQueryEvaluator:', typeof SimpleGraphQuery.SimpleGraphQueryEvaluator);
+            }
+        };
+    </script>
+</body>
+</html>
