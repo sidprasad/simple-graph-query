@@ -285,33 +285,17 @@ export class ForgeExprEvaluator
     this.relationIndexCache = new Map();
     const relations = this.instanceData.getRelations();
     
-    const isConvertibleToNumber = (value: SingleValue) => {
-      return typeof value === "string" && !isNaN(Number(value));
-    };
-    
-    const isConvertibleToBoolean = (value: SingleValue) => {
-      if (typeof value === "boolean") return false; // already boolean
-      return value === "true" || value === "#t" || value === "false" || value === "#f";
-    };
-    
-    const convertToBoolean = (value: SingleValue) => {
-      if (typeof value === "boolean") return value;
-      if (value === "true" || value === "#t") return true;
-      if (value === "false" || value === "#f") return false;
-      throw new Error(`Cannot convert ${value} to boolean`);
-    };
-    
     for (const relation of relations) {
       let relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) => tuple.atoms);
       
       // Convert numeric and boolean strings to their actual types
       relationAtoms = relationAtoms.map((tuple) =>
         tuple.map((value) =>
-          isConvertibleToNumber(value) ? Number(value) : value
+          this.isConvertibleToNumber(value) ? Number(value) : value
         )
       );
       relationAtoms = relationAtoms.map((tuple) =>
-        tuple.map((value) => isConvertibleToBoolean(value) ? convertToBoolean(value) : value)
+        tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
       );
       
       this.relationCache.set(relation.name, relationAtoms);
@@ -441,6 +425,42 @@ export class ForgeExprEvaluator
     }
     
     return labelNum;
+  }
+
+  // Helper function to check if a value can be converted to a number
+  private isConvertibleToNumber(value: SingleValue): boolean {
+    if (typeof value === "number") {
+      return true;
+    }
+    if (typeof value === "string") {
+      return !isNaN(Number(value));
+    }
+    return false;
+  }
+
+  // Helper function to check if a value can be converted to a boolean
+  private isConvertibleToBoolean(value: SingleValue): boolean {
+    if (typeof value === "boolean") {
+      return true;
+    }
+    if (typeof value === "string") {
+      return (value === "true" || value === "#t" || value === "false" || value === "#f");
+    }
+    return false;
+  }
+
+  // Helper function to convert a value to boolean
+  private convertToBoolean(value: SingleValue): boolean {
+    if (typeof value === "boolean") {
+      return value;
+    }
+    if (value === "true" || value === "#t") {
+      return true;
+    }
+    if (value === "false" || value === "#f") {
+      return false;
+    }
+    throw new Error(`Cannot convert ${value} to boolean`);
   }
 
   // Optimized dotJoin that can use pre-built relation indexes
@@ -1786,47 +1806,13 @@ export class ForgeExprEvaluator
         const atoms = this.instanceData.getAtoms();
         const idenRelation: Tuple[] = [];
         
-        // Helper functions for type conversion (same as in visitName)
-        const isConvertibleToNumber = (value: SingleValue) => {
-          if (typeof value === "number") {
-            return true;
-          }
-          if (typeof value === "string") {
-            return !isNaN(Number(value));
-          }
-          return false;
-        };
-
-        const isConvertibleToBoolean = (value: SingleValue) => {
-          if (typeof value === "boolean") {
-            return true;
-          }
-          if (typeof value === "string") {
-            return (value === "true" || value === "#t" || value === "false" || value === "#f");
-          }
-          return false;
-        };
-
-        const convertToBoolean = (value: SingleValue) => {
-          if (typeof value === "boolean") {
-            return value;
-          }
-          if (value === "true" || value === "#t") {
-            return true;
-          }
-          if (value === "false" || value === "#f") {
-            return false;
-          }
-          throw new Error(`Cannot convert ${value} to boolean`);
-        };
-        
         for (const atom of atoms) {
           let atomValue: SingleValue = atom.id;
           // Convert numeric and boolean strings to their actual types
-          if (isConvertibleToNumber(atomValue)) {
+          if (this.isConvertibleToNumber(atomValue)) {
             atomValue = Number(atomValue);
-          } else if (isConvertibleToBoolean(atomValue)) {
-            atomValue = convertToBoolean(atomValue);
+          } else if (this.isConvertibleToBoolean(atomValue)) {
+            atomValue = this.convertToBoolean(atomValue);
           }
           idenRelation.push([atomValue, atomValue]);
         }
@@ -2098,40 +2084,7 @@ export class ForgeExprEvaluator
       }
     }
 
-    // defining 3 helper functions here; not for use elsewhere
-    const isConvertibleToNumber = (value: SingleValue) => {
-      if (typeof value === "number") {
-        return true;
-      }
-      if (typeof value === "string") {
-        return !isNaN(Number(value));
-      }
-      return false;
-    };
-
-    const isConvertibleToBoolean = (value: SingleValue) => {
-      if (typeof value === "boolean") {
-        return true;
-      }
-      if (typeof value === "string") {
-        return (value === "true" || value === "#t" || value === "false" || value === "#f");
-      }
-      return false;
-    };
-
-    const convertToBoolean = (value: SingleValue) => {
-      if (typeof value === "boolean") {
-        return value;
-      }
-      if (value === "true" || value === "#t") {
-        return true;
-      }
-      if (value === "false" || value === "#f") {
-        return false;
-      }
-      throw new Error(`Cannot convert ${value} to boolean`);
-    };
-    // end of 3 helper functions
+    // end of type search
 
     // check if it is a relation - use cache for faster lookups
     this.buildRelationCache();
@@ -2142,11 +2095,11 @@ export class ForgeExprEvaluator
     if (result !== undefined) {
       result = result.map((tuple) =>
         tuple.map((value) =>
-          isConvertibleToNumber(value) ? Number(value) : value
+          this.isConvertibleToNumber(value) ? Number(value) : value
         )
       );
       result = result.map((tuple) =>
-        tuple.map((value) => isConvertibleToBoolean(value) ? convertToBoolean(value) : value)
+        tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
       );
       return result;
     }
