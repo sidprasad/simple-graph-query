@@ -11,11 +11,6 @@ describe("Query Rewriter - Unit Tests", () => {
     const expr = "{a, b: univ | a.f = b}";
     const result = rewriter.rewrite(expr);
     
-    console.log("Input:", expr);
-    console.log("Rewritten:", result.rewritten);
-    console.log("Expression:", result.expression);
-    console.log("Pattern:", result.patternApplied);
-    
     expect(result.rewritten).toBe(true);
     expect(result.expression).toBe("f");
   });
@@ -23,11 +18,6 @@ describe("Query Rewriter - Unit Tests", () => {
   it("should detect and rewrite membership in join pattern", () => {
     const expr = "{a, b: univ | a->b in r}";
     const result = rewriter.rewrite(expr);
-    
-    console.log("Input:", expr);
-    console.log("Rewritten:", result.rewritten);
-    console.log("Expression:", result.expression);
-    console.log("Pattern:", result.patternApplied);
     
     expect(result.rewritten).toBe(true);
     expect(result.expression).toBe("r");
@@ -37,11 +27,6 @@ describe("Query Rewriter - Unit Tests", () => {
     const expr = "{a, b: univ | a!=b and a->b in r}";
     const result = rewriter.rewrite(expr);
     
-    console.log("Input:", expr);
-    console.log("Rewritten:", result.rewritten);
-    console.log("Expression:", result.expression);
-    console.log("Pattern:", result.patternApplied);
-    
     expect(result.rewritten).toBe(true);
     expect(result.expression).toBe("r - iden");
   });
@@ -49,10 +34,6 @@ describe("Query Rewriter - Unit Tests", () => {
   it("should not rewrite non-matching patterns", () => {
     const expr = "{a, b, c: univ | a.f = b and b.g = c}";
     const result = rewriter.rewrite(expr);
-    
-    console.log("Input:", expr);
-    console.log("Rewritten:", result.rewritten);
-    console.log("Expression:", result.expression);
     
     expect(result.rewritten).toBe(false);
     expect(result.expression).toBe(expr);

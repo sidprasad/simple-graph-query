@@ -67,7 +67,7 @@ export class SimpleGraphQueryEvaluator {
       }
     }
 
-    // Check cache first (use original expression as key since rewrites are deterministic)
+    // Check cache first using the expression to evaluate (after rewriting)
     let tree: ExprContext;
     if (this.parseTreeCache.has(expressionToEvaluate)) {
       tree = this.parseTreeCache.get(expressionToEvaluate)!;
