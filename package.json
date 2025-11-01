@@ -1,6 +1,6 @@
 {
   "name": "simple-graph-query",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "description": "TypeScript evaluator for Forge expressions with browser-compatible UMD bundle",
   "main": "dist/simple-graph-query.bundle.js",
   "types": "dist/index.d.ts",
