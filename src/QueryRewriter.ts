@@ -73,7 +73,8 @@ export class QueryRewriter {
   } | null {
     // Pattern: {vars: domain | constraint}
     // Allow spaces around the colon and bar
-    const pattern = /^\{([^:]+):\s*([^|]+)\s*\|\s*(.+)\}$/;
+    // Limit quantifiers to prevent ReDoS - max 10 spaces
+    const pattern = /^\{([^:]+):[ \t]{0,10}([^|]+?)[ \t]{0,10}\|[ \t]{0,10}(.+?)\}$/;
     const match = expr.match(pattern);
     
     if (!match) {
