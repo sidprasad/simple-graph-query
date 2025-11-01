@@ -1819,6 +1819,25 @@ export class ForgeExprEvaluator
         
         return idenRelation;
       }
+      // Handle univ (universal relation - all atoms)
+      if (constant.UNIV_TOK() !== undefined) {
+        // The universal relation contains all atoms as unary tuples
+        const atoms = this.instanceData.getAtoms();
+        const univRelation: Tuple[] = [];
+        
+        for (const atom of atoms) {
+          let atomValue: SingleValue = atom.id;
+          // Convert numeric and boolean strings to their actual types
+          if (this.isConvertibleToNumber(atomValue)) {
+            atomValue = Number(atomValue);
+          } else if (this.isConvertibleToBoolean(atomValue)) {
+            atomValue = this.convertToBoolean(atomValue);
+          }
+          univRelation.push([atomValue]);
+        }
+        
+        return univRelation;
+      }
       // Handle boolean constants
       if (constant.text === 'true') {
         return true;

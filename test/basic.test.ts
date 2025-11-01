@@ -518,5 +518,59 @@ describe("sgq-evaluator ", () => {
     const result = evaluatorUtil.evaluateExpression(expr);
     expect(areEquivalentTupleArrays(result, [["X0"]])).toBe(true);
   });
+
+  it("can evaluate univ (universal relation)", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // univ should contain all atoms in the universe as unary tuples
+    const result = evaluatorUtil.evaluateExpression("univ");
+    
+    // Verify that result is a Tuple[]
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      // Each tuple should have arity 1 (unary)
+      expect(result.every((tuple) => tuple.length === 1)).toBe(true);
+      
+      // The number of tuples should equal the number of atoms in the universe
+      const atoms = datum.getAtoms();
+      expect(result.length).toBe(atoms.length);
+      
+      // All atoms should be present in univ
+      const atomIds = new Set(atoms.map(a => a.id));
+      const resultAtoms = new Set(result.map((tuple) => tuple[0]));
+      // Convert numeric strings to numbers for comparison
+      atoms.forEach(atom => {
+        const atomId = atom.id;
+        const numericId = !isNaN(Number(atomId)) ? Number(atomId) : atomId;
+        expect(resultAtoms.has(atomId) || resultAtoms.has(numericId)).toBe(true);
+      });
+    }
+  });
+
+  it("can use univ in relational operations", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // Test that X0 is in univ
+    const expr1 = "X0 in univ";
+    const result1 = evaluatorUtil.evaluateExpression(expr1);
+    expect(result1).toBe(true);
+    
+    // Test that Board0 is in univ
+    const expr2 = "Board0 in univ";
+    const result2 = evaluatorUtil.evaluateExpression(expr2);
+    expect(result2).toBe(true);
+  });
+
+  it("can use univ with set operations", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // univ should be a superset of any type
+    const expr = "X in univ";
+    const result = evaluatorUtil.evaluateExpression(expr);
+    expect(result).toBe(true);
+  });
   
 });
