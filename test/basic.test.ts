@@ -472,5 +472,51 @@ describe("sgq-evaluator ", () => {
     expect(evaluatorUtil.evaluateExpression(differentLabels)).toBe(false);
   });
 
+  it("can evaluate iden (identity relation)", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // iden should contain (x, x) for every atom x in the universe
+    const result = evaluatorUtil.evaluateExpression("iden");
+    
+    // Verify that result is a Tuple[]
+    expect(Array.isArray(result)).toBe(true);
+    if (Array.isArray(result)) {
+      // Each tuple should have arity 2
+      expect(result.every((tuple) => tuple.length === 2)).toBe(true);
+      
+      // Each tuple should have the form (x, x)
+      expect(result.every((tuple) => tuple[0] === tuple[1])).toBe(true);
+      
+      // The number of tuples should equal the number of atoms in the universe
+      const atoms = datum.getAtoms();
+      expect(result.length).toBe(atoms.length);
+    }
+  });
+
+  it("can use iden in relational operations", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // Test that X0->X0 is in iden
+    const expr1 = "X0->X0 in iden";
+    const result1 = evaluatorUtil.evaluateExpression(expr1);
+    expect(result1).toBe(true);
+    
+    // Test that X0->O0 is NOT in iden
+    const expr2 = "X0->O0 in iden";
+    const result2 = evaluatorUtil.evaluateExpression(expr2);
+    expect(result2).toBe(false);
+  });
+
+  it("can use iden with join operations", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+    
+    // X0.iden should give X0
+    const expr = "X0.iden";
+    const result = evaluatorUtil.evaluateExpression(expr);
+    expect(areEquivalentTupleArrays(result, [["X0"]])).toBe(true);
+  });
   
 });

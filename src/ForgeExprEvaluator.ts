@@ -1780,6 +1780,59 @@ export class ForgeExprEvaluator
         // }
         return value;
       }
+      // Handle iden (identity relation)
+      if (constant.IDEN_TOK() !== undefined) {
+        // The identity relation contains tuples (x, x) for every atom x in the universe
+        const atoms = this.instanceData.getAtoms();
+        const idenRelation: Tuple[] = [];
+        
+        // Helper functions for type conversion (same as in visitName)
+        const isConvertibleToNumber = (value: SingleValue) => {
+          if (typeof value === "number") {
+            return true;
+          }
+          if (typeof value === "string") {
+            return !isNaN(Number(value));
+          }
+          return false;
+        };
+
+        const isConvertibleToBoolean = (value: SingleValue) => {
+          if (typeof value === "boolean") {
+            return true;
+          }
+          if (typeof value === "string") {
+            return (value === "true" || value === "#t" || value === "false" || value === "#f");
+          }
+          return false;
+        };
+
+        const convertToBoolean = (value: SingleValue) => {
+          if (typeof value === "boolean") {
+            return value;
+          }
+          if (value === "true" || value === "#t") {
+            return true;
+          }
+          if (value === "false" || value === "#f") {
+            return false;
+          }
+          throw new Error(`Cannot convert ${value} to boolean`);
+        };
+        
+        for (const atom of atoms) {
+          let atomValue: SingleValue = atom.id;
+          // Convert numeric and boolean strings to their actual types
+          if (isConvertibleToNumber(atomValue)) {
+            atomValue = Number(atomValue);
+          } else if (isConvertibleToBoolean(atomValue)) {
+            atomValue = convertToBoolean(atomValue);
+          }
+          idenRelation.push([atomValue, atomValue]);
+        }
+        
+        return idenRelation;
+      }
       // Handle boolean constants
       if (constant.text === 'true') {
         return true;
