@@ -239,6 +239,55 @@ export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
 );
 
 /**
+ * Simple LRU cache implementation to limit memory usage
+ */
+class LRUCache<K, V> {
+  private maxSize: number;
+  private cache: Map<K, V>;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+    this.cache = new Map();
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) {
+      return undefined;
+    }
+    // Move to end (most recently used)
+    const value = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    // If key exists, delete it first to reinsert at end
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    // If at capacity, remove least recently used (first item)
+    else if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value as K;
+      this.cache.delete(firstKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  get size(): number {
+    return this.cache.size;
+  }
+}
+
+/**
  * A recursive evaluator for Forge expressions.
  * This visitor walks the parse tree and prints the type of operation encountered.
  */
@@ -250,7 +299,8 @@ export class ForgeExprEvaluator
   private freeVariables: FreeVariables;
   // NOTE: strings will be of the format "<var-name>=<value>|..." sorted in
   // increasing lexicographic order of variable names
-  private cachedResults: Map<ParseTree, Map<string, EvalResult>> = new Map();
+  private cachedResults: LRUCache<ParseTree, Map<string, EvalResult>>;
+  private maxCacheSize: number;
 
   private instanceData: IDataInstance;
   
@@ -263,9 +313,12 @@ export class ForgeExprEvaluator
 
   constructor(
     datum: IDataInstance,
+    maxCacheSize: number = 1000
   ) {
     super();
     this.instanceData = datum;
+    this.maxCacheSize = maxCacheSize;
+    this.cachedResults = new LRUCache(maxCacheSize);
 
     this.environmentStack = [];
     this.freeVariableFinder = new ForgeExprFreeVariableFinder(
