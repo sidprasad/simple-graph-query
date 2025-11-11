@@ -4,6 +4,20 @@ import { IDataInstance, IAtom } from "./types";
 
 export type AtomReference = IAtom | string | number | boolean;
 
+/**
+ * Identifies which approach produced the synthesized expression. Consumers can
+ * use this to explain results or to decide whether they want to accept a
+ * fallback literal description.
+ *
+ * - `covering` expressions come from intersecting cached unary features and are
+ *   the preferred, most general descriptions.
+ * - `primitive` expressions are unions of literal primitives when every atom
+ *   reference is already a number, boolean, or string.
+ * - `builtin` expressions are Alloy-style builtins such as `none` that exactly
+ *   describe the selection without referencing any atoms.
+ * - `fallback` expressions enumerate the selected atoms when no abstract
+ *   description fits the bounded instance.
+ */
 export type SynthesisStrategy = "covering" | "primitive" | "builtin" | "fallback";
 
 export interface SynthesizedExpression {
