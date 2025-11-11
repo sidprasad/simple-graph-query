@@ -26,7 +26,7 @@ describe("ExpressionSynthesizer", () => {
     return evaluation as Tuple[];
   }
 
-  it("returns a type when the atoms match exactly", () => {
+  it("returns a covering feature when the atoms match exactly", () => {
     const datum = new LabelTestDataInstance();
     const nodeType = datum.getTypes().find((t) => t.id === "Node");
     expect(nodeType).toBeDefined();
@@ -34,14 +34,14 @@ describe("ExpressionSynthesizer", () => {
     const synthesizer = new ExpressionSynthesizer(datum);
     const result = synthesizer.synthesize(nodeType!.atoms);
 
-    expect(result.strategy).toBe("type");
+    expect(result.strategy).toBe("covering");
     expect(result.expression).toBe("Node");
 
     const evaluation = evaluateExpression(result.expression, datum);
     expect(areTupleArraysEqual(evaluation, normalizeAtoms(nodeType!.atoms))).toBe(true);
   });
 
-  it("combines existing relations with set operations before falling back", () => {
+  it("combines features using unions to describe selections", () => {
     const datum = new LabelTestDataInstance();
     const colorType = datum.getTypes().find((t) => t.id === "Color");
     const noneType = datum.getTypes().find((t) => t.id === "None");
@@ -53,7 +53,7 @@ describe("ExpressionSynthesizer", () => {
     const atoms = [...colorType!.atoms, ...noneType!.atoms];
     const result = synthesizer.synthesize(atoms);
 
-    expect(result.strategy).toBe("combination");
+    expect(result.strategy).toBe("covering");
     expect(result.expression).toBe("Color + None");
 
     const evaluation = evaluateExpression(result.expression, datum);
