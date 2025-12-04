@@ -101,3 +101,5 @@ export class SimpleGraphQueryEvaluator {
     }
   }
 }
+
+export { synthesizeSelector, AtomSelectionExample, SelectorSynthesisError } from './SelectorSynthesizer';

@@ -1,0 +1,240 @@
+import { synthesizeSelector, SelectorSynthesisError } from "../src";
+import { IDataInstance, IAtom, IType, IRelation } from "../src/types";
+import { SimpleGraphQueryEvaluator } from "../src";
+
+type RelationlessInstanceConfig = {
+  typeId: string;
+  atomIds: string[];
+  subtypeAssignments?: Record<string, string[]>; // subtype -> atom ids
+};
+
+class RelationlessInstance implements IDataInstance {
+  private _types: IType[];
+
+  constructor(config: RelationlessInstanceConfig) {
+    const rootType: IType = {
+      id: config.typeId,
+      types: [config.typeId],
+      atoms: config.atomIds.map((id) => ({ id, type: config.typeId, label: id })),
+      isBuiltin: false,
+    };
+
+    this._types = [rootType];
+
+    if (config.subtypeAssignments) {
+      for (const [subtype, atoms] of Object.entries(config.subtypeAssignments)) {
+        this._types.push({
+          id: subtype,
+          types: [subtype, config.typeId],
+          atoms: atoms.map((id) => ({ id, type: subtype, label: id })),
+          isBuiltin: false,
+        });
+      }
+    }
+  }
+
+  getAtomType(id: string): IType {
+    const match = this._types.find((type) => type.atoms.some((atom) => atom.id === id));
+    if (!match) {
+      throw new Error(`Missing atom ${id}`);
+    }
+    return match;
+  }
+
+  getTypes(): readonly IType[] {
+    return this._types;
+  }
+
+  getAtoms(): readonly IAtom[] {
+    return this._types.flatMap((t) => t.atoms);
+  }
+
+  getRelations(): readonly IRelation[] {
+    return [];
+  }
+}
+
+type RelationInstanceConfig = {
+  nodeIds: string[];
+  rootIds: string[];
+  relationName: string;
+  edges: Array<[string, string]>;
+};
+
+class RelationInstance implements IDataInstance {
+  private _types: IType[];
+  private _relations: IRelation[];
+
+  constructor(config: RelationInstanceConfig) {
+    const nodeType: IType = {
+      id: "Node",
+      types: ["Node"],
+      atoms: config.nodeIds.map((id) => ({ id, type: "Node", label: id })),
+      isBuiltin: false,
+    };
+
+    const rootType: IType = {
+      id: "Root",
+      types: ["Root", "Node"],
+      atoms: config.rootIds.map((id) => ({ id, type: "Root", label: id })),
+      isBuiltin: false,
+    };
+
+    this._types = [nodeType, rootType];
+
+    this._relations = [
+      {
+        id: config.relationName,
+        name: config.relationName,
+        types: ["Node", "Node"],
+        tuples: config.edges.map(([from, to]) => ({ atoms: [from, to], types: ["Node", "Node"] })),
+      },
+    ];
+  }
+
+  getAtomType(id: string): IType {
+    const match = this._types.find((type) => type.atoms.some((atom) => atom.id === id));
+    if (!match) {
+      throw new Error(`Missing atom ${id}`);
+    }
+    return match;
+  }
+
+  getTypes(): readonly IType[] {
+    return this._types;
+  }
+
+  getAtoms(): readonly IAtom[] {
+    return this._types.flatMap((t) => t.atoms);
+  }
+
+  getRelations(): readonly IRelation[] {
+    return this._relations;
+  }
+}
+
+function toAtomSet(ids: string[], instance: IDataInstance): Set<IAtom> {
+  const atomMap = new Map(instance.getAtoms().map((a) => [a.id, a] as const));
+  return new Set(ids.map((id) => {
+    const atom = atomMap.get(id);
+    if (!atom) {
+      throw new Error(`Missing atom ${id} in instance`);
+    }
+    return atom;
+  }));
+}
+
+function evaluationToSet(result: unknown): Set<string> {
+  if (!Array.isArray(result)) {
+    throw new Error("Expected evaluation result to be an array");
+  }
+  const collected = new Set<string>();
+  for (const tuple of result) {
+    if (!Array.isArray(tuple) || tuple.length !== 1 || typeof tuple[0] !== "string") {
+      throw new Error("Expected unary tuple results");
+    }
+    collected.add(tuple[0]);
+  }
+  return collected;
+}
+
+describe("selector synthesis", () => {
+  it("produces a shared type expression", () => {
+    const datumA = new RelationlessInstance({ typeId: "Thing", atomIds: ["a1", "a2"] });
+    const datumB = new RelationlessInstance({ typeId: "Thing", atomIds: ["b1"] });
+
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["a1", "a2"], datumA), datum: datumA },
+      { atoms: toAtomSet(["b1"], datumB), datum: datumB },
+    ]);
+
+    expect(selector).toBe("Thing");
+
+    const evalA = new SimpleGraphQueryEvaluator(datumA).evaluateExpression(selector);
+    const evalB = new SimpleGraphQueryEvaluator(datumB).evaluateExpression(selector);
+
+    expect(evaluationToSet(evalA)).toEqual(new Set(["a1", "a2"]));
+    expect(evaluationToSet(evalB)).toEqual(new Set(["b1"]));
+  });
+
+  it("unions multiple identifiers to satisfy all examples", () => {
+    const datumA = new RelationlessInstance({
+      typeId: "Thing",
+      atomIds: ["x1", "y1", "z1"],
+      subtypeAssignments: {
+        Alpha: ["x1"],
+        Beta: ["y1"],
+        Gamma: ["z1"],
+      },
+    });
+
+    const datumB = new RelationlessInstance({
+      typeId: "Thing",
+      atomIds: ["x2", "y2", "z2"],
+      subtypeAssignments: {
+        Alpha: ["x2"],
+        Beta: ["y2"],
+        Gamma: ["z2"],
+      },
+    });
+
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["x1", "z1"], datumA), datum: datumA },
+      { atoms: toAtomSet(["x2", "z2"], datumB), datum: datumB },
+    ]);
+
+    const evaluatorA = new SimpleGraphQueryEvaluator(datumA);
+    const evaluatorB = new SimpleGraphQueryEvaluator(datumB);
+
+    const resultA = evaluatorA.evaluateExpression(selector);
+    const resultB = evaluatorB.evaluateExpression(selector);
+
+    expect(evaluationToSet(resultA)).toEqual(new Set(["x1", "z1"]));
+    expect(evaluationToSet(resultB)).toEqual(new Set(["x2", "z2"]));
+  });
+
+  it("composes joins and transitive closure to reach descendants", () => {
+    const datumA = new RelationInstance({
+      nodeIds: ["n1", "n2", "n3", "n4"],
+      rootIds: ["n1"],
+      relationName: "edge",
+      edges: [
+        ["n1", "n2"],
+        ["n2", "n3"],
+      ],
+    });
+
+    const datumB = new RelationInstance({
+      nodeIds: ["a", "b", "c", "d", "e"],
+      rootIds: ["a"],
+      relationName: "edge",
+      edges: [
+        ["a", "b"],
+        ["b", "c"],
+        ["c", "d"],
+      ],
+    });
+
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["n2", "n3"], datumA), datum: datumA },
+      { atoms: toAtomSet(["b", "c", "d"], datumB), datum: datumB },
+    ]);
+
+    const resultA = new SimpleGraphQueryEvaluator(datumA).evaluateExpression(selector);
+    const resultB = new SimpleGraphQueryEvaluator(datumB).evaluateExpression(selector);
+
+    expect(evaluationToSet(resultA)).toEqual(new Set(["n2", "n3"]));
+    expect(evaluationToSet(resultB)).toEqual(new Set(["b", "c", "d"]));
+  });
+
+  it("fails when no shared selectors exist", () => {
+    const datumA = new RelationlessInstance({ typeId: "Thing", atomIds: ["a"] });
+    const datumB = new RelationlessInstance({ typeId: "Other", atomIds: ["b", "c"] });
+
+    expect(() => synthesizeSelector([
+      { atoms: toAtomSet(["a"], datumA), datum: datumA },
+      { atoms: toAtomSet(["b"], datumB), datum: datumB },
+    ])).toThrow(SelectorSynthesisError);
+  });
+});
+
