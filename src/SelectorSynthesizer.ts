@@ -131,6 +131,9 @@ function buildBaseNodes(datums: IDataInstance[]): ExpressionNode[] {
 }
 
 export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 3): string {
+  // Enumerative, CEGIS-style search: we BFS over the expression grammar (identifiers, set ops, joins, closure),
+  // checking each candidate against *all* examples before allowing it to generate children. Early rejection of
+  // incorrect hypotheses keeps the frontier small (FOIL-esque pruning), while depth-bounding curbs blowup.
   if (examples.length === 0) {
     throw new SelectorSynthesisError("No examples provided for synthesis");
   }
