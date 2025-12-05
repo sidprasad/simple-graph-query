@@ -102,4 +102,10 @@ export class SimpleGraphQueryEvaluator {
   }
 }
 
-export { synthesizeSelector, AtomSelectionExample, SelectorSynthesisError } from './SelectorSynthesizer';
+export {
+  synthesizeSelector,
+  synthesizeBinaryRelation,
+  AtomSelectionExample,
+  BinaryRelationExample,
+  SelectorSynthesisError,
+} from './SelectorSynthesizer';

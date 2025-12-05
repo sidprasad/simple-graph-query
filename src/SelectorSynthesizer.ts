@@ -6,6 +6,13 @@ export type AtomSelectionExample = {
   datum: IDataInstance;
 };
 
+export type AtomPair = readonly [IAtom, IAtom];
+
+export type BinaryRelationExample = {
+  pairs: Set<AtomPair>;
+  datum: IDataInstance;
+};
+
 type ExpressionNode =
   | { kind: "identifier"; name: string }
   | { kind: "union" | "intersection" | "difference"; left: ExpressionNode; right: ExpressionNode }
@@ -47,7 +54,7 @@ function wrapForPrefix(expr: string): string {
   return expr.startsWith("(") && expr.endsWith(")") ? expr : `(${expr})`;
 }
 
-function normalizeResult(result: unknown): Set<string> | null {
+function normalizeUnaryResult(result: unknown): Set<string> | null {
   // We only consider unary tuple results or single string values as valid atom selections
   if (typeof result === "string") {
     return new Set([result]);
@@ -75,12 +82,38 @@ function normalizeResult(result: unknown): Set<string> | null {
   return ids;
 }
 
-function evaluateExpression(node: ExpressionNode, datum: IDataInstance): Set<string> | null {
+function normalizeBinaryResult(result: unknown): Set<string> | null {
+  if (!Array.isArray(result)) {
+    return null;
+  }
+
+  const tuples = result as unknown[];
+  const ids = new Set<string>();
+
+  for (const tuple of tuples) {
+    if (!Array.isArray(tuple) || tuple.length !== 2) {
+      return null;
+    }
+    const [first, second] = tuple;
+    if (typeof first !== "string" || typeof second !== "string") {
+      return null;
+    }
+    ids.add(`${first}\u0000${second}`);
+  }
+
+  return ids;
+}
+
+function evaluateExpression(
+  node: ExpressionNode,
+  datum: IDataInstance,
+  normalizer: (result: unknown) => Set<string> | null,
+): Set<string> | null {
   const evaluator = new SimpleGraphQueryEvaluator(datum);
   const expression = nodeToString(node);
   const result = evaluator.evaluateExpression(expression);
 
-  return normalizeResult(result);
+  return normalizer(result);
 }
 
 function intersectNames(datums: IDataInstance[]): Set<string> {
@@ -112,17 +145,6 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
-function matchesTargets(node: ExpressionNode, targets: Set<string>[], datums: IDataInstance[]): boolean {
-  for (let i = 0; i < datums.length; i++) {
-    const result = evaluateExpression(node, datums[i]);
-    if (!result) return false;
-    if (!setsEqual(result, targets[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
 function buildBaseNodes(datums: IDataInstance[]): ExpressionNode[] {
   const baseNames = intersectNames(datums);
   // Always include standard top-level identifiers when present in the language
@@ -130,7 +152,28 @@ function buildBaseNodes(datums: IDataInstance[]): ExpressionNode[] {
   return Array.from(baseNames).map((name) => ({ kind: "identifier", name } as const));
 }
 
-export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 3): string {
+type SynthesisExample = { datum: IDataInstance; target: Set<string> };
+
+function matchesTargets(
+  node: ExpressionNode,
+  examples: SynthesisExample[],
+  normalizer: (result: unknown) => Set<string> | null,
+): boolean {
+  for (const example of examples) {
+    const result = evaluateExpression(node, example.datum, normalizer);
+    if (!result) return false;
+    if (!setsEqual(result, example.target)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function synthesizeExpression(
+  examples: SynthesisExample[],
+  normalizer: (result: unknown) => Set<string> | null,
+  maxDepth = 3,
+): string {
   // Enumerative, CEGIS-style search: we BFS over the expression grammar (identifiers, set ops, joins, closure),
   // checking each candidate against *all* examples before allowing it to generate children. Early rejection of
   // incorrect hypotheses keeps the frontier small (FOIL-esque pruning), while depth-bounding curbs blowup.
@@ -139,7 +182,6 @@ export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 
   }
 
   const datums = examples.map((example) => example.datum);
-  const targets = examples.map((example) => new Set(Array.from(example.atoms).map((atom) => atom.id)));
 
   const baseNodes = buildBaseNodes(datums);
   if (baseNodes.length === 0) {
@@ -171,7 +213,7 @@ export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 
     }
     visited.add(key);
 
-    if (matchesTargets(current.node, targets, datums)) {
+    if (matchesTargets(current.node, examples, normalizer)) {
       return key;
     }
 
@@ -198,5 +240,28 @@ export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 
   }
 
   throw new SelectorSynthesisError("Unable to synthesize an expression matching all examples");
+}
+
+export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 3): string {
+  const synthesisExamples: SynthesisExample[] = examples.map((example) => ({
+    datum: example.datum,
+    target: new Set(Array.from(example.atoms).map((atom) => atom.id)),
+  }));
+
+  return synthesizeExpression(synthesisExamples, normalizeUnaryResult, maxDepth);
+}
+
+export function synthesizeBinaryRelation(
+  examples: BinaryRelationExample[],
+  maxDepth = 3,
+): string {
+  const synthesisExamples: SynthesisExample[] = examples.map((example) => {
+    const encodedPairs = new Set(
+      Array.from(example.pairs).map(([left, right]) => `${left.id}\u0000${right.id}`),
+    );
+    return { datum: example.datum, target: encodedPairs };
+  });
+
+  return synthesizeExpression(synthesisExamples, normalizeBinaryResult, maxDepth);
 }
 

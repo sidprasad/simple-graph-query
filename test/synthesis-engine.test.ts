@@ -1,4 +1,4 @@
-import { synthesizeSelector, SelectorSynthesisError } from "../src";
+import { synthesizeSelector, synthesizeBinaryRelation, SelectorSynthesisError } from "../src";
 import { IDataInstance, IAtom, IType, IRelation } from "../src/types";
 import { SimpleGraphQueryEvaluator } from "../src";
 
@@ -138,6 +138,38 @@ function evaluationToSet(result: unknown): Set<string> {
   return collected;
 }
 
+function evaluationToPairSet(result: unknown): Set<string> {
+  if (!Array.isArray(result)) {
+    throw new Error("Expected evaluation result to be an array");
+  }
+  const collected = new Set<string>();
+  for (const tuple of result) {
+    if (
+      !Array.isArray(tuple) ||
+      tuple.length !== 2 ||
+      typeof tuple[0] !== "string" ||
+      typeof tuple[1] !== "string"
+    ) {
+      throw new Error("Expected binary tuple results");
+    }
+    collected.add(`${tuple[0]}\u0000${tuple[1]}`);
+  }
+  return collected;
+}
+
+function toPairSet(pairs: Array<[string, string]>, instance: IDataInstance): Set<readonly [IAtom, IAtom]> {
+  const atomMap = new Map(instance.getAtoms().map((a) => [a.id, a] as const));
+  const collected: Array<readonly [IAtom, IAtom]> = pairs.map(([left, right]) => {
+    const leftAtom = atomMap.get(left);
+    const rightAtom = atomMap.get(right);
+    if (!leftAtom || !rightAtom) {
+      throw new Error(`Missing atom pair (${left}, ${right}) in instance`);
+    }
+    return [leftAtom, rightAtom];
+  });
+  return new Set(collected);
+}
+
 describe("selector synthesis", () => {
   it("produces a shared type expression", () => {
     const datumA = new RelationlessInstance({ typeId: "Thing", atomIds: ["a1", "a2"] });
@@ -235,6 +267,80 @@ describe("selector synthesis", () => {
       { atoms: toAtomSet(["a"], datumA), datum: datumA },
       { atoms: toAtomSet(["b"], datumB), datum: datumB },
     ])).toThrow(SelectorSynthesisError);
+  });
+});
+
+describe("binary relation synthesis", () => {
+  it("produces a shared binary relation expression", () => {
+    const datumA = new RelationInstance({
+      nodeIds: ["a1", "a2", "a3"],
+      rootIds: ["a1"],
+      relationName: "edge",
+      edges: [
+        ["a1", "a2"],
+        ["a2", "a3"],
+      ],
+    });
+
+    const datumB = new RelationInstance({
+      nodeIds: ["b1", "b2"],
+      rootIds: ["b1"],
+      relationName: "edge",
+      edges: [["b1", "b2"]],
+    });
+
+    const relation = synthesizeBinaryRelation([
+      { pairs: toPairSet([["a1", "a2"], ["a2", "a3"]], datumA), datum: datumA },
+      { pairs: toPairSet([["b1", "b2"]], datumB), datum: datumB },
+    ]);
+
+    expect(relation).toBe("edge");
+
+    const evalA = new SimpleGraphQueryEvaluator(datumA).evaluateExpression(relation);
+    const evalB = new SimpleGraphQueryEvaluator(datumB).evaluateExpression(relation);
+
+    expect(evaluationToPairSet(evalA)).toEqual(
+      new Set(["a1\u0000a2", "a2\u0000a3"]),
+    );
+    expect(evaluationToPairSet(evalB)).toEqual(new Set(["b1\u0000b2"]));
+  });
+
+  it("joins binary relations to reach two-hop connections", () => {
+    const datumA = new RelationInstance({
+      nodeIds: ["n1", "n2", "n3", "n4"],
+      rootIds: ["n1"],
+      relationName: "edge",
+      edges: [
+        ["n1", "n2"],
+        ["n2", "n3"],
+        ["n3", "n4"],
+      ],
+    });
+
+    const datumB = new RelationInstance({
+      nodeIds: ["x1", "x2", "x3"],
+      rootIds: ["x1"],
+      relationName: "edge",
+      edges: [
+        ["x1", "x2"],
+        ["x2", "x3"],
+      ],
+    });
+
+    const relation = synthesizeBinaryRelation([
+      { pairs: toPairSet([["n1", "n3"], ["n2", "n4"]], datumA), datum: datumA },
+      { pairs: toPairSet([["x1", "x3"]], datumB), datum: datumB },
+    ]);
+
+    expect(relation).toBe("edge.edge");
+
+    const evalA = new SimpleGraphQueryEvaluator(datumA).evaluateExpression(relation);
+    const evalB = new SimpleGraphQueryEvaluator(datumB).evaluateExpression(relation);
+
+    expect(evaluationToPairSet(evalA)).toEqual(
+      new Set(["n1\u0000n3", "n2\u0000n4"]),
+    );
+    expect(evaluationToPairSet(evalB)).toEqual(new Set(["x1\u0000x3"]));
   });
 });
 
