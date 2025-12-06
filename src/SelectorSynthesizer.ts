@@ -19,6 +19,12 @@ type ExpressionNode =
   | { kind: "join"; left: ExpressionNode; right: ExpressionNode }
   | { kind: "closure"; child: ExpressionNode };
 
+// A provenance tree that mirrors the synthesized expression and captures the
+// evaluated result for each subexpression. Every node records the operator
+// kind, the subexpression text, and the normalized result (or null if the
+// expression does not evaluate in the given datum). Children follow the shape
+// of the grammar: binary operators produce two children, closures produce one,
+// and identifiers are leaves.
 export type WhyNode = {
   kind: ExpressionNode["kind"];
   expression: string;
