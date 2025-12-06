@@ -19,6 +19,19 @@ type ExpressionNode =
   | { kind: "join"; left: ExpressionNode; right: ExpressionNode }
   | { kind: "closure"; child: ExpressionNode };
 
+// A provenance tree that mirrors the synthesized expression and captures the
+// evaluated result for each subexpression. Every node records the operator
+// kind, the subexpression text, and the normalized result (or null if the
+// expression does not evaluate in the given datum). Children follow the shape
+// of the grammar: binary operators produce two children, closures produce one,
+// and identifiers are leaves.
+export type WhyNode = {
+  kind: ExpressionNode["kind"];
+  expression: string;
+  result: Set<string> | null;
+  children?: WhyNode[];
+};
+
 export class SelectorSynthesisError extends Error {}
 
 function nodeToString(node: ExpressionNode): string {
@@ -169,11 +182,11 @@ function matchesTargets(
   return true;
 }
 
-function synthesizeExpression(
+function synthesizeExpressionNode(
   examples: SynthesisExample[],
   normalizer: (result: unknown) => Set<string> | null,
   maxDepth = 3,
-): string {
+): ExpressionNode {
   // Enumerative, CEGIS-style search: we BFS over the expression grammar (identifiers, set ops, joins, closure),
   // checking each candidate against *all* examples before allowing it to generate children. Early rejection of
   // incorrect hypotheses keeps the frontier small (FOIL-esque pruning), while depth-bounding curbs blowup.
@@ -214,7 +227,7 @@ function synthesizeExpression(
     visited.add(key);
 
     if (matchesTargets(current.node, examples, normalizer)) {
-      return key;
+      return current.node;
     }
 
     if (current.depth >= maxDepth) {
@@ -248,7 +261,8 @@ export function synthesizeSelector(examples: AtomSelectionExample[], maxDepth = 
     target: new Set(Array.from(example.atoms).map((atom) => atom.id)),
   }));
 
-  return synthesizeExpression(synthesisExamples, normalizeUnaryResult, maxDepth);
+  const node = synthesizeExpressionNode(synthesisExamples, normalizeUnaryResult, maxDepth);
+  return nodeToString(node);
 }
 
 export function synthesizeBinaryRelation(
@@ -262,6 +276,98 @@ export function synthesizeBinaryRelation(
     return { datum: example.datum, target: encodedPairs };
   });
 
-  return synthesizeExpression(synthesisExamples, normalizeBinaryResult, maxDepth);
+  const node = synthesizeExpressionNode(synthesisExamples, normalizeBinaryResult, maxDepth);
+  return nodeToString(node);
+}
+
+function buildWhyNode(
+  node: ExpressionNode,
+  datum: IDataInstance,
+  normalizer: (result: unknown) => Set<string> | null,
+): WhyNode {
+  const result = evaluateExpression(node, datum, normalizer);
+  const base: WhyNode = {
+    kind: node.kind,
+    expression: nodeToString(node),
+    result,
+  };
+
+  switch (node.kind) {
+    case "identifier":
+      return base;
+    case "closure":
+      return { ...base, children: [buildWhyNode(node.child, datum, normalizer)] };
+    case "join":
+    case "union":
+    case "intersection":
+    case "difference":
+      return {
+        ...base,
+        children: [
+          buildWhyNode(node.left, datum, normalizer),
+          buildWhyNode(node.right, datum, normalizer),
+        ],
+      };
+    default:
+      return base;
+  }
+}
+
+export type SynthesisWhyExample = {
+  datum: IDataInstance;
+  target: Set<string>;
+  result: Set<string> | null;
+  why: WhyNode;
+};
+
+export type SynthesisWhy = {
+  expression: string;
+  examples: SynthesisWhyExample[];
+};
+
+export function synthesizeSelectorWithWhy(
+  examples: AtomSelectionExample[],
+  maxDepth = 3,
+): SynthesisWhy {
+  const synthesisExamples: SynthesisExample[] = examples.map((example) => ({
+    datum: example.datum,
+    target: new Set(Array.from(example.atoms).map((atom) => atom.id)),
+  }));
+
+  const node = synthesizeExpressionNode(synthesisExamples, normalizeUnaryResult, maxDepth);
+  const expression = nodeToString(node);
+
+  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => ({
+    datum: example.datum,
+    target: example.target,
+    result: evaluateExpression(node, example.datum, normalizeUnaryResult),
+    why: buildWhyNode(node, example.datum, normalizeUnaryResult),
+  }));
+
+  return { expression, examples: explanationExamples };
+}
+
+export function synthesizeBinaryRelationWithWhy(
+  examples: BinaryRelationExample[],
+  maxDepth = 3,
+): SynthesisWhy {
+  const synthesisExamples: SynthesisExample[] = examples.map((example) => {
+    const encodedPairs = new Set(
+      Array.from(example.pairs).map(([left, right]) => `${left.id}\u0000${right.id}`),
+    );
+    return { datum: example.datum, target: encodedPairs };
+  });
+
+  const node = synthesizeExpressionNode(synthesisExamples, normalizeBinaryResult, maxDepth);
+  const expression = nodeToString(node);
+
+  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => ({
+    datum: example.datum,
+    target: example.target,
+    result: evaluateExpression(node, example.datum, normalizeBinaryResult),
+    why: buildWhyNode(node, example.datum, normalizeBinaryResult),
+  }));
+
+  return { expression, examples: explanationExamples };
 }
 

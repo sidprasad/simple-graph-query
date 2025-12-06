@@ -105,7 +105,12 @@ export class SimpleGraphQueryEvaluator {
 export {
   synthesizeSelector,
   synthesizeBinaryRelation,
+  synthesizeBinaryRelationWithWhy,
+  synthesizeSelectorWithWhy,
   AtomSelectionExample,
   BinaryRelationExample,
   SelectorSynthesisError,
+  SynthesisWhy,
+  SynthesisWhyExample,
+  WhyNode,
 } from './SelectorSynthesizer';
