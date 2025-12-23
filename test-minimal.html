@@ -25,7 +25,7 @@
         <div id="result" class="result"></div>
     </div>
 
-    <script src="dist/forge-expr-evaluator.bundle.js"></script>
+    <script src="dist/simple-graph-query.bundle.js"></script>
     <script>
         // Sample data from ttt-basic example (proper format)
         const sampleDatum = {
@@ -126,22 +126,22 @@
             
             try {
                 console.log('Testing expression:', expression);
-                console.log('ForgeExprEvaluator available:', typeof ForgeExprEvaluator);
+                console.log('SimpleGraphQuery available:', typeof SimpleGraphQuery);
                 console.log('sampleDatum:', sampleDatum);
                 console.log('sampleSourceCode:', sampleSourceCode);
                 
-                if (typeof ForgeExprEvaluator === 'undefined') {
-                    throw new Error('ForgeExprEvaluator is not defined - bundle loading failed');
+                if (typeof SimpleGraphQuery === 'undefined') {
+                    throw new Error('SimpleGraphQuery is not defined - bundle loading failed');
                 }
                 
                 // Create the evaluator with sample data
                 console.log('Creating evaluator...');
-                const evaluator = new ForgeExprEvaluator.ForgeExprEvaluatorUtil(sampleDatum, sampleSourceCode);
+                const evaluator = new SimpleGraphQuery.SimpleGraphQueryEvaluator(sampleDatum);
                 console.log('Evaluator created:', evaluator);
                 
                 // Evaluate the expression
                 console.log('Evaluating expression...');
-                const result = evaluator.evaluateExpression(expression, 0);
+                const result = evaluator.evaluateExpression(expression);
                 console.log('Result:', result);
                 
                 if (result.error) {
@@ -175,9 +175,9 @@
         
         // Test loading on page load
         window.onload = function() {
-            console.log('Page loaded. ForgeExprEvaluator:', typeof ForgeExprEvaluator);
-            if (typeof ForgeExprEvaluator !== 'undefined') {
-                console.log('ForgeExprEvaluator methods:', Object.keys(ForgeExprEvaluator));
+            console.log('Page loaded. SimpleGraphQuery:', typeof SimpleGraphQuery);
+            if (typeof SimpleGraphQuery !== 'undefined') {
+                console.log('SimpleGraphQuery methods:', Object.keys(SimpleGraphQuery));
             }
         };
     </script>
