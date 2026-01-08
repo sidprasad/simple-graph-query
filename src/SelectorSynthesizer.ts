@@ -119,10 +119,9 @@ function normalizeBinaryResult(result: unknown): Set<string> | null {
 
 function evaluateExpression(
   node: ExpressionNode,
-  datum: IDataInstance,
+  evaluator: SimpleGraphQueryEvaluator,
   normalizer: (result: unknown) => Set<string> | null,
 ): Set<string> | null {
-  const evaluator = new SimpleGraphQueryEvaluator(datum);
   const expression = nodeToString(node);
   const result = evaluator.evaluateExpression(expression);
 
@@ -158,22 +157,68 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+function classifyIdentifier(name: string, datums: IDataInstance[]): "relation" | "type" | "builtin" | "other" {
+  if (name === "univ" || name === "iden") {
+    return "builtin";
+  }
+
+  for (const datum of datums) {
+    if (datum.getRelations().some((relation) => relation.name === name)) {
+      return "relation";
+    }
+    if (datum.getTypes().some((type) => type.id === name)) {
+      return "type";
+    }
+  }
+
+  return "other";
+}
+
 function buildBaseNodes(datums: IDataInstance[]): ExpressionNode[] {
   const baseNames = intersectNames(datums);
   // Always include standard top-level identifiers when present in the language
   ["univ", "iden"].forEach((builtin) => baseNames.add(builtin));
-  return Array.from(baseNames).map((name) => ({ kind: "identifier", name } as const));
+  const orderedNames = Array.from(baseNames).sort((left, right) => {
+    const priority: Record<ReturnType<typeof classifyIdentifier>, number> = {
+      relation: 0,
+      type: 1,
+      builtin: 2,
+      other: 3,
+    };
+    const leftPriority = priority[classifyIdentifier(left, datums)];
+    const rightPriority = priority[classifyIdentifier(right, datums)];
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+    return left.localeCompare(right);
+  });
+
+  return orderedNames.map((name) => ({ kind: "identifier", name } as const));
 }
 
 type SynthesisExample = { datum: IDataInstance; target: Set<string> };
+type EvaluatedExample = SynthesisExample & { evaluator: SimpleGraphQueryEvaluator };
+
+function getOrCreateEvaluator(
+  datum: IDataInstance,
+  cache: Map<IDataInstance, SimpleGraphQueryEvaluator>,
+): SimpleGraphQueryEvaluator {
+  const existing = cache.get(datum);
+  if (existing) {
+    return existing;
+  }
+  const evaluator = new SimpleGraphQueryEvaluator(datum);
+  cache.set(datum, evaluator);
+  return evaluator;
+}
 
 function matchesTargets(
   node: ExpressionNode,
-  examples: SynthesisExample[],
+  examples: EvaluatedExample[],
   normalizer: (result: unknown) => Set<string> | null,
 ): boolean {
   for (const example of examples) {
-    const result = evaluateExpression(node, example.datum, normalizer);
+    const result = evaluateExpression(node, example.evaluator, normalizer);
     if (!result) return false;
     if (!setsEqual(result, example.target)) {
       return false;
@@ -194,11 +239,22 @@ function synthesizeExpressionNode(
     throw new SelectorSynthesisError("No examples provided for synthesis");
   }
 
-  const datums = examples.map((example) => example.datum);
+  const evaluatorCache = new Map<IDataInstance, SimpleGraphQueryEvaluator>();
+  const evaluatedExamples: EvaluatedExample[] = examples.map((example) => ({
+    ...example,
+    evaluator: getOrCreateEvaluator(example.datum, evaluatorCache),
+  }));
+  const datums = evaluatedExamples.map((example) => example.datum);
 
   const baseNodes = buildBaseNodes(datums);
   if (baseNodes.length === 0) {
     throw new SelectorSynthesisError("No shared identifiers available across provided data instances");
+  }
+
+  for (const node of baseNodes) {
+    if (matchesTargets(node, evaluatedExamples, normalizer)) {
+      return node;
+    }
   }
 
   type WorkItem = { node: ExpressionNode; depth: number };
@@ -226,7 +282,7 @@ function synthesizeExpressionNode(
     }
     visited.add(key);
 
-    if (matchesTargets(current.node, examples, normalizer)) {
+    if (matchesTargets(current.node, evaluatedExamples, normalizer)) {
       return current.node;
     }
 
@@ -282,10 +338,10 @@ export function synthesizeBinaryRelation(
 
 function buildWhyNode(
   node: ExpressionNode,
-  datum: IDataInstance,
+  evaluator: SimpleGraphQueryEvaluator,
   normalizer: (result: unknown) => Set<string> | null,
 ): WhyNode {
-  const result = evaluateExpression(node, datum, normalizer);
+  const result = evaluateExpression(node, evaluator, normalizer);
   const base: WhyNode = {
     kind: node.kind,
     expression: nodeToString(node),
@@ -296,7 +352,7 @@ function buildWhyNode(
     case "identifier":
       return base;
     case "closure":
-      return { ...base, children: [buildWhyNode(node.child, datum, normalizer)] };
+      return { ...base, children: [buildWhyNode(node.child, evaluator, normalizer)] };
     case "join":
     case "union":
     case "intersection":
@@ -304,8 +360,8 @@ function buildWhyNode(
       return {
         ...base,
         children: [
-          buildWhyNode(node.left, datum, normalizer),
-          buildWhyNode(node.right, datum, normalizer),
+          buildWhyNode(node.left, evaluator, normalizer),
+          buildWhyNode(node.right, evaluator, normalizer),
         ],
       };
     default:
@@ -337,12 +393,16 @@ export function synthesizeSelectorWithWhy(
   const node = synthesizeExpressionNode(synthesisExamples, normalizeUnaryResult, maxDepth);
   const expression = nodeToString(node);
 
-  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => ({
-    datum: example.datum,
-    target: example.target,
-    result: evaluateExpression(node, example.datum, normalizeUnaryResult),
-    why: buildWhyNode(node, example.datum, normalizeUnaryResult),
-  }));
+  const evaluatorCache = new Map<IDataInstance, SimpleGraphQueryEvaluator>();
+  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => {
+    const evaluator = getOrCreateEvaluator(example.datum, evaluatorCache);
+    return {
+      datum: example.datum,
+      target: example.target,
+      result: evaluateExpression(node, evaluator, normalizeUnaryResult),
+      why: buildWhyNode(node, evaluator, normalizeUnaryResult),
+    };
+  });
 
   return { expression, examples: explanationExamples };
 }
@@ -361,13 +421,16 @@ export function synthesizeBinaryRelationWithWhy(
   const node = synthesizeExpressionNode(synthesisExamples, normalizeBinaryResult, maxDepth);
   const expression = nodeToString(node);
 
-  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => ({
-    datum: example.datum,
-    target: example.target,
-    result: evaluateExpression(node, example.datum, normalizeBinaryResult),
-    why: buildWhyNode(node, example.datum, normalizeBinaryResult),
-  }));
+  const evaluatorCache = new Map<IDataInstance, SimpleGraphQueryEvaluator>();
+  const explanationExamples: SynthesisWhyExample[] = synthesisExamples.map((example) => {
+    const evaluator = getOrCreateEvaluator(example.datum, evaluatorCache);
+    return {
+      datum: example.datum,
+      target: example.target,
+      result: evaluateExpression(node, evaluator, normalizeBinaryResult),
+      why: buildWhyNode(node, evaluator, normalizeBinaryResult),
+    };
+  });
 
   return { expression, examples: explanationExamples };
 }
-
