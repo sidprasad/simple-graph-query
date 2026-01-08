@@ -268,6 +268,20 @@ describe("selector synthesis", () => {
       { atoms: toAtomSet(["b"], datumB), datum: datumB },
     ])).toThrow(SelectorSynthesisError);
   });
+
+  it("handles repeated data instances in selector examples", () => {
+    const datum = new RelationlessInstance({ typeId: "Thing", atomIds: ["a1", "a2"] });
+
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["a1", "a2"], datum), datum },
+      { atoms: toAtomSet(["a1", "a2"], datum), datum },
+    ]);
+
+    expect(selector).toBe("Thing");
+
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(selector);
+    expect(evaluationToSet(result)).toEqual(new Set(["a1", "a2"]));
+  });
 });
 
 describe("binary relation synthesis", () => {
@@ -342,5 +356,28 @@ describe("binary relation synthesis", () => {
     );
     expect(evaluationToPairSet(evalB)).toEqual(new Set(["x1\u0000x3"]));
   });
-});
 
+  it("handles repeated data instances in relation examples", () => {
+    const datum = new RelationInstance({
+      nodeIds: ["a1", "a2", "a3"],
+      rootIds: ["a1"],
+      relationName: "edge",
+      edges: [
+        ["a1", "a2"],
+        ["a2", "a3"],
+      ],
+    });
+
+    const relation = synthesizeBinaryRelation([
+      { pairs: toPairSet([["a1", "a2"], ["a2", "a3"]], datum), datum },
+      { pairs: toPairSet([["a1", "a2"], ["a2", "a3"]], datum), datum },
+    ]);
+
+    expect(relation).toBe("edge");
+
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(relation);
+    expect(evaluationToPairSet(result)).toEqual(
+      new Set(["a1\u0000a2", "a2\u0000a3"]),
+    );
+  });
+});
