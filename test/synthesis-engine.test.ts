@@ -130,10 +130,18 @@ function evaluationToSet(result: unknown): Set<string> {
   }
   const collected = new Set<string>();
   for (const tuple of result) {
-    if (!Array.isArray(tuple) || tuple.length !== 1 || typeof tuple[0] !== "string") {
+    if (!Array.isArray(tuple) || tuple.length !== 1) {
       throw new Error("Expected unary tuple results");
     }
-    collected.add(tuple[0]);
+    const value = tuple[0];
+    // Accept both strings and numbers (integers are returned as numbers)
+    if (typeof value === "string") {
+      collected.add(value);
+    } else if (typeof value === "number") {
+      collected.add(String(value));
+    } else {
+      throw new Error("Expected string or number in unary tuple");
+    }
   }
   return collected;
 }
@@ -357,6 +365,187 @@ describe("binary relation synthesis", () => {
     expect(evaluationToPairSet(evalB)).toEqual(new Set(["x1\u0000x3"]));
   });
 
+  it("synthesizes Type.relation joins for selecting relation range values", () => {
+    // Create an instance like the BST example: Node type with a 'key' relation to Int
+    // When selecting the integer values {5, 6, 7}, should synthesize "Node.key"
+    // The Int type has MORE atoms than what's selected, so Int alone won't work
+    class NodeKeyInstance implements IDataInstance {
+      private _types: IType[];
+      private _relations: IRelation[];
+
+      constructor(
+        nodeIds: string[],
+        keyValues: Array<[string, string]>,
+        allIntValues: string[],
+      ) {
+        const intType: IType = {
+          id: "Int",
+          types: ["Int"],
+          atoms: allIntValues.map((id) => ({
+            id,
+            type: "Int",
+            label: id,
+          })),
+          isBuiltin: true,
+        };
+
+        const nodeType: IType = {
+          id: "Node",
+          types: ["Node"],
+          atoms: nodeIds.map((id) => ({ id, type: "Node", label: id })),
+          isBuiltin: false,
+        };
+
+        this._types = [intType, nodeType];
+
+        this._relations = [
+          {
+            id: "key",
+            name: "key",
+            types: ["Node", "Int"],
+            tuples: keyValues.map(([node, val]) => ({
+              atoms: [node, val],
+              types: ["Node", "Int"],
+            })),
+          },
+        ];
+      }
+
+      getAtomType(id: string): IType {
+        const match = this._types.find((type) =>
+          type.atoms.some((atom) => atom.id === id),
+        );
+        if (!match) throw new Error(`Missing atom ${id}`);
+        return match;
+      }
+
+      getTypes(): readonly IType[] {
+        return this._types;
+      }
+
+      getAtoms(): readonly IAtom[] {
+        return this._types.flatMap((t) => t.atoms);
+      }
+
+      getRelations(): readonly IRelation[] {
+        return this._relations;
+      }
+    }
+
+    // Int type has values 0-7, but only 5,6,7 are used as keys
+    const datum = new NodeKeyInstance(
+      ["Node0", "Node1", "Node2", "Node3", "Node4"],
+      [
+        ["Node0", "7"],
+        ["Node1", "7"],
+        ["Node2", "6"],
+        ["Node3", "6"],
+        ["Node4", "5"],
+      ],
+      ["0", "1", "2", "3", "4", "5", "6", "7"], // All available integers
+    );
+
+    // Select just the key values: {5, 6, 7} - this is a subset of Int
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["5", "6", "7"], datum), datum },
+    ]);
+
+    // Should synthesize Node.key (or equivalent) rather than a complex expression
+    expect(selector).toBe("Node.key");
+
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(selector);
+    expect(evaluationToSet(result)).toEqual(new Set(["5", "6", "7"]));
+  });
+
+  it("synthesizes relation.Type joins for selecting relation domain values", () => {
+    // Test the inverse direction: key.Int to get all nodes that have a key
+    // (projecting domain by joining with range type)
+    class NodeKeyInstance implements IDataInstance {
+      private _types: IType[];
+      private _relations: IRelation[];
+
+      constructor(
+        nodeIds: string[],
+        keyValues: Array<[string, string]>,
+        allIntValues: string[],
+      ) {
+        const intType: IType = {
+          id: "Int",
+          types: ["Int"],
+          atoms: allIntValues.map((id) => ({
+            id,
+            type: "Int",
+            label: id,
+          })),
+          isBuiltin: true,
+        };
+
+        const nodeType: IType = {
+          id: "Node",
+          types: ["Node"],
+          atoms: nodeIds.map((id) => ({ id, type: "Node", label: id })),
+          isBuiltin: false,
+        };
+
+        this._types = [intType, nodeType];
+
+        this._relations = [
+          {
+            id: "key",
+            name: "key",
+            types: ["Node", "Int"],
+            tuples: keyValues.map(([node, val]) => ({
+              atoms: [node, val],
+              types: ["Node", "Int"],
+            })),
+          },
+        ];
+      }
+
+      getAtomType(id: string): IType {
+        const match = this._types.find((type) =>
+          type.atoms.some((atom) => atom.id === id),
+        );
+        if (!match) throw new Error(`Missing atom ${id}`);
+        return match;
+      }
+
+      getTypes(): readonly IType[] {
+        return this._types;
+      }
+
+      getAtoms(): readonly IAtom[] {
+        return this._types.flatMap((t) => t.atoms);
+      }
+
+      getRelations(): readonly IRelation[] {
+        return this._relations;
+      }
+    }
+
+    // Only Node0, Node1, Node2 have keys - Node3, Node4 don't
+    const datum = new NodeKeyInstance(
+      ["Node0", "Node1", "Node2", "Node3", "Node4"],
+      [
+        ["Node0", "7"],
+        ["Node1", "6"],
+        ["Node2", "5"],
+      ],
+      ["0", "1", "2", "3", "4", "5", "6", "7"],
+    );
+
+    // Select nodes that have keys: {Node0, Node1, Node2}
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["Node0", "Node1", "Node2"], datum), datum },
+    ]);
+
+    // Should synthesize key.Int (nodes that have a key in Int)
+    expect(selector).toBe("key.Int");
+
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(selector);
+    expect(evaluationToSet(result)).toEqual(new Set(["Node0", "Node1", "Node2"]));
+  });
+
   it("handles repeated data instances in relation examples", () => {
     const datum = new RelationInstance({
       nodeIds: ["a1", "a2", "a3"],
@@ -379,5 +568,50 @@ describe("binary relation synthesis", () => {
     expect(evaluationToPairSet(result)).toEqual(
       new Set(["a1\u0000a2", "a2\u0000a3"]),
     );
+  });
+
+  it("synthesizes ~relation (transpose) for inverse edges", () => {
+    const datum = new RelationInstance({
+      nodeIds: ["n1", "n2", "n3"],
+      rootIds: [],
+      relationName: "edge",
+      edges: [
+        ["n1", "n2"],
+        ["n2", "n3"],
+      ],
+    });
+
+    // Select reverse edges: who points TO each node
+    const relation = synthesizeBinaryRelation([
+      { pairs: toPairSet([["n2", "n1"], ["n3", "n2"]], datum), datum },
+    ]);
+
+    expect(relation).toBe("~(edge)");
+
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(relation);
+    expect(evaluationToPairSet(result)).toEqual(
+      new Set(["n2\u0000n1", "n3\u0000n2"]),
+    );
+  });
+
+  it("synthesizes *relation (reflexive-transitive closure)", () => {
+    const datum = new RelationInstance({
+      nodeIds: ["n1", "n2", "n3"],
+      rootIds: ["n1"],
+      relationName: "edge",
+      edges: [
+        ["n1", "n2"],
+        ["n2", "n3"],
+      ],
+    });
+
+    // Select all nodes reachable from n1 INCLUDING n1 itself
+    const selector = synthesizeSelector([
+      { atoms: toAtomSet(["n1", "n2", "n3"], datum), datum },
+    ]);
+
+    // Should use reflexive-transitive closure
+    const result = new SimpleGraphQueryEvaluator(datum).evaluateExpression(selector);
+    expect(evaluationToSet(result)).toEqual(new Set(["n1", "n2", "n3"]));
   });
 });

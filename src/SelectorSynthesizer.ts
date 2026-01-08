@@ -13,11 +13,31 @@ export type BinaryRelationExample = {
   datum: IDataInstance;
 };
 
-type ExpressionNode =
+// Expression AST nodes for the synthesis grammar
+// This is a subset of the full Forge expression language, focused on
+// relational and set operations useful for selector synthesis.
+export type ExpressionNode =
+  // Basic expressions
   | { kind: "identifier"; name: string }
+  // Set operations
   | { kind: "union" | "intersection" | "difference"; left: ExpressionNode; right: ExpressionNode }
   | { kind: "join"; left: ExpressionNode; right: ExpressionNode }
-  | { kind: "closure"; child: ExpressionNode };
+  | { kind: "closure"; child: ExpressionNode }           // ^expr (transitive closure)
+  | { kind: "reflexive-closure"; child: ExpressionNode } // *expr (reflexive-transitive closure)
+  | { kind: "transpose"; child: ExpressionNode }         // ~expr (transpose/inverse)
+  // Set comprehension (set builder notation)
+  | { kind: "comprehension"; varName: string; domain: ExpressionNode; body: ExpressionNode }
+  // Quantified expressions (return boolean, but can be used to filter)
+  | { kind: "all" | "some" | "no" | "one" | "lone"; varName: string; domain: ExpressionNode; body: ExpressionNode }
+  // Logical operators
+  | { kind: "and" | "or" | "implies" | "iff"; left: ExpressionNode; right: ExpressionNode }
+  | { kind: "not"; child: ExpressionNode }
+  // Relational comparison (returns boolean)
+  | { kind: "in" | "eq" | "neq"; left: ExpressionNode; right: ExpressionNode }
+  // Numeric comparison
+  | { kind: "lt" | "gt" | "lte" | "gte"; left: ExpressionNode; right: ExpressionNode }
+  // Box join (e[args])
+  | { kind: "box-join"; base: ExpressionNode; args: ExpressionNode[] };
 
 // A provenance tree that mirrors the synthesized expression and captures the
 // evaluated result for each subexpression. Every node records the operator
@@ -38,10 +58,20 @@ function nodeToString(node: ExpressionNode): string {
   switch (node.kind) {
     case "identifier":
       return node.name;
+    // Unary relational operators
     case "closure": {
       const inner = nodeToString(node.child);
       return `^${wrapForPrefix(inner)}`;
     }
+    case "reflexive-closure": {
+      const inner = nodeToString(node.child);
+      return `*${wrapForPrefix(inner)}`;
+    }
+    case "transpose": {
+      const inner = nodeToString(node.child);
+      return `~${wrapForPrefix(inner)}`;
+    }
+    // Binary relational operators
     case "join": {
       const left = wrapForJoin(node.left);
       const right = wrapForJoin(node.right);
@@ -53,11 +83,62 @@ function nodeToString(node: ExpressionNode): string {
       return `(${nodeToString(node.left)} & ${nodeToString(node.right)})`;
     case "difference":
       return `(${nodeToString(node.left)} - ${nodeToString(node.right)})`;
+    // Set comprehension
+    case "comprehension":
+      return `{${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)}}`;
+    // Quantified expressions
+    case "all":
+      return `(all ${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)})`;
+    case "some":
+      return `(some ${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)})`;
+    case "no":
+      return `(no ${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)})`;
+    case "one":
+      return `(one ${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)})`;
+    case "lone":
+      return `(lone ${node.varName}: ${nodeToString(node.domain)} | ${nodeToString(node.body)})`;
+    // Logical operators
+    case "and":
+      return `(${nodeToString(node.left)} and ${nodeToString(node.right)})`;
+    case "or":
+      return `(${nodeToString(node.left)} or ${nodeToString(node.right)})`;
+    case "implies":
+      return `(${nodeToString(node.left)} => ${nodeToString(node.right)})`;
+    case "iff":
+      return `(${nodeToString(node.left)} <=> ${nodeToString(node.right)})`;
+    case "not":
+      return `!${wrapForPrefix(nodeToString(node.child))}`;
+    // Relational comparison
+    case "in":
+      return `(${nodeToString(node.left)} in ${nodeToString(node.right)})`;
+    case "eq":
+      return `(${nodeToString(node.left)} = ${nodeToString(node.right)})`;
+    case "neq":
+      return `(${nodeToString(node.left)} != ${nodeToString(node.right)})`;
+    // Numeric comparison
+    case "lt":
+      return `(${nodeToString(node.left)} < ${nodeToString(node.right)})`;
+    case "gt":
+      return `(${nodeToString(node.left)} > ${nodeToString(node.right)})`;
+    case "lte":
+      return `(${nodeToString(node.left)} <= ${nodeToString(node.right)})`;
+    case "gte":
+      return `(${nodeToString(node.left)} >= ${nodeToString(node.right)})`;
+    // Box join
+    case "box-join":
+      return `${nodeToString(node.base)}[${node.args.map(nodeToString).join(", ")}]`;
   }
 }
 
 function wrapForJoin(node: ExpressionNode): string {
-  if (node.kind === "identifier" || node.kind === "closure") {
+  // Identifiers and prefix unary operators don't need wrapping
+  if (
+    node.kind === "identifier" ||
+    node.kind === "closure" ||
+    node.kind === "reflexive-closure" ||
+    node.kind === "transpose" ||
+    node.kind === "box-join"
+  ) {
     return nodeToString(node);
   }
   return `(${nodeToString(node)})`;
@@ -86,10 +167,14 @@ function normalizeUnaryResult(result: unknown): Set<string> | null {
       return null;
     }
     const value = tuple[0];
-    if (typeof value !== "string") {
+    // Accept strings or numbers (integers are often returned as numbers)
+    if (typeof value === "string") {
+      ids.add(value);
+    } else if (typeof value === "number") {
+      ids.add(String(value));
+    } else {
       return null;
     }
-    ids.add(value);
   }
 
   return ids;
@@ -108,10 +193,13 @@ function normalizeBinaryResult(result: unknown): Set<string> | null {
       return null;
     }
     const [first, second] = tuple;
-    if (typeof first !== "string" || typeof second !== "string") {
+    // Accept strings or numbers for both elements
+    const firstStr = typeof first === "string" ? first : typeof first === "number" ? String(first) : null;
+    const secondStr = typeof second === "string" ? second : typeof second === "number" ? String(second) : null;
+    if (firstStr === null || secondStr === null) {
       return null;
     }
-    ids.add(`${first}\u0000${second}`);
+    ids.add(`${firstStr}\u0000${secondStr}`);
   }
 
   return ids;
@@ -172,6 +260,111 @@ function classifyIdentifier(name: string, datums: IDataInstance[]): "relation" |
   }
 
   return "other";
+}
+
+// Build semantically meaningful join candidates based on type-relation compatibility.
+// For a relation with types [T1, T2, ...], we generate joins like T1.relation
+// which projects the relation to its range. This helps synthesize expressions
+// like "Node.key" when selecting integer values that are keys of nodes.
+function buildSemanticJoinCandidates(datums: IDataInstance[]): ExpressionNode[] {
+  const candidates: ExpressionNode[] = [];
+  const seenExpressions = new Set<string>();
+
+  // Get relations and types that exist across all datums
+  const sharedRelationNames = new Set<string>();
+  const sharedTypeIds = new Set<string>();
+
+  if (datums.length === 0) return candidates;
+
+  // Initialize with first datum
+  const firstDatum = datums[0];
+  firstDatum.getRelations().forEach((r) => sharedRelationNames.add(r.name));
+  firstDatum.getTypes().forEach((t) => sharedTypeIds.add(t.id));
+
+  // Intersect with remaining datums
+  for (let i = 1; i < datums.length; i++) {
+    const datum = datums[i];
+    const datumRelations = new Set(datum.getRelations().map((r) => r.name));
+    const datumTypes = new Set(datum.getTypes().map((t) => t.id));
+
+    for (const name of sharedRelationNames) {
+      if (!datumRelations.has(name)) sharedRelationNames.delete(name);
+    }
+    for (const id of sharedTypeIds) {
+      if (!datumTypes.has(id)) sharedTypeIds.delete(id);
+    }
+  }
+
+  // For each shared relation, check if its domain type is also shared
+  // and create Type.relation join candidates
+  for (const relationName of sharedRelationNames) {
+    // Get the relation's type signature from the first datum (should be consistent)
+    const relation = firstDatum.getRelations().find((r) => r.name === relationName);
+    if (!relation || relation.types.length < 2) continue;
+
+    const domainType = relation.types[0];
+
+    // Check if the domain type (or a compatible type) is available
+    // We look for types in the hierarchy that could be the domain
+    for (const typeId of sharedTypeIds) {
+      const typeObj = firstDatum.getTypes().find((t) => t.id === typeId);
+      if (!typeObj) continue;
+
+      // Check if this type is compatible with the relation's domain
+      // Either the type itself matches, or it's in the type hierarchy
+      const isCompatible =
+        typeId === domainType ||
+        typeObj.types.includes(domainType) ||
+        // Also check if the domain type is a subtype of this type
+        firstDatum.getTypes().find((t) => t.id === domainType)?.types.includes(typeId);
+
+      if (isCompatible) {
+        const joinNode: ExpressionNode = {
+          kind: "join",
+          left: { kind: "identifier", name: typeId },
+          right: { kind: "identifier", name: relationName },
+        };
+        const exprString = nodeToString(joinNode);
+        if (!seenExpressions.has(exprString)) {
+          seenExpressions.add(exprString);
+          candidates.push(joinNode);
+        }
+      }
+    }
+  }
+
+  // Also add relation.Type joins for inverse projections (getting domain values)
+  for (const relationName of sharedRelationNames) {
+    const relation = firstDatum.getRelations().find((r) => r.name === relationName);
+    if (!relation || relation.types.length < 2) continue;
+
+    const rangeType = relation.types[relation.types.length - 1];
+
+    for (const typeId of sharedTypeIds) {
+      const typeObj = firstDatum.getTypes().find((t) => t.id === typeId);
+      if (!typeObj) continue;
+
+      const isCompatible =
+        typeId === rangeType ||
+        typeObj.types.includes(rangeType) ||
+        firstDatum.getTypes().find((t) => t.id === rangeType)?.types.includes(typeId);
+
+      if (isCompatible) {
+        const joinNode: ExpressionNode = {
+          kind: "join",
+          left: { kind: "identifier", name: relationName },
+          right: { kind: "identifier", name: typeId },
+        };
+        const exprString = nodeToString(joinNode);
+        if (!seenExpressions.has(exprString)) {
+          seenExpressions.add(exprString);
+          candidates.push(joinNode);
+        }
+      }
+    }
+  }
+
+  return candidates;
 }
 
 function buildBaseNodes(datums: IDataInstance[]): ExpressionNode[] {
@@ -251,7 +444,17 @@ function synthesizeExpressionNode(
     throw new SelectorSynthesisError("No shared identifiers available across provided data instances");
   }
 
+  // Check base identifiers first
   for (const node of baseNodes) {
+    if (matchesTargets(node, evaluatedExamples, normalizer)) {
+      return node;
+    }
+  }
+
+  // Check semantic join candidates early - these are type-aware joins like Node.key
+  // that are likely to be what the user wants when selecting relation ranges/domains
+  const semanticJoins = buildSemanticJoinCandidates(datums);
+  for (const node of semanticJoins) {
     if (matchesTargets(node, evaluatedExamples, normalizer)) {
       return node;
     }
@@ -269,6 +472,11 @@ function synthesizeExpressionNode(
     queue.push({ node, depth });
     queued.add(key);
   };
+
+  // Mark semantic joins as already visited so we don't re-check them
+  for (const node of semanticJoins) {
+    visited.add(nodeToString(node));
+  }
 
   baseNodes.forEach((node) => enqueue(node, 0));
 
@@ -290,21 +498,81 @@ function synthesizeExpressionNode(
       continue;
     }
 
-    // Unary expansions
+    // Unary relational expansions
     enqueue({ kind: "closure", child: current.node }, current.depth + 1);
+    enqueue({ kind: "reflexive-closure", child: current.node }, current.depth + 1);
+    enqueue({ kind: "transpose", child: current.node }, current.depth + 1);
 
     for (const other of combinationPool) {
       const leftKey = nodeToString(current.node);
       const rightKey = nodeToString(other);
 
+      // Set operations (commutative, so canonicalize order)
       const [unionLeft, unionRight] = leftKey < rightKey ? [current.node, other] : [other, current.node];
       enqueue({ kind: "union", left: unionLeft, right: unionRight }, current.depth + 1);
 
       const [interLeft, interRight] = leftKey < rightKey ? [current.node, other] : [other, current.node];
       enqueue({ kind: "intersection", left: interLeft, right: interRight }, current.depth + 1);
 
+      // Difference is not commutative
+      enqueue({ kind: "difference", left: current.node, right: other }, current.depth + 1);
+      if (leftKey !== rightKey) {
+        enqueue({ kind: "difference", left: other, right: current.node }, current.depth + 1);
+      }
+
+      // Join is not commutative
       enqueue({ kind: "join", left: current.node, right: other }, current.depth + 1);
       enqueue({ kind: "join", left: other, right: current.node }, current.depth + 1);
+    }
+
+    // Generate set comprehensions: {v: domain | body}
+    // For each type, try comprehensions with simple membership conditions
+    // This allows synthesizing expressions like {n: Node | n.key in SomeSet}
+    if (current.depth + 2 <= maxDepth) {
+      for (const domainNode of combinationPool) {
+        // Only use types as comprehension domains
+        if (domainNode.kind !== "identifier") continue;
+        const domainName = domainNode.name;
+        const classification = classifyIdentifier(domainName, datums);
+        if (classification !== "type") continue;
+
+        const varName = "v"; // Use a simple variable name
+
+        // Try: {v: Domain | v in current.node}
+        const varNode: ExpressionNode = { kind: "identifier", name: varName };
+        enqueue(
+          {
+            kind: "comprehension",
+            varName,
+            domain: domainNode,
+            body: { kind: "in", left: varNode, right: current.node },
+          },
+          current.depth + 2,
+        );
+
+        // Try: {v: Domain | v.relation in SomeSet} for relations
+        for (const relNode of combinationPool) {
+          if (relNode.kind !== "identifier") continue;
+          if (classifyIdentifier(relNode.name, datums) !== "relation") continue;
+
+          const joinExpr: ExpressionNode = {
+            kind: "join",
+            left: varNode,
+            right: relNode,
+          };
+
+          // {v: Domain | v.relation in current.node}
+          enqueue(
+            {
+              kind: "comprehension",
+              varName,
+              domain: domainNode,
+              body: { kind: "in", left: joinExpr, right: current.node },
+            },
+            current.depth + 2,
+          );
+        }
+      }
     }
   }
 
@@ -349,19 +617,59 @@ function buildWhyNode(
   };
 
   switch (node.kind) {
+    // Leaves
     case "identifier":
       return base;
+    // Unary operators
     case "closure":
+    case "reflexive-closure":
+    case "transpose":
+    case "not":
       return { ...base, children: [buildWhyNode(node.child, evaluator, normalizer)] };
+    // Binary operators
     case "join":
     case "union":
     case "intersection":
     case "difference":
+    case "and":
+    case "or":
+    case "implies":
+    case "iff":
+    case "in":
+    case "eq":
+    case "neq":
+    case "lt":
+    case "gt":
+    case "lte":
+    case "gte":
       return {
         ...base,
         children: [
           buildWhyNode(node.left, evaluator, normalizer),
           buildWhyNode(node.right, evaluator, normalizer),
+        ],
+      };
+    // Quantified and comprehension expressions
+    case "all":
+    case "some":
+    case "no":
+    case "one":
+    case "lone":
+    case "comprehension":
+      return {
+        ...base,
+        children: [
+          buildWhyNode(node.domain, evaluator, normalizer),
+          buildWhyNode(node.body, evaluator, normalizer),
+        ],
+      };
+    // Box join
+    case "box-join":
+      return {
+        ...base,
+        children: [
+          buildWhyNode(node.base, evaluator, normalizer),
+          ...node.args.map((arg) => buildWhyNode(arg, evaluator, normalizer)),
         ],
       };
     default:
