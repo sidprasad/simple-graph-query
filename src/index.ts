@@ -6,6 +6,7 @@ import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
 import { IDataInstance, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
+import { QueryRewriter } from './QueryRewriter';
 
 export type ErrorResult = {
   error: Error;
@@ -31,9 +32,12 @@ export class SimpleGraphQueryEvaluator {
   walker : ParseTreeWalker = new ParseTreeWalker();
   // Cache for parsed expressions to avoid re-parsing the same expression
   private parseTreeCache: Map<string, ExprContext> = new Map();
+  private rewriter: QueryRewriter = new QueryRewriter();
+  private enableRewrites: boolean = true;
 
-  constructor(datum: IDataInstance) {
+  constructor(datum: IDataInstance, options?: { enableRewrites?: boolean }) {
     this.datum = datum;
+    this.enableRewrites = options?.enableRewrites ?? true;
   }
 
 
@@ -54,21 +58,30 @@ export class SimpleGraphQueryEvaluator {
 
   evaluateExpression(forgeExpr: string): EvaluationResult {
 
-    // Check cache first
+    // Apply rewrites if enabled
+    let expressionToEvaluate = forgeExpr;
+    if (this.enableRewrites) {
+      const rewriteResult = this.rewriter.rewrite(forgeExpr);
+      if (rewriteResult.rewritten) {
+        expressionToEvaluate = rewriteResult.expression;
+      }
+    }
+
+    // Check cache first using the expression to evaluate (after rewriting)
     let tree: ExprContext;
-    if (this.parseTreeCache.has(forgeExpr)) {
-      tree = this.parseTreeCache.get(forgeExpr)!;
+    if (this.parseTreeCache.has(expressionToEvaluate)) {
+      tree = this.parseTreeCache.get(expressionToEvaluate)!;
     } else {
       try {    // now, we can actually evaluate the expression
-        const parsedTree = this.getExpressionParseTree(forgeExpr);
+        const parsedTree = this.getExpressionParseTree(expressionToEvaluate);
         tree = parsedTree instanceof ExprContext ? parsedTree : parsedTree.getChild(0) as ExprContext;
         // Cache the parsed tree
-        this.parseTreeCache.set(forgeExpr, tree);
+        this.parseTreeCache.set(expressionToEvaluate, tree);
       }
       catch (e) {
         // if we can't parse the expression, we return an error
         return {
-          error: new Error(`Error parsing expression "${forgeExpr}"`)
+          error: new Error(`Error parsing expression "${expressionToEvaluate}"`)
         };
       }
     }
@@ -91,12 +104,12 @@ export class SimpleGraphQueryEvaluator {
         const stackTrace = error.stack;
         const errorMessage = error.message;
         return {
-          error: new Error(`Error evaluating expression "${forgeExpr}": ${errorMessage}`),
+          error: new Error(`Error evaluating expression "${expressionToEvaluate}": ${errorMessage}`),
           stackTrace: stackTrace
         };
       }
       return {
-        error: new Error(`Error evaluating expression "${forgeExpr}"`)
+        error: new Error(`Error evaluating expression "${expressionToEvaluate}"`)
       };
     }
   }
