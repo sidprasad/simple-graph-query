@@ -805,6 +805,12 @@ export class ForgeExprEvaluator
             this.cacheResult(ctx, freeVarsKey, value);
             return value;
           }
+          if (multExpr.TWO_TOK() && result.length > 2) {
+            this.environmentStack.pop();
+            const value = false;
+            this.cacheResult(ctx, freeVarsKey, value);
+            return value;
+          }
         }
       }
 
@@ -833,7 +839,9 @@ export class ForgeExprEvaluator
           this.cacheResult(ctx, freeVarsKey, value);
           return value;
         } else if (multExpr.TWO_TOK()) {
-          throw new Error("**NOT IMPLEMENTING FOR NOW** Two (`two`)");
+          const value = result.length === 2;
+          this.cacheResult(ctx, freeVarsKey, value);
+          return value;
         }
       }
       // TODO: don't have support for SUM_TOK yet
@@ -952,13 +960,30 @@ export class ForgeExprEvaluator
       if (!isBoolean(leftChildValue)) {
         throw new Error("IMP operator expected 2 boolean operands!");
       }
+      const expr3Values = ctx.expr3() ?? [];
+      const thenExpr = expr3Values[0];
+      const elseExpr = expr3Values[1];
+
+      if (ctx.ELSE_TOK()) {
+        if (!thenExpr || !elseExpr) {
+          throw new Error("Expected the ELSE operator to have 2 operands!");
+        }
+        const branchValue = this.visit(leftChildValue ? thenExpr : elseExpr);
+        if (!isBoolean(branchValue)) {
+          throw new Error("IMP operator expected 2 boolean operands!");
+        }
+        return branchValue;
+      }
+
       if (!leftChildValue) {
         // short circuit if the antecedent is false
         return true;
       }
 
-      const rightChildValue = this.visit(ctx.expr3()![0]);
-      // TODO: add support for ELSE_TOK over here
+      if (!thenExpr) {
+        throw new Error("Expected the IMP operator to have a consequent expression!");
+      }
+      const rightChildValue = this.visit(thenExpr);
       if (!isBoolean(rightChildValue)) {
         throw new Error("IMP operator expected 2 boolean operands!");
       }
@@ -1209,35 +1234,30 @@ export class ForgeExprEvaluator
           results = leftNum >= rightNum;
           break;
         case "in":
+        case "ni": {
+          let membershipResult: boolean;
           // this should be true if the left value is equal to the right value,
           // or a subset of it
           if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
             if (areTupleArraysEqual(leftChildValue, rightChildValue)) {
-              results = true;
+              membershipResult = true;
             } else {
               // check if left is subset of right
-              results = isTupleArraySubset(leftChildValue, rightChildValue);
+              membershipResult = isTupleArraySubset(leftChildValue, rightChildValue);
             }
           } else if (isTupleArray(rightChildValue)) {
-            results = rightChildValue.some(
+            membershipResult = rightChildValue.some(
               (tuple) => tuple.length === 1 && tuple[0] === leftChildValue
             );
           } else {
             // left is a tuple array but right is a single value, so false
-            results = false;
+            membershipResult = false;
           }
+          results = ctx.compareOp()?.text === "ni" ? !membershipResult : membershipResult;
           break;
+        }
         case "is":
           throw new Error("**NOT IMPLEMENTING FOR NOW** Type Check (`is`)");
-        case "ni":
-          results.push(["**UNIMPLEMENTED** Set Non-Membership (`ni`)"]);
-          // TODO: implement this using leftValue and rightValue
-          //       for now, just returning over here. what we need to do instead
-          //       is to implement this, set the value of results to what we get
-          //       from this, and then call break (so that we can negate before
-          //       returning the final value, if required)
-          return results;
-          break; // redundant, but it won't be once we implement the TODO above
         default:
           throw new Error(
             `Unexpected compare operator provided: ${ctx.compareOp()?.text}`
@@ -1268,13 +1288,13 @@ export class ForgeExprEvaluator
     //console.log('childrenResults:', childrenResults);
 
     if (ctx.SET_TOK()) {
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Set (`set`)");
+      return childrenResults;
     }
     if (ctx.ONE_TOK()) {
       return isTupleArray(childrenResults) && childrenResults.length === 1;
     }
     if (ctx.TWO_TOK()) {
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Two (`two`)");
+      return isTupleArray(childrenResults) && childrenResults.length === 2;
     }
     if (ctx.NO_TOK()) {
       return isTupleArray(childrenResults) && childrenResults.length === 0;

@@ -275,6 +275,48 @@ describe("sgq-evaluator ", () => {
     expect(result12).toEqual(true);
   });
 
+  it("can evaluate non-membership and multiplicity operators", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const nonMemberExpr = "X0 ni Board";
+    const nonMemberResult = evaluatorUtil.evaluateExpression(nonMemberExpr);
+    expect(nonMemberResult).toBe(true);
+
+    const memberExpr = "Board0 ni Board";
+    const memberResult = evaluatorUtil.evaluateExpression(memberExpr);
+    expect(memberResult).toBe(false);
+
+    const twoExpr = "two (X0 + O0)";
+    const twoResult = evaluatorUtil.evaluateExpression(twoExpr);
+    expect(twoResult).toBe(true);
+
+    const twoFalseExpr = "two X";
+    const twoFalseResult = evaluatorUtil.evaluateExpression(twoFalseExpr);
+    expect(twoFalseResult).toBe(false);
+
+    const setExpr = "set (X0 + O0)";
+    const setResult = evaluatorUtil.evaluateExpression(setExpr);
+    expect(areEquivalentTupleArrays(setResult, [["X0"], ["O0"]])).toBe(true);
+
+    const quantifierTwoExpr = "two i: X + O | true";
+    const quantifierTwoResult = evaluatorUtil.evaluateExpression(quantifierTwoExpr);
+    expect(quantifierTwoResult).toBe(true);
+  });
+
+  it("can evaluate implies with else", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    const expr1 = "false implies false else true";
+    const result1 = evaluatorUtil.evaluateExpression(expr1);
+    expect(result1).toEqual(true);
+
+    const expr2 = "true implies false else true";
+    const result2 = evaluatorUtil.evaluateExpression(expr2);
+    expect(result2).toEqual(false);
+  });
+
 
   it("can evaluate a transitive closure", () => {
     const datum = new TTTDataInstance();
