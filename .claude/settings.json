@@ -1,0 +1,15 @@
+{
+  "skills": ["skills.md", "examples.md"],
+  "context": {
+    "include": [
+      "src/**/*.ts",
+      "src/forge-antlr/Forge.g4",
+      "src/forge-antlr/ForgeLexer.g4"
+    ],
+    "exclude": [
+      "node_modules/**",
+      "dist/**",
+      "*.test.ts"
+    ]
+  }
+}
