@@ -233,9 +233,11 @@ function bitwidthWraparound(value: number, bitwidth: number): number {
 
 const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder"];
 const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign"];
+const SUPPORTED_SET_BUILTINS: string[] = ["min", "max"];
 
 export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
-  SUPPORTED_UNARY_BUILTINS
+  SUPPORTED_UNARY_BUILTINS,
+  SUPPORTED_SET_BUILTINS
 );
 
 /**
@@ -1562,6 +1564,9 @@ export class ForgeExprEvaluator
         else if (SUPPORTED_UNARY_BUILTINS.includes(beforeBracesExpr)) {
           return this.evaluateUnaryOperation(beforeBracesExpr, insideBracesExprs);
         }
+        else if (SUPPORTED_SET_BUILTINS.includes(beforeBracesExpr)) {
+          return this.evaluateSetOperation(beforeBracesExpr, insideBracesExprs);
+        }
       }
 
       // Box join: <expr-a>[<expr-b>] == <expr-b> . <expr-a>
@@ -2287,6 +2292,50 @@ export class ForgeExprEvaluator
       }
     } else {
       throw new Error(`Unsupported operation: ${operation}`);
+    }
+  }
+
+  private evaluateSetOperation(
+    operation: typeof SUPPORTED_SET_BUILTINS[number],
+    args: EvalResult
+  ): number {
+    // min and max operate on a set of integers and return the min/max value
+    // The argument should be a set (tuple array of arity 1) of numbers
+    
+    let numbers: number[] = [];
+    
+    if (isSingleValue(args)) {
+      if (isNumber(args)) {
+        numbers = [args];
+      } else {
+        throw new Error(`Expected a set of numbers for ${operation}`);
+      }
+    } else if (isTupleArray(args)) {
+      // Extract numbers from the tuple array
+      for (const tuple of args) {
+        if (tuple.length !== 1) {
+          throw new Error(`${operation} expects a set of arity 1 (single column)`);
+        }
+        const value = tuple[0];
+        if (!isNumber(value)) {
+          throw new Error(`${operation} expects all elements to be numbers, got: ${typeof value}`);
+        }
+        numbers.push(value);
+      }
+    } else {
+      throw new Error(`Expected a set of numbers for ${operation}`);
+    }
+    
+    if (numbers.length === 0) {
+      throw new Error(`${operation} requires a non-empty set`);
+    }
+    
+    if (operation === "min") {
+      return Math.min(...numbers);
+    } else if (operation === "max") {
+      return Math.max(...numbers);
+    } else {
+      throw new Error(`Unsupported set operation: ${operation}`);
     }
   }
 }
