@@ -132,13 +132,13 @@ export class ForgeExprFreeVariableFinder
     if (ctx.COMMA_TOK()) {
       // there is a comma, so we need to get the value from the head of the list
       // and then move onto the tail after that
-      const headValue = ctx.name().text;
+      const headValue = getIdentifierName(ctx.name());
       const tailValues = this.getNameListValues(ctx.nameList()!);
       tailValues.add(headValue);
       return tailValues;
     } else {
       // there is no comma so there is just a single name that we need to deal with here
-      return new Set<string>([ctx.name().text]);
+      return new Set<string>([getIdentifierName(ctx.name())]);
     }
   }
 

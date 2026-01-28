@@ -1760,12 +1760,12 @@ export class ForgeExprEvaluator
     if (ctx.COMMA_TOK()) {
       // there is a comma, so we need to get the value from the head of the list
       // and then move onto the tail after that
-      const headValue = ctx.name().text;
+      const headValue = getIdentifierName(ctx.name());
       const tailValues = this.getNameListValues(ctx.nameList()!);
       return [headValue, ...tailValues];
     } else {
       // there is no comma so there is just a single name that we need to deal with here
-      return [ctx.name().text];
+      return [getIdentifierName(ctx.name())];
     }
   }
 

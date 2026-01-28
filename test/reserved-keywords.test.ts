@@ -279,6 +279,25 @@ describe("Reserved keyword identifier support", () => {
       const result = evaluator.evaluateExpression("all i: Item | some s: `set` | i in s.contains");
       expect(result).toBe(true);
     });
+
+    it("should correctly bind quantifier variable with backtick-quoted name", () => {
+      // This tests the specific bug: quantifier variable named with reserved keyword
+      // The variable `in` should be bound and looked up consistently (uses a relation name, not type)
+      const result = evaluator.evaluateExpression("all `in`: Item | `in` in Item");
+      expect(result).toBe(true);
+    });
+
+    it("should handle backtick-quoted variable referencing itself in body", () => {
+      // Variable named `one` (a reserved keyword) used in the body
+      const result = evaluator.evaluateExpression("some `one`: Item | `one` = item0");
+      expect(result).toBe(true);
+    });
+
+    it("should handle multiple backtick-quoted variable names in same quantifier", () => {
+      // Multiple reserved keyword variable names
+      const result = evaluator.evaluateExpression("some `in`: Item, `one`: `set` | `in` in `one`.contains");
+      expect(result).toBe(true);
+    });
   });
 
   describe("Complex expressions with multiple reserved keywords", () => {

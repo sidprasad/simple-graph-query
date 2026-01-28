@@ -237,7 +237,7 @@ export class ForgeListenerImpl implements ForgeListener {
     exitPredDecl? (ctx: PredDeclContext) {
 
         const {startLine, startColumn, endLine, endColumn} = getLocations(ctx);
-        const predName = ctx.name().text;
+        const predName = getIdentifierName(ctx.name());
 
         // We don't care about the pred type for now (wheat or not.) In fact, this should maybe be removed from FORGE.
         // There is also the PRED qualName that I don't know what to do with here.
@@ -274,7 +274,7 @@ export class ForgeListenerImpl implements ForgeListener {
     exitFunDecl? (ctx: FunDeclContext) {
 
         const {startLine, startColumn, endLine, endColumn} = getLocations(ctx);
-        const funName = ctx.name().text;
+        const funName = getIdentifierName(ctx.name());
 
         let f = new Function(
             startLine, 
@@ -374,7 +374,7 @@ export class ForgeListenerImpl implements ForgeListener {
         }
 
         const expr = getLocationOnlyExpr(ctx.expr());
-        const predName = ctx.name().text;
+        const predName = getIdentifierName(ctx.name());
 
 
         const testScope = ctx.scope()?.toStringTree(); // This is not ideal, but will do for now.
@@ -420,7 +420,7 @@ export class ForgeListenerImpl implements ForgeListener {
         let predIndex = (rel === "sufficient") ? 0 : 1;
         let propIndex = (rel === "sufficient") ? 1 : 0;
 
-        const predName = ctx.name().text;
+        const predName = getIdentifierName(ctx.name());
         const expr = getLocationOnlyExpr(ctx.expr());
 
         let argsT = ctx.exprList();
@@ -473,7 +473,7 @@ export class ForgeListenerImpl implements ForgeListener {
 
         let consistent = (consistencyType === "consistent") ? true : false;
 
-        const predName = ctx.name().text;
+        const predName = getIdentifierName(ctx.name());
         const expr = getLocationOnlyExpr(ctx.expr());
         const testScope = ctx.scope()?.toStringTree(); // This is not ideal, but will do for now.
         const testBounds = ctx.bounds()?.toStringTree(); // This is not ideal, but will do for now.
@@ -542,7 +542,7 @@ export class ForgeListenerImpl implements ForgeListener {
 
         const {startLine, startColumn, endLine, endColumn} = getLocations(ctx);
 
-        const exampleName = ctx.name().text;
+        const exampleName = getIdentifierName(ctx.name());
 
         const testExpr = ctx.expr();
         const testExprBlock : Block = getLocationOnlyBlock(testExpr);
