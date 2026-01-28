@@ -31,6 +31,7 @@ import {
   NameListContext,
   QuantDeclContext,
 } from "./forge-antlr/ForgeParser";
+import { getIdentifierName } from "./forge-antlr/utils";
 import { IAtom, IDataInstance, ITuple, IRelation } from "./types";
 import { isArray } from "lodash";
 import {
@@ -2038,7 +2039,7 @@ export class ForgeExprEvaluator
     // console.log('visiting name:', ctx.text);
 
     // if `true` or `false`, return the corresponding value
-    const identifier = ctx.IDENTIFIER_TOK().text;
+    const identifier = getIdentifierName(ctx);
 
     if (identifier === "true") {
       return true;

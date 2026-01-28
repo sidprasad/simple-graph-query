@@ -42,6 +42,7 @@ import { QualNameContext } from "./ForgeParser";
 import { OptionDeclContext } from "./ForgeParser";
 import { NameContext } from "./ForgeParser";
 import { NameListContext } from "./ForgeParser";
+import { getIdentifierName } from "./utils";
 import { QualNameListContext } from "./ForgeParser";
 import { ParaDeclListContext } from "./ForgeParser";
 import { QuantDeclListContext } from "./ForgeParser";
@@ -292,7 +293,8 @@ export class ForgeListenerImpl implements ForgeListener {
     exitTestDecl? (ctx: TestDeclContext){
 
         const {startLine, startColumn, endLine, endColumn} = getLocations(ctx);
-        const testName = ctx.name()?.IDENTIFIER_TOK().text || getRandomName();
+        const nameCtx = ctx.name();
+        const testName = nameCtx ? getIdentifierName(nameCtx) : getRandomName();
         // IGNORE qualName (the alternative to block) for now, unsure what it is. TODO!!
         const testBlock = ctx.block();
         const testBody : Block | undefined = testBlock ? getLocationOnlyBlock(testBlock) : undefined;
@@ -594,6 +596,6 @@ export class ForgeListenerImpl implements ForgeListener {
         // Start the collection from the given context
         collectNames(ctx);
 
-        return names.map(nameCtx => nameCtx.IDENTIFIER_TOK().text);
+        return names.map(nameCtx => getIdentifierName(nameCtx));
     }
 }

@@ -114,3 +114,10 @@ export {
   SynthesisWhyExample,
   WhyNode,
 } from './SelectorSynthesizer';
+
+// Utilities for handling reserved keyword identifiers
+export {
+  getIdentifierName,
+  quoteIfReserved,
+  FORGE_RESERVED_KEYWORDS,
+} from './forge-antlr/utils';
