@@ -107,6 +107,8 @@ OPTION_TOK: 'option';
 COMMA_TOK: ',';
 SLASH_TOK: '/';
 NUM_CONST_TOK: [0-9]+ ('.' [0-9]+)?;
+// Backtick-quoted identifier for escaping reserved keywords: `set`, `some`, etc.
+QUOTED_IDENTIFIER_TOK: '`' (~[`\\] | '\\' .)+ '`';
 IDENTIFIER_TOK: [a-zA-Z_$/] [a-zA-Z_0-9$/]*;
 
 WS: [ \t\r\n]+ -> skip;

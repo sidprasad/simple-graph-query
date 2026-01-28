@@ -32,6 +32,7 @@ import {
   QuantDeclContext,
   QuantDeclListContext,
 } from "./forge-antlr/ForgeParser";
+import { getIdentifierName } from "./forge-antlr/utils";
 import { SUPPORTED_BUILTINS } from "./ForgeExprEvaluator";
 
 // defining the return type for the visitor
@@ -405,7 +406,7 @@ export class ForgeExprFreeVariableFinder
 
 
   visitName(ctx: NameContext): FreeVariables {
-    const identifier = ctx.IDENTIFIER_TOK().text;
+    const identifier = getIdentifierName(ctx);
 
     if (identifier === "true" || identifier === "false") {
       // these aren't free variables

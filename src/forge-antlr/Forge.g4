@@ -62,7 +62,8 @@ quant: ALL_TOK | NO_TOK | SUM_TOK | mult;
 qualName: (THIS_TOK SLASH_TOK)? (name SLASH_TOK)* name | INT_TOK | SUM_TOK;
 optionDecl: OPTION_TOK qualName (qualName | FILE_PATH_TOK | MINUS_TOK? number);
 
-name: IDENTIFIER_TOK;
+// Accept both regular identifiers and backtick-quoted identifiers (for escaping reserved keywords)
+name: IDENTIFIER_TOK | QUOTED_IDENTIFIER_TOK;
 nameList: name | name COMMA_TOK nameList;
 qualNameList: qualName | qualName COMMA_TOK qualNameList;
 
