@@ -232,7 +232,7 @@ However, JavaScript's single-threaded nature limits these optimizations without 
 
 ### Smarter Caching
 - Cache at more granular levels (individual operations)
-- Implement LRU eviction for memory management
+- ✅ **Implemented**: LRU eviction for memory management - The evaluator now uses an LRU cache with configurable size limits (default: 1000 entries) to prevent unbounded memory growth during complex queries. This addresses browser crashes caused by excessive memory usage.
 - Share caches across evaluator instances for the same data instance
 
 ### Query Optimization
@@ -473,6 +473,67 @@ function generateOptimizedNumericCombinations(...) {
 
 **Comparison to Alloy**: Alloy's speed comes from SAT/SMT solvers that reason symbolically about constraints without enumerating values. This evaluator operates on concrete data instances (query engine vs. constraint solver), so it cannot avoid enumeration entirely. However, this optimization brings it closer to Alloy's behavior by recognizing patterns that allow smart enumeration rather than brute-force.
 
+### 13. Memory Management with LRU Cache
+
+**Problem**: The `cachedResults` map in `ForgeExprEvaluator` grows unbounded during query evaluation, especially for complex queries with nested quantifiers. This can lead to excessive memory usage and browser crashes. The cache stores evaluation results keyed by parse tree nodes and free variable values.
+
+**Solution**: Implement an LRU (Least Recently Used) cache with configurable size limits.
+
+```typescript
+class LRUCache<K, V> {
+  private maxSize: number;
+  private cache: Map<K, V>;
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+    // Move to end (most recently used)
+    const value = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, value);
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    }
+    // If at capacity, remove least recently used (first item)
+    else if (this.cache.size >= this.maxSize) {
+      const firstKey = this.cache.keys().next().value as K;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, value);
+  }
+}
+
+// Usage in ForgeExprEvaluator:
+constructor(datum: IDataInstance, maxCacheSize: number = 1000) {
+  this.cachedResults = new LRUCache(maxCacheSize);
+  // ...
+}
+```
+
+**Configuration**:
+```typescript
+// Default cache size (1000 entries)
+const evaluator = new SimpleGraphQueryEvaluator(datum);
+
+// Custom cache size for memory-constrained environments
+const evaluator = new SimpleGraphQueryEvaluator(datum, 500);
+```
+
+**Impact**:
+- Prevents unbounded memory growth during complex query evaluation
+- Fixes browser crashes caused by excessive memory usage
+- Maintains performance for typical queries with default limit of 1000 entries
+- Allows configuration for different memory constraints:
+  - Small (100-500): Embedded devices, very large datasets
+  - Default (1000): Good balance for most use cases
+  - Large (5000+): Complex nested quantifiers with extensive caching needs
+- All existing tests pass without modification
+
 ## Conclusion
 
 These optimizations significantly improve performance without sacrificing code clarity or correctness. The key insights are organized by optimization category:
@@ -493,5 +554,10 @@ These optimizations significantly improve performance without sacrificing code c
 - Pattern recognition enables generating only valid combinations for numeric comparisons
 - Bridges the gap between concrete evaluation and symbolic constraint solving
 - Demonstrates that understanding query structure allows targeted optimizations
+
+### Memory Management (Optimization 13)
+- LRU cache with configurable limits prevents unbounded memory growth
+- Addresses browser crashes from excessive memory usage in complex queries
+- Allows tuning for different memory constraints and use cases
 
 All changes are backwards compatible and all existing tests pass without modification.

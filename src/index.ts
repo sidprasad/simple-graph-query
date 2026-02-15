@@ -31,9 +31,12 @@ export class SimpleGraphQueryEvaluator {
   walker : ParseTreeWalker = new ParseTreeWalker();
   // Cache for parsed expressions to avoid re-parsing the same expression
   private parseTreeCache: Map<string, ExprContext> = new Map();
+  // Maximum number of cached evaluation results per evaluator instance
+  private maxCacheSize: number;
 
-  constructor(datum: IDataInstance) {
+  constructor(datum: IDataInstance, maxCacheSize: number = 1000) {
     this.datum = datum;
+    this.maxCacheSize = maxCacheSize;
   }
 
 
@@ -73,7 +76,7 @@ export class SimpleGraphQueryEvaluator {
       }
     }
 
-    const evaluator = new ForgeExprEvaluator(this.datum);
+    const evaluator = new ForgeExprEvaluator(this.datum, this.maxCacheSize);
 
     try {
 
