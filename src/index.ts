@@ -3,7 +3,7 @@ import { ForgeParser, ExprContext, PredDeclContext } from './forge-antlr/ForgePa
 import { ForgeLexer } from './forge-antlr/ForgeLexer';
 import { ForgeListenerImpl } from './forge-antlr/ForgeListenerImpl';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
-import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
+import { EvalResult, ForgeExprEvaluator } from './ForgeExprEvaluator';
 import { IDataInstance, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
 
@@ -39,15 +39,7 @@ export class SimpleGraphQueryEvaluator {
 
   getExpressionParseTree(forgeExpr: string) {
     const parser = createForgeParser(forgeExpr);
-    const tree = parser.parseExpr();
-    
-    // TODO: Is this wrong?
-    if (!tree || tree.childCount === 0) {
-      throw new Error(`Parse error in ${forgeExpr}`);
-    }
-
-    //////// This is empty on parse error? //TODO//////
-    return tree;
+    return parser.parseExpr();
   }
 
 
@@ -67,9 +59,12 @@ export class SimpleGraphQueryEvaluator {
       }
       catch (e) {
         // if we can't parse the expression, we return an error
-        return {
-          error: new Error(`Error parsing expression "${forgeExpr}"`)
-        };
+        // Preserve the original error instance so callers can do
+        // `result.error instanceof ParseError`.
+        if (e instanceof Error) {
+          return { error: e, stackTrace: e.stack };
+        }
+        return { error: new Error(`Error parsing expression "${forgeExpr}"`) };
       }
     }
 
@@ -82,18 +77,12 @@ export class SimpleGraphQueryEvaluator {
       // ensure we're visiting an ExprContext
       return result;
     } catch (error) {
-      if (error instanceof NameNotFoundError) {
-        // Return an empty EvalResult for undefined names
-        let emptyResult: EvalResult = [];
-        return emptyResult;
-      }
+      // Preserve the original error instance so callers (notably spytial-core)
+      // can do `result.error instanceof NameNotFoundError` and apply their own
+      // policy (silent empty vs. surface-as-error). This evaluator is a pure
+      // engine; policy lives one layer up.
       if (error instanceof Error) {
-        const stackTrace = error.stack;
-        const errorMessage = error.message;
-        return {
-          error: new Error(`Error evaluating expression "${forgeExpr}": ${errorMessage}`),
-          stackTrace: stackTrace
-        };
+        return { error, stackTrace: error.stack };
       }
       return {
         error: new Error(`Error evaluating expression "${forgeExpr}"`)
@@ -101,6 +90,9 @@ export class SimpleGraphQueryEvaluator {
     }
   }
 }
+
+export { NameNotFoundError } from './ForgeExprEvaluator';
+export { ParseError, ParseErrorListener } from './errorListener';
 
 export {
   synthesizeSelector,
