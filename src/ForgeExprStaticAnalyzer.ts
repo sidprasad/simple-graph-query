@@ -20,6 +20,8 @@ import {
   Expr18Context,
   ExprContext,
   NameContext,
+  NameListContext,
+  QuantDeclListContext,
   BlockContext,
   QuantContext,
 } from "./forge-antlr/ForgeParser";
@@ -173,10 +175,47 @@ export class ForgeExprStaticAnalyzer
   implements ForgeVisitor<Abstract>
 {
   private readonly schema?: SchemaInfo;
+  // Stack of name-binding frames introduced by enclosing scopes (set
+  // comprehensions today; quantifiers/let when they get analyzed). A name
+  // appearing in any frame must not be looked up in the schema — its value
+  // is whatever the binder supplies, which we cannot reason about statically.
+  private readonly boundScopes: Array<Set<string>> = [];
 
   constructor(schema?: IForgeSchema) {
     super();
     if (schema) this.schema = new SchemaInfo(schema);
+  }
+
+  private isBound(name: string): boolean {
+    for (const frame of this.boundScopes) {
+      if (frame.has(name)) return true;
+    }
+    return false;
+  }
+
+  // Run `fn` with `names` pushed onto the scope stack. try/finally so a thrown
+  // visit doesn't leak frames into sibling analyses.
+  private withBoundScope<T>(names: Set<string>, fn: () => T): T {
+    this.boundScopes.push(names);
+    try {
+      return fn();
+    } finally {
+      this.boundScopes.pop();
+    }
+  }
+
+  // Walk a nameList (`a, b, c`) and accumulate identifiers into `out`.
+  private collectNamesFromList(ctx: NameListContext, out: Set<string>): void {
+    out.add(getIdentifierName(ctx.name()));
+    const tail = ctx.nameList();
+    if (tail) this.collectNamesFromList(tail, out);
+  }
+
+  // Walk a quantDeclList (`a : S, b : T`) and accumulate all bound identifiers.
+  private collectBoundNames(ctx: QuantDeclListContext, out: Set<string>): void {
+    this.collectNamesFromList(ctx.quantDecl().nameList(), out);
+    const tail = ctx.quantDeclList();
+    if (tail) this.collectBoundNames(tail, out);
   }
 
   // Public entry: convert internal lattice value to a verdict + reason.
@@ -805,8 +844,11 @@ export class ForgeExprStaticAnalyzer
     }
     if (ctx.LEFT_CURLY_TOK()) {
       // Set comprehension `{x : S | body}` is empty if any quantified set is
-      // empty, or if the body is statically false.
+      // empty, or if the body is statically false. Domain expressions evaluate
+      // in the OUTER scope (the variable isn't bound yet for its own domain),
+      // so we only need to push a scope before visiting the body.
       const declList = ctx.quantDeclList();
+      const boundHere = new Set<string>();
       if (declList) {
         let cur = declList;
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -814,6 +856,7 @@ export class ForgeExprStaticAnalyzer
           const setExpr = cur.quantDecl().expr();
           const v = this.visit(setExpr);
           if (v.kind === "empty") return { kind: "empty" };
+          this.collectNamesFromList(cur.quantDecl().nameList(), boundHere);
           const next = cur.quantDeclList();
           if (!next) break;
           cur = next;
@@ -821,7 +864,9 @@ export class ForgeExprStaticAnalyzer
       }
       const blockOrBar = ctx.blockOrBar();
       if (blockOrBar && blockOrBar.BAR_TOK() && blockOrBar.expr()) {
-        const body = this.visit(blockOrBar.expr()!);
+        const body = this.withBoundScope(boundHere, () =>
+          this.visit(blockOrBar.expr()!),
+        );
         if (body.kind === "bool" && !body.value) return { kind: "empty" };
       }
       return UNKNOWN;
@@ -841,6 +886,9 @@ export class ForgeExprStaticAnalyzer
     const id = getIdentifierName(ctx);
     if (id === "true") return { kind: "bool", value: true };
     if (id === "false") return { kind: "bool", value: false };
+    // If this name is shadowed by an enclosing binder, we cannot reason about
+    // it from the schema — the bound value can be anything.
+    if (this.isBound(id)) return UNKNOWN;
     if (this.schema) {
       const t = this.schema.getType(id);
       if (t) return { kind: "typed", arity: 1, columnTypes: [t.id] };

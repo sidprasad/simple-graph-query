@@ -495,6 +495,40 @@ describe("ForgeExprStaticAnalyzer — schema-aware: arity mismatches", () => {
   });
 });
 
+describe("ForgeExprStaticAnalyzer — shadowing safety", () => {
+  it("does not use schema info for set-comp bound names that shadow types", () => {
+    // `Player` is bound by the comprehension to range over Move atoms; in the
+    // body it has NOTHING to do with the schema's Player type. The analyzer
+    // must therefore NOT fold `Player & Move` to empty here.
+    expect(withSchema("{Player : Move | some (Player & Move)}").status).not.toBe("empty");
+    expect(withSchema("{Player : Move | some (Player & Move)}").status).not.toBe("unsat");
+  });
+
+  it("still folds when the bound name does not collide with the schema", () => {
+    // `p` is fresh; `Player & Move` in the body really IS schema Player ∩ Move.
+    expect(withSchema("{p : Move | some (Player & Move)}").status).toBe("empty");
+  });
+
+  it("does not use schema for shadowed relation names either", () => {
+    expect(withSchema("{parent : Move | some parent}").status).not.toBe("ill-typed");
+  });
+
+  it("nested comprehensions track scope correctly", () => {
+    // Inner Player shadows; outer Move doesn't.
+    expect(withSchema("{x : Move | some {Player : Move | some (Player & Move)}}").status)
+      .not.toBe("empty");
+  });
+
+  it("releases bindings after the comprehension body", () => {
+    // Inside the comp body, Player is bound and schema lookups must skip; the
+    // `Pawn in Player` clause is OUTSIDE the body, so Pawn and Player both
+    // resolve to schema types and the subtype tautology should still fire.
+    expect(
+      withSchema("(some {Player : Move | some Player}) or (Pawn in Player)").status
+    ).toBe("tautology");
+  });
+});
+
 describe("ForgeExprStaticAnalyzer — conservative cases", () => {
   it("returns unknown for data-dependent expressions", () => {
     expectUnknown("Thing");
