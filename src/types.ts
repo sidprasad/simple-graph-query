@@ -40,5 +40,14 @@ export interface IDataInstance {
     getAtomType(id: string): IType;
     getTypes(): readonly IType[];
     getAtoms(): readonly IAtom[];
-    getRelations(): readonly IRelation[]; 
+    getRelations(): readonly IRelation[];
+}
+
+// Schema-only view: just the type lattice and relation declarations, no
+// instance data. IDataInstance is structurally a superset, so any data
+// instance is also a schema. Used by the static analyzer for type-based
+// checks that don't need atoms/tuples.
+export interface IForgeSchema {
+    getTypes(): readonly IType[];
+    getRelations(): readonly IRelation[];
 }

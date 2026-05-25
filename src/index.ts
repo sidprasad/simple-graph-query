@@ -4,7 +4,8 @@ import { ForgeLexer } from './forge-antlr/ForgeLexer';
 import { ForgeListenerImpl } from './forge-antlr/ForgeListenerImpl';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
 import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
-import { IDataInstance, IAtom, IRelation, ITuple, IType } from './types';
+import { ForgeExprStaticAnalyzer, StaticAnalysis } from './ForgeExprStaticAnalyzer';
+import { IDataInstance, IForgeSchema, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
 
 export type ErrorResult = {
@@ -101,6 +102,39 @@ export class SimpleGraphQueryEvaluator {
     }
   }
 }
+
+/**
+ * Run a static analysis on a Forge expression.
+ *
+ * Returns `unsat` when the expression provably reduces to `false`, `empty`
+ * when it provably reduces to the empty set, `tautology` when it provably
+ * reduces to `true`, `ill-typed` for static type errors (e.g. arity
+ * mismatch), and `unknown` otherwise (including parse errors).
+ *
+ * When `schema` is provided, the analyzer also uses the type lattice and
+ * relation declarations to detect type-disjoint intersections, subtype
+ * tautologies in `in`, join column-type mismatches, and arity errors.
+ * Disjointness uses a closed-world rule (A ∩ B = ∅ iff no type in the
+ * lattice has both A and B in its lineage).
+ */
+export function analyzeForgeExpression(
+  forgeExpr: string,
+  schema?: IForgeSchema,
+): StaticAnalysis {
+  try {
+    const parser = createForgeParser(forgeExpr);
+    const tree = parser.parseExpr();
+    if (!tree || tree.childCount === 0) {
+      return { status: "unknown" };
+    }
+    return new ForgeExprStaticAnalyzer(schema).analyze(tree);
+  } catch {
+    return { status: "unknown" };
+  }
+}
+
+export { ForgeExprStaticAnalyzer, StaticAnalysis };
+export type { IForgeSchema };
 
 export {
   synthesizeSelector,
