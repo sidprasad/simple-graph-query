@@ -242,6 +242,17 @@ export class ForgeExprStaticAnalyzer
     return UNKNOWN;
   }
 
+  // Return the first ill-typed value among the args, or undefined. Used by
+  // every operator handler to surface a statically malformed sub-expression
+  // before any fold (including short-circuits like `false AND ?` and `true OR
+  // ?`) could mask it.
+  private static bailIfIllTyped(...vals: Abstract[]): Abstract | undefined {
+    for (const v of vals) {
+      if (v.kind === "ill-typed") return v;
+    }
+    return undefined;
+  }
+
   // Prefer the more specific child result when aggregating across siblings.
   // For pass-through expr layers there's exactly one meaningful child; for
   // wrapper nodes like `( expr )` the terminals contribute UNKNOWN and the
@@ -336,7 +347,8 @@ export class ForgeExprStaticAnalyzer
     let result: Abstract = { kind: "bool", value: true };
     for (const e of ctx.expr()) {
       const v = this.visit(e);
-      if (v.kind === "bool" && !v.value) return v;       // any false → false
+      if (v.kind === "ill-typed") return v;               // ill-typed wins
+      if (v.kind === "bool" && !v.value) return v;        // any false → false
       if (v.kind !== "bool") result = UNKNOWN;            // forget the running true
     }
     return result;
@@ -346,10 +358,12 @@ export class ForgeExprStaticAnalyzer
     if (ctx.OR_TOK()) {
       const leftCtx = ctx.expr1()!;
       const rightCtx = ctx.expr1_5()!;
-      // X or X  →  X
-      if (sameSubtree(leftCtx, rightCtx)) return this.visit(leftCtx);
       const l = this.visit(leftCtx);
       const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      // X or X  →  X
+      if (sameSubtree(leftCtx, rightCtx)) return l;
       if (l.kind === "bool" && l.value) return l;
       if (r.kind === "bool" && r.value) return r;
       if (l.kind === "bool" && r.kind === "bool") {
@@ -369,10 +383,12 @@ export class ForgeExprStaticAnalyzer
     if (ctx.XOR_TOK()) {
       const leftCtx = ctx.expr1_5()!;
       const rightCtx = ctx.expr2()!;
-      // X xor X  →  false
-      if (sameSubtree(leftCtx, rightCtx)) return { kind: "bool", value: false };
       const l = this.visit(leftCtx);
       const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      // X xor X  →  false
+      if (sameSubtree(leftCtx, rightCtx)) return { kind: "bool", value: false };
       if (l.kind === "bool" && r.kind === "bool") {
         return { kind: "bool", value: l.value !== r.value };
       }
@@ -385,6 +401,10 @@ export class ForgeExprStaticAnalyzer
     if (ctx.IFF_TOK()) {
       const leftCtx = ctx.expr2()!;
       const rightCtx = ctx.expr3()!;
+      const l = this.visit(leftCtx);
+      const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
       // X iff X  →  true
       if (sameSubtree(leftCtx, rightCtx)) return { kind: "bool", value: true };
       // X iff not X  /  not X iff X  →  false
@@ -392,8 +412,6 @@ export class ForgeExprStaticAnalyzer
       const rNeg = negationOperandText(rightCtx);
       if (lNeg !== undefined && lNeg === rightCtx.text) return { kind: "bool", value: false };
       if (rNeg !== undefined && rNeg === leftCtx.text) return { kind: "bool", value: false };
-      const l = this.visit(leftCtx);
-      const r = this.visit(rightCtx);
       if (l.kind === "bool" && r.kind === "bool") {
         return { kind: "bool", value: l.value === r.value };
       }
@@ -406,19 +424,23 @@ export class ForgeExprStaticAnalyzer
     if (ctx.IMP_TOK()) {
       const ant = this.visit(ctx.expr4()!);
       const exprs3 = ctx.expr3();
-      // Implication or implication-with-else
+      // Implication or implication-with-else. Visit all branches up front so
+      // an ill-typed sub-expression is reported even when a short-circuit
+      // (false antecedent, etc.) would otherwise fold the verdict.
       if (ctx.ELSE_TOK()) {
-        // (cond) => then else else  : pick the branch when cond is known
-        if (ant.kind === "bool") {
-          const chosen = ant.value ? exprs3[0] : exprs3[1];
-          return this.visit(chosen);
-        }
+        const thenBranch = this.visit(exprs3[0]);
+        const elseBranch = this.visit(exprs3[1]);
+        const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(ant, thenBranch, elseBranch);
+        if (bail) return bail;
+        if (ant.kind === "bool") return ant.value ? thenBranch : elseBranch;
         return UNKNOWN;
       }
-      // antecedent false → vacuously true
-      if (ant.kind === "bool" && !ant.value) return { kind: "bool", value: true };
       const conseqCtx = exprs3[0]!;
       const con = this.visit(conseqCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(ant, con);
+      if (bail) return bail;
+      // antecedent false → vacuously true
+      if (ant.kind === "bool" && !ant.value) return { kind: "bool", value: true };
       // true => X  ≡  X
       if (ant.kind === "bool" && ant.value) return con;
       // _ => true  ≡  true
@@ -432,10 +454,12 @@ export class ForgeExprStaticAnalyzer
     if (ctx.AND_TOK()) {
       const leftCtx = ctx.expr4()!;
       const rightCtx = ctx.expr4_5()!;
-      // X and X  →  X
-      if (sameSubtree(leftCtx, rightCtx)) return this.visit(leftCtx);
       const l = this.visit(leftCtx);
       const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      // X and X  →  X
+      if (sameSubtree(leftCtx, rightCtx)) return l;
       if (l.kind === "bool" && !l.value) return l;
       if (r.kind === "bool" && !r.value) return r;
       if (l.kind === "bool" && r.kind === "bool") {
@@ -480,17 +504,28 @@ export class ForgeExprStaticAnalyzer
     const rightCtx = ctx.expr7()!;
     const l = this.visit(leftCtx);
     const r = this.visit(rightCtx);
+    const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+    if (bail) return bail;
     const negate = ctx.NEG_TOK() !== undefined;
     const opText = op.text;
 
-    const finalize = (value: boolean): Abstract => ({
-      kind: "bool",
-      value: negate ? !value : value,
-    });
+    // `ni` is non-membership (the codebase's evaluator implements it as
+    // !(in)). We fold it by computing the corresponding `in` verdict and
+    // letting `finalize` invert. This keeps the static verdict in agreement
+    // with runtime semantics for expressions like `X ni X` (false) and
+    // `none ni 1` (true).
+    const isNi = opText === "ni";
+    const opForLogic = isNi ? "in" : opText;
+    const finalize = (value: boolean): Abstract => {
+      let v = value;
+      if (isNi) v = !v;
+      if (negate) v = !v;
+      return { kind: "bool", value: v };
+    };
 
     // Same-subtree shortcuts hold regardless of unknown values.
     if (sameSubtree(leftCtx, rightCtx)) {
-      switch (opText) {
+      switch (opForLogic) {
         case "=":
         case "<=":
         case ">=":
@@ -499,15 +534,12 @@ export class ForgeExprStaticAnalyzer
         case "<":
         case ">":
           return finalize(false);
-        case "ni":
-          // ni is "right contains left"; X ni X is also true.
-          return finalize(true);
       }
     }
 
     // Numeric literal folding.
     if (l.kind === "num" && r.kind === "num") {
-      switch (opText) {
+      switch (opForLogic) {
         case "=":
           return finalize(l.value === r.value);
         case "<":
@@ -522,28 +554,23 @@ export class ForgeExprStaticAnalyzer
     }
 
     // Boolean literal equality.
-    if (l.kind === "bool" && r.kind === "bool" && opText === "=") {
+    if (l.kind === "bool" && r.kind === "bool" && opForLogic === "=") {
       return finalize(l.value === r.value);
     }
 
     // Empty / singleton comparisons.
     const lIsKnownSingleton = l.kind === "num" || l.kind === "bool";
     const rIsKnownSingleton = r.kind === "num" || r.kind === "bool";
-    if (opText === "=") {
+    if (opForLogic === "=") {
       if (l.kind === "empty" && r.kind === "empty") return finalize(true);
       if (l.kind === "empty" && rIsKnownSingleton) return finalize(false);
       if (lIsKnownSingleton && r.kind === "empty") return finalize(false);
     }
-    if (opText === "in") {
+    if (opForLogic === "in") {
       // empty set is a subset of every set
       if (l.kind === "empty") return finalize(true);
       // a non-empty singleton cannot be contained in the empty set
       if (lIsKnownSingleton && r.kind === "empty") return finalize(false);
-    }
-    if (opText === "ni") {
-      // ni is reverse containment: R ni L  ≡  L in R
-      if (r.kind === "empty") return finalize(true);
-      if (rIsKnownSingleton && l.kind === "empty") return finalize(false);
     }
 
     // Arity mismatch on arity-sensitive comparisons → ill-typed.
@@ -558,16 +585,16 @@ export class ForgeExprStaticAnalyzer
       }
     }
 
-    // Schema-driven: subtype tautologies for `in` / `ni`, and disjoint-type
-    // unsat for `=` between two unary type sets.
+    // Schema-driven: subtype tautologies for `in` (and `ni` via finalize
+    // inversion when A ⊆ B → A in B is true → A ni B is false). We
+    // deliberately do NOT positively fold `ni` from the lattice — concluding
+    // "not (A ⊆ B)" requires disjointness reasoning we don't perform here.
     if (this.schema && l.kind === "typed" && r.kind === "typed") {
       const lCols = l.columnTypes;
       const rCols = r.columnTypes;
       if (lCols && rCols && lCols.length === rCols.length) {
         const colWiseSubtype = lCols.every((lc, i) => this.schema!.isSubtypeOf(lc, rCols[i]));
-        const colWiseSupertype = lCols.every((lc, i) => this.schema!.isSubtypeOf(rCols[i], lc));
-        if (opText === "in" && colWiseSubtype) return finalize(true);
-        if (opText === "ni" && colWiseSupertype) return finalize(true);
+        if (opForLogic === "in" && colWiseSubtype) return finalize(true);
       }
     }
 
@@ -607,14 +634,15 @@ export class ForgeExprStaticAnalyzer
     if (ctx.MINUS_TOK()) {
       const leftCtx = ctx.expr8()!;
       const rightCtx = ctx.expr10()!;
+      const l = this.visit(leftCtx);
+      const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
       // X - X  →  empty (set difference) or 0 (numeric)
       if (sameSubtree(leftCtx, rightCtx)) {
-        const l = this.visit(leftCtx);
         if (l.kind === "num") return { kind: "num", value: 0 };
         return { kind: "empty" };
       }
-      const l = this.visit(leftCtx);
-      const r = this.visit(rightCtx);
       // Numeric folding for literal subtraction.
       if (l.kind === "num" && r.kind === "num") {
         return { kind: "num", value: l.value - r.value };
@@ -641,6 +669,8 @@ export class ForgeExprStaticAnalyzer
     if (ctx.PLUS_TOK()) {
       const l = this.visit(ctx.expr8()!);
       const r = this.visit(ctx.expr10()!);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
       // Numeric literal addition.
       if (l.kind === "num" && r.kind === "num") {
         return { kind: "num", value: l.value + r.value };
@@ -681,6 +711,8 @@ export class ForgeExprStaticAnalyzer
       // Cartesian product: if either side is empty, the product is empty.
       const l = this.visit(ctx.expr12()!);
       const r = this.visit(ctx.expr13()!);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
       if (l.kind === "empty" || r.kind === "empty") return { kind: "empty" };
       // Propagate combined arity / column types.
       if (l.kind === "typed" && r.kind === "typed") {
@@ -702,12 +734,12 @@ export class ForgeExprStaticAnalyzer
     if (ctx.AMP_TOK()) {
       const leftCtx = ctx.expr11()!;
       const rightCtx = ctx.expr12()!;
-      // X & X  →  X (preserve "empty" if we know it; otherwise unknown).
-      if (sameSubtree(leftCtx, rightCtx)) {
-        return this.visit(leftCtx);
-      }
       const l = this.visit(leftCtx);
       const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      // X & X  →  X (preserve "empty" if we know it; otherwise unknown).
+      if (sameSubtree(leftCtx, rightCtx)) return l;
       // empty & anything  →  empty
       if (l.kind === "empty" || r.kind === "empty") return { kind: "empty" };
       // Distinct numeric singletons are disjoint sets.
@@ -744,11 +776,13 @@ export class ForgeExprStaticAnalyzer
     if (ctx.LEFT_SQUARE_TOK()) {
       // Box join f[a, b, ...]  ≡  ...b.a.f
       const fn = this.visit(ctx.expr14()!);
+      if (fn.kind === "ill-typed") return fn;
       if (fn.kind === "empty") return { kind: "empty" };
       // walk the comma-separated argument list
       let list = ctx.exprList();
       while (list) {
         const arg = this.visit(list.expr());
+        if (arg.kind === "ill-typed") return arg;
         if (arg.kind === "empty") return { kind: "empty" };
         list = list.exprList();
       }
@@ -761,6 +795,8 @@ export class ForgeExprStaticAnalyzer
     if (ctx.DOT_TOK()) {
       const l = this.visit(ctx.expr15()!);
       const r = this.visit(ctx.expr16()!);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
       if (l.kind === "empty" || r.kind === "empty") return { kind: "empty" };
       // Joining two singletons / unary expressions yields arity 0 — ill-typed.
       const la = ForgeExprStaticAnalyzer.arityOf(l);

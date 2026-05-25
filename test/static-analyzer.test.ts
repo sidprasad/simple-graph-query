@@ -432,9 +432,15 @@ describe("ForgeExprStaticAnalyzer — schema-aware: subtype `in` tautologies", (
     expect(withSchema("Pawn in Object").status).toBe("tautology");
   });
 
-  it("uses `ni` symmetrically", () => {
-    expect(withSchema("Player ni Pawn").status).toBe("tautology");
-    expect(withSchema("Object ni Knight").status).toBe("tautology");
+  it("folds `ni` as the negation of `in`", () => {
+    // ni is non-membership (matches the evaluator's semantics). A ni B is
+    // unsat exactly when A in B is a tautology, i.e., A is a subtype of B.
+    expect(withSchema("Pawn ni Player").status).toBe("unsat");
+    expect(withSchema("Knight ni Object").status).toBe("unsat");
+    // Conversely, A ni B is not provable from a non-subtype direction —
+    // Player ni Pawn could still be vacuously true (if Player is empty), so
+    // we stay conservative.
+    expect(withSchema("Player ni Pawn").status).toBe("unknown");
   });
 
   it("does not falsely declare non-subtype in relations", () => {
@@ -531,6 +537,61 @@ describe("ForgeExprStaticAnalyzer — reserved schema names at binders", () => {
   it("does not enforce the policy when no schema is supplied", () => {
     // Without a schema, the analyzer has no notion of which names are reserved.
     expect(analyzeForgeExpression("{Player : Move | some Player}").status).toBe("unknown");
+  });
+});
+
+describe("ForgeExprStaticAnalyzer — ni is non-membership (not reverse containment)", () => {
+  it("X ni X is false (matches evaluator's !in semantics)", () => {
+    expectUnsat("Thing ni Thing");
+    expectUnsat("1 ni 1");
+  });
+
+  it("none ni singleton is true (singleton is not in empty)", () => {
+    expectTaut("1 ni none");
+    expectTaut("true ni none");
+  });
+
+  it("none ni none is false (empty is in empty)", () => {
+    expectUnsat("none ni none");
+  });
+
+  it("empty ni X is false (empty is in everything)", () => {
+    expectUnsat("(Thing - Thing) ni Thing");
+  });
+});
+
+describe("ForgeExprStaticAnalyzer — ill-typed propagates through short-circuits", () => {
+  it("OR does not mask an ill-typed branch with a true literal", () => {
+    expect(withSchema("true or (Player = parent)").status).toBe("ill-typed");
+    expect(withSchema("(Player = parent) or true").status).toBe("ill-typed");
+  });
+
+  it("AND does not mask an ill-typed branch with a false literal", () => {
+    expect(withSchema("false and (Player = parent)").status).toBe("ill-typed");
+    expect(withSchema("(Player = parent) and false").status).toBe("ill-typed");
+  });
+
+  it("IMP does not mask an ill-typed consequent under a false antecedent", () => {
+    expect(withSchema("false => (Player = parent)").status).toBe("ill-typed");
+  });
+
+  it("IMP does not mask an ill-typed antecedent under a true consequent", () => {
+    expect(withSchema("(Player = parent) => true").status).toBe("ill-typed");
+  });
+
+  it("IMP with ELSE surfaces ill-typed in either branch", () => {
+    expect(withSchema("true => true else (Player = parent)").status).toBe("ill-typed");
+    expect(withSchema("false => (Player = parent) else true").status).toBe("ill-typed");
+  });
+
+  it("compareOp same-subtree does not mask an ill-typed sub-expression", () => {
+    // (Player = parent) is ill-typed; even though `X = X` would normally fold
+    // to tautology, the inner ill-typedness wins.
+    expect(withSchema("(Player = parent) = (Player = parent)").status).toBe("ill-typed");
+  });
+
+  it("blocks surface ill-typed from any conjunct", () => {
+    expect(withSchema("{ true ; (Player = parent) ; true }").status).toBe("ill-typed");
   });
 });
 
