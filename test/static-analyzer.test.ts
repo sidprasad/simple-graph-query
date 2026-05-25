@@ -495,37 +495,42 @@ describe("ForgeExprStaticAnalyzer — schema-aware: arity mismatches", () => {
   });
 });
 
-describe("ForgeExprStaticAnalyzer — shadowing safety", () => {
-  it("does not use schema info for set-comp bound names that shadow types", () => {
-    // `Player` is bound by the comprehension to range over Move atoms; in the
-    // body it has NOTHING to do with the schema's Player type. The analyzer
-    // must therefore NOT fold `Player & Move` to empty here.
-    expect(withSchema("{Player : Move | some (Player & Move)}").status).not.toBe("empty");
-    expect(withSchema("{Player : Move | some (Player & Move)}").status).not.toBe("unsat");
+describe("ForgeExprStaticAnalyzer — reserved schema names at binders", () => {
+  it("flags a comprehension that binds a schema type name as ill-typed", () => {
+    // Under the schema, `Player` is a type name and cannot be reused as a
+    // quantified variable. Surfaces as a clear ill-typed verdict at the binder.
+    expect(withSchema("{Player : Move | some Player}").status).toBe("ill-typed");
   });
 
-  it("still folds when the bound name does not collide with the schema", () => {
-    // `p` is fresh; `Player & Move` in the body really IS schema Player ∩ Move.
+  it("flags a comprehension that binds a schema relation name as ill-typed", () => {
+    expect(withSchema("{parent : Move | some parent}").status).toBe("ill-typed");
+  });
+
+  it("permits comprehensions that bind fresh names", () => {
+    // `p` is not a schema name → no policy violation.
+    expect(withSchema("{p : Move | some p}").status).toBe("unknown");
+    // And the body still gets folded with schema info: `some (Player & Move)`
+    // uses schema Player here (no shadowing), so this is empty.
     expect(withSchema("{p : Move | some (Player & Move)}").status).toBe("empty");
   });
 
-  it("does not use schema for shadowed relation names either", () => {
-    expect(withSchema("{parent : Move | some parent}").status).not.toBe("ill-typed");
+  it("bubbles ill-typed up through nested comprehensions", () => {
+    expect(withSchema("{x : Move | some {Player : Move | some Player}}").status)
+      .toBe("ill-typed");
   });
 
-  it("nested comprehensions track scope correctly", () => {
-    // Inner Player shadows; outer Move doesn't.
-    expect(withSchema("{x : Move | some {Player : Move | some (Player & Move)}}").status)
-      .not.toBe("empty");
+  it("flags quantifiers that bind schema names as ill-typed", () => {
+    expect(withSchema("all Player : Move | some Player").status).toBe("ill-typed");
+    expect(withSchema("some parent : Move | some parent").status).toBe("ill-typed");
   });
 
-  it("releases bindings after the comprehension body", () => {
-    // Inside the comp body, Player is bound and schema lookups must skip; the
-    // `Pawn in Player` clause is OUTSIDE the body, so Pawn and Player both
-    // resolve to schema types and the subtype tautology should still fire.
-    expect(
-      withSchema("(some {Player : Move | some Player}) or (Pawn in Player)").status
-    ).toBe("tautology");
+  it("permits quantifiers that bind fresh names", () => {
+    expect(withSchema("all p : Move | some p").status).toBe("unknown");
+  });
+
+  it("does not enforce the policy when no schema is supplied", () => {
+    // Without a schema, the analyzer has no notion of which names are reserved.
+    expect(analyzeForgeExpression("{Player : Move | some Player}").status).toBe("unknown");
   });
 });
 

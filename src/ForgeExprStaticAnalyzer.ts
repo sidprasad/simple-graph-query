@@ -175,33 +175,10 @@ export class ForgeExprStaticAnalyzer
   implements ForgeVisitor<Abstract>
 {
   private readonly schema?: SchemaInfo;
-  // Stack of name-binding frames introduced by enclosing scopes (set
-  // comprehensions today; quantifiers/let when they get analyzed). A name
-  // appearing in any frame must not be looked up in the schema — its value
-  // is whatever the binder supplies, which we cannot reason about statically.
-  private readonly boundScopes: Array<Set<string>> = [];
 
   constructor(schema?: IForgeSchema) {
     super();
     if (schema) this.schema = new SchemaInfo(schema);
-  }
-
-  private isBound(name: string): boolean {
-    for (const frame of this.boundScopes) {
-      if (frame.has(name)) return true;
-    }
-    return false;
-  }
-
-  // Run `fn` with `names` pushed onto the scope stack. try/finally so a thrown
-  // visit doesn't leak frames into sibling analyses.
-  private withBoundScope<T>(names: Set<string>, fn: () => T): T {
-    this.boundScopes.push(names);
-    try {
-      return fn();
-    } finally {
-      this.boundScopes.pop();
-    }
   }
 
   // Walk a nameList (`a, b, c`) and accumulate identifiers into `out`.
@@ -216,6 +193,24 @@ export class ForgeExprStaticAnalyzer
     this.collectNamesFromList(ctx.quantDecl().nameList(), out);
     const tail = ctx.quantDeclList();
     if (tail) this.collectBoundNames(tail, out);
+  }
+
+  // Policy: when a schema is provided, type and relation names are reserved —
+  // they may only refer to the schema entity. Returns an ill-typed Abstract if
+  // any candidate name collides; undefined otherwise.
+  private illTypedIfBindsReservedName(names: Iterable<string>): Abstract | undefined {
+    if (!this.schema) return undefined;
+    for (const name of names) {
+      if (this.schema.getType(name) || this.schema.getRelation(name)) {
+        return {
+          kind: "ill-typed",
+          reason:
+            `cannot bind variable named '${name}': it is a reserved schema ` +
+            `${this.schema.getType(name) ? "type" : "relation"} name`,
+        };
+      }
+    }
+    return undefined;
   }
 
   // Public entry: convert internal lattice value to a verdict + reason.
@@ -273,12 +268,24 @@ export class ForgeExprStaticAnalyzer
     const blockOrBar = ctx.blockOrBar();
     if (!blockOrBar) return UNKNOWN;
 
+    // Reserved-name check at the binder: under a schema, type/relation names
+    // cannot be reused as quantified variables.
+    const declListTop = ctx.quantDeclList();
+    if (declListTop) {
+      const boundHere = new Set<string>();
+      this.collectBoundNames(declListTop, boundHere);
+      const reservedError = this.illTypedIfBindsReservedName(boundHere);
+      if (reservedError) return reservedError;
+    }
+
     // Determine if any quantified domain is statically empty.
     let domainEmpty = false;
     let declList = ctx.quantDeclList();
     while (declList) {
       const setExpr = declList.quantDecl().expr();
-      if (this.visit(setExpr).kind === "empty") {
+      const v = this.visit(setExpr);
+      if (v.kind === "ill-typed") return v;
+      if (v.kind === "empty") {
         domainEmpty = true;
         break;
       }
@@ -844,9 +851,9 @@ export class ForgeExprStaticAnalyzer
     }
     if (ctx.LEFT_CURLY_TOK()) {
       // Set comprehension `{x : S | body}` is empty if any quantified set is
-      // empty, or if the body is statically false. Domain expressions evaluate
-      // in the OUTER scope (the variable isn't bound yet for its own domain),
-      // so we only need to push a scope before visiting the body.
+      // empty, or if the body is statically false. We also enforce the
+      // reserved-name policy here: under a schema, type/relation names cannot
+      // be reused as binder variables.
       const declList = ctx.quantDeclList();
       const boundHere = new Set<string>();
       if (declList) {
@@ -856,17 +863,19 @@ export class ForgeExprStaticAnalyzer
           const setExpr = cur.quantDecl().expr();
           const v = this.visit(setExpr);
           if (v.kind === "empty") return { kind: "empty" };
+          if (v.kind === "ill-typed") return v;
           this.collectNamesFromList(cur.quantDecl().nameList(), boundHere);
           const next = cur.quantDeclList();
           if (!next) break;
           cur = next;
         }
       }
+      const reservedError = this.illTypedIfBindsReservedName(boundHere);
+      if (reservedError) return reservedError;
       const blockOrBar = ctx.blockOrBar();
       if (blockOrBar && blockOrBar.BAR_TOK() && blockOrBar.expr()) {
-        const body = this.withBoundScope(boundHere, () =>
-          this.visit(blockOrBar.expr()!),
-        );
+        const body = this.visit(blockOrBar.expr()!);
+        if (body.kind === "ill-typed") return body;
         if (body.kind === "bool" && !body.value) return { kind: "empty" };
       }
       return UNKNOWN;
@@ -886,9 +895,6 @@ export class ForgeExprStaticAnalyzer
     const id = getIdentifierName(ctx);
     if (id === "true") return { kind: "bool", value: true };
     if (id === "false") return { kind: "bool", value: false };
-    // If this name is shadowed by an enclosing binder, we cannot reason about
-    // it from the schema — the bound value can be anything.
-    if (this.isBound(id)) return UNKNOWN;
     if (this.schema) {
       const t = this.schema.getType(id);
       if (t) return { kind: "typed", arity: 1, columnTypes: [t.id] };
