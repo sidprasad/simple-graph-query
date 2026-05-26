@@ -33,6 +33,14 @@ export class SimpleGraphQueryEvaluator {
   // Cache for parsed expressions to avoid re-parsing the same expression
   private parseTreeCache: Map<string, ExprContext> = new Map();
 
+  // Cached inner evaluator. Reused across evaluateExpression calls so its
+  // relation cache / relation index / subexpression cache survive between
+  // calls. Invalidated when the `datum` reference changes — consumers that
+  // mutate the underlying data are expected to construct a new
+  // SimpleGraphQueryEvaluator (or reassign `this.datum`) to signal that.
+  private cachedEvaluator: ForgeExprEvaluator | null = null;
+  private cachedEvaluatorDatum: IDataInstance | null = null;
+
   constructor(datum: IDataInstance) {
     this.datum = datum;
   }
@@ -41,7 +49,7 @@ export class SimpleGraphQueryEvaluator {
   getExpressionParseTree(forgeExpr: string) {
     const parser = createForgeParser(forgeExpr);
     const tree = parser.parseExpr();
-    
+
     // TODO: Is this wrong?
     if (!tree || tree.childCount === 0) {
       throw new Error(`Parse error in ${forgeExpr}`);
@@ -74,7 +82,14 @@ export class SimpleGraphQueryEvaluator {
       }
     }
 
-    const evaluator = new ForgeExprEvaluator(this.datum);
+    // Reuse the inner evaluator across calls. Rebuild only when the datum
+    // reference has changed (the contract: callers signal "data changed"
+    // by swapping the datum reference, not by mutating it in place).
+    if (this.cachedEvaluator === null || this.cachedEvaluatorDatum !== this.datum) {
+      this.cachedEvaluator = new ForgeExprEvaluator(this.datum);
+      this.cachedEvaluatorDatum = this.datum;
+    }
+    const evaluator = this.cachedEvaluator;
 
     try {
 
@@ -83,6 +98,14 @@ export class SimpleGraphQueryEvaluator {
       // ensure we're visiting an ExprContext
       return result;
     } catch (error) {
+      // The visit threw mid-traversal, so the evaluator's transient state
+      // (environment stack) may be inconsistent. Discard the cached
+      // evaluator so the next call rebuilds from a clean slate. The
+      // relation cache will be rebuilt lazily on first use, which is the
+      // same as the pre-change behavior.
+      this.cachedEvaluator = null;
+      this.cachedEvaluatorDatum = null;
+
       if (error instanceof NameNotFoundError) {
         // Return an empty EvalResult for undefined names
         let emptyResult: EvalResult = [];
