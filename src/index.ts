@@ -25,8 +25,37 @@ function createForgeParser(input: string): ForgeParser {
   return parser;
 }
 
+/**
+ * Evaluates Forge expressions against an `IDataInstance`.
+ *
+ * ## Caching contract (important for correctness)
+ *
+ * For performance, this class caches an inner evaluator (with its relation
+ * index and subexpression cache) across `evaluateExpression` calls. The
+ * cache is invalidated when the `datum` field is reassigned to a different
+ * reference, but **not** when the underlying `IDataInstance` is mutated in
+ * place (e.g. adding/removing atoms or tuples on the same object).
+ *
+ * If you mutate the underlying data in place, you **must** call
+ * {@link invalidate} (or reassign `datum` to a new object) before the next
+ * `evaluateExpression` call. Otherwise queries may return stale results.
+ *
+ * Recommended patterns:
+ *  - Treat `IDataInstance` as immutable; create a new instance on data
+ *    changes and construct a new `SimpleGraphQueryEvaluator` (or assign to
+ *    `.datum`).
+ *  - Or, if you mutate in place, call `invalidate()` after each mutation
+ *    batch.
+ */
 export class SimpleGraphQueryEvaluator {
 
+  /**
+   * The data instance evaluated against. Reassigning this field is a
+   * supported invalidation signal — the inner evaluator cache is rebuilt
+   * on the next `evaluateExpression` call. **In-place mutation of the
+   * existing object is NOT detected**; call {@link invalidate} in that
+   * case.
+   */
   datum: IDataInstance;
   forgeListener : ForgeListenerImpl = new ForgeListenerImpl();
   walker : ParseTreeWalker = new ParseTreeWalker();
@@ -35,14 +64,28 @@ export class SimpleGraphQueryEvaluator {
 
   // Cached inner evaluator. Reused across evaluateExpression calls so its
   // relation cache / relation index / subexpression cache survive between
-  // calls. Invalidated when the `datum` reference changes — consumers that
-  // mutate the underlying data are expected to construct a new
-  // SimpleGraphQueryEvaluator (or reassign `this.datum`) to signal that.
+  // calls. Invalidated when the `datum` reference changes, or explicitly
+  // via `invalidate()`. NOT invalidated by in-place mutation of the
+  // underlying IDataInstance -- callers must signal that themselves.
   private cachedEvaluator: ForgeExprEvaluator | null = null;
   private cachedEvaluatorDatum: IDataInstance | null = null;
 
   constructor(datum: IDataInstance) {
     this.datum = datum;
+  }
+
+  /**
+   * Discard the cached inner evaluator (and its relation index /
+   * subexpression cache). Call this after mutating the underlying
+   * `IDataInstance` in place, so the next `evaluateExpression` sees the
+   * updated data.
+   *
+   * Cheap: just nulls a couple of references. The caches rebuild lazily
+   * on the next query.
+   */
+  invalidate(): void {
+    this.cachedEvaluator = null;
+    this.cachedEvaluatorDatum = null;
   }
 
 
