@@ -53,15 +53,24 @@ export type StaticAnalysis =
 // Helper that wraps the schema with O(1) lookups and lattice queries.
 class SchemaInfo {
   private readonly typesById: Map<string, IType>;
-  private readonly relationsByName: Map<string, IRelation>;
+  // Relation NAMES are not unique — only the qualified id (`Sig<:label`) is, so a
+  // name can map to several relations (e.g. the `Next` fields from two
+  // `util/ordering` instantiations). Group by name; a bare reference denotes their
+  // union. https://github.com/sidprasad/simple-graph-query/issues/55
+  private readonly relationsByName: Map<string, IRelation[]>;
 
   constructor(schema: IForgeSchema) {
     this.typesById = new Map(schema.getTypes().map((t) => [t.id, t]));
-    this.relationsByName = new Map(schema.getRelations().map((r) => [r.name, r]));
+    this.relationsByName = new Map();
+    for (const r of schema.getRelations()) {
+      const existing = this.relationsByName.get(r.name);
+      if (existing) existing.push(r);
+      else this.relationsByName.set(r.name, [r]);
+    }
   }
 
   getType(id: string): IType | undefined { return this.typesById.get(id); }
-  getRelation(name: string): IRelation | undefined { return this.relationsByName.get(name); }
+  getRelations(name: string): IRelation[] { return this.relationsByName.get(name) ?? []; }
 
   // A ⊆ B when B is in A's lineage. `IType.types` is the lineage in ascending
   // order, conventionally starting with the type itself.
@@ -201,7 +210,7 @@ export class ForgeExprStaticAnalyzer
   private illTypedIfBindsReservedName(names: Iterable<string>): Abstract | undefined {
     if (!this.schema) return undefined;
     for (const name of names) {
-      if (this.schema.getType(name) || this.schema.getRelation(name)) {
+      if (this.schema.getType(name) || this.schema.getRelations(name).length > 0) {
         return {
           kind: "ill-typed",
           reason:
@@ -934,10 +943,27 @@ export class ForgeExprStaticAnalyzer
     if (this.schema) {
       const t = this.schema.getType(id);
       if (t) return { kind: "typed", arity: 1, columnTypes: [t.id] };
-      const r = this.schema.getRelation(id);
-      if (r) {
-        const cols = r.types;
+      const rels = this.schema.getRelations(id);
+      if (rels.length === 1) {
+        const cols = rels[0].types;
         return { kind: "typed", arity: cols.length, columnTypes: cols };
+      }
+      if (rels.length > 1) {
+        // A bare name denotes the union of every relation sharing it. Different
+        // arities have no single typing, so stay UNKNOWN. When arities agree,
+        // keep the arity; keep per-column types only where every relation agrees
+        // (otherwise omit, so downstream disjointness checks soundly skip rather
+        // than fire on a widened column).
+        const arity = rels[0].types.length;
+        if (rels.every((r) => r.types.length === arity)) {
+          const cols = rels[0].types.map((col, i) =>
+            rels.every((r) => r.types[i] === col) ? col : undefined
+          );
+          const allKnown = cols.every((c): c is string => c !== undefined);
+          return allKnown
+            ? { kind: "typed", arity, columnTypes: cols as string[] }
+            : { kind: "typed", arity };
+        }
       }
     }
     return UNKNOWN;

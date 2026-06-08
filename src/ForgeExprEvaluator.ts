@@ -287,10 +287,10 @@ export class ForgeExprEvaluator
     this.relationCache = new Map();
     this.relationIndexCache = new Map();
     const relations = this.instanceData.getRelations();
-    
+
     for (const relation of relations) {
       let relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) => tuple.atoms);
-      
+
       // Convert numeric and boolean strings to their actual types
       relationAtoms = relationAtoms.map((tuple) =>
         tuple.map((value) =>
@@ -300,12 +300,21 @@ export class ForgeExprEvaluator
       relationAtoms = relationAtoms.map((tuple) =>
         tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
       );
-      
-      this.relationCache.set(relation.name, relationAtoms);
-      
-      // Build index for this relation: first element -> all tuples starting with that element
+
+      // Relation NAMES are not unique — only the qualified id (`Sig<:label`) is.
+      // e.g. `open util/ordering[A]` and `open util/ordering[B]` both expose a field
+      // named `Next` (`A/Ord<:Next` and `B/Ord<:Next`). A bare-name reference must
+      // resolve to the UNION of every relation sharing that name; keying by name and
+      // overwriting silently erases all but the last. https://github.com/sidprasad/simple-graph-query/issues/55
+      const existing = this.relationCache.get(relation.name);
+      this.relationCache.set(relation.name, existing ? existing.concat(relationAtoms) : relationAtoms);
+    }
+
+    // Build first-element indexes from the merged (union'd) tuples, so an index
+    // never reflects only a subset of a name's relations.
+    for (const [name, tuples] of this.relationCache.entries()) {
       const relationIndex = new Map<SingleValue, Tuple[]>();
-      for (const tuple of relationAtoms) {
+      for (const tuple of tuples) {
         if (tuple.length > 0) {
           const key = tuple[0];
           if (!relationIndex.has(key)) {
@@ -314,7 +323,7 @@ export class ForgeExprEvaluator
           relationIndex.get(key)!.push(tuple);
         }
       }
-      this.relationIndexCache.set(relation.name, relationIndex);
+      this.relationIndexCache.set(name, relationIndex);
     }
   }
 
