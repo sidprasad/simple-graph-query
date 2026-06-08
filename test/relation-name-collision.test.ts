@@ -1,4 +1,4 @@
-import { SimpleGraphQueryEvaluator } from "../src";
+import { SimpleGraphQueryEvaluator, analyzeForgeExpression, IForgeSchema } from "../src";
 import { IDataInstance, IAtom, IRelation, IType } from "../src/types";
 
 // Regression for https://github.com/sidprasad/simple-graph-query/issues/55
@@ -91,5 +91,41 @@ describe("Relation name collision (issue #55)", () => {
     // A0.Next and B0.Next both rely on the first-element index; both must resolve.
     expect((evaluator.evaluateExpression("A0.Next") as any[]).map(String)).toEqual(["A1"]);
     expect((evaluator.evaluateExpression("B0.Next") as any[]).map(String)).toEqual(["B1"]);
+  });
+});
+
+describe("Static analyzer relation name collision (issue #55)", () => {
+  // A and B are disjoint subtypes of Object. Two relations are both named `Next`
+  // with differing column types ([A,A] and [B,B]); `pAA` is [A,A].
+  const schema: IForgeSchema = {
+    getTypes: () => [
+      { id: "Object", types: ["Object"], atoms: [], isBuiltin: false },
+      { id: "A", types: ["A", "Object"], atoms: [], isBuiltin: false },
+      { id: "B", types: ["B", "Object"], atoms: [], isBuiltin: false },
+    ],
+    getRelations: () => [
+      { id: "A/Ord<:Next", name: "Next", types: ["A", "A"], tuples: [] },
+      { id: "B/Ord<:Next", name: "Next", types: ["B", "B"], tuples: [] },
+      { id: "pAA", name: "pAA", types: ["A", "A"], tuples: [] },
+    ],
+  };
+
+  it("does not falsely report `Next & pAA` empty when Next is a name collision", () => {
+    // Pre-fix, `Next` resolved to only the last relation ([B,B]); `Next & pAA`
+    // then looked column-disjoint (B vs A) and was reported empty. The union has
+    // an [A,A] component, so it must NOT be statically empty.
+    expect(analyzeForgeExpression("Next & pAA", schema).status).not.toBe("empty");
+  });
+
+  it("still flags a genuinely disjoint intersection (uncollided name)", () => {
+    // Sanity: the disjointness check itself still works for a unique-named relation.
+    const unique: IForgeSchema = {
+      getTypes: schema.getTypes,
+      getRelations: () => [
+        { id: "B/Ord<:NextB", name: "NextB", types: ["B", "B"], tuples: [] },
+        { id: "pAA", name: "pAA", types: ["A", "A"], tuples: [] },
+      ],
+    };
+    expect(analyzeForgeExpression("NextB & pAA", unique).status).toBe("empty");
   });
 });
