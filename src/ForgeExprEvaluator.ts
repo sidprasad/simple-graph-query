@@ -707,6 +707,51 @@ export class ForgeExprEvaluator
         quantifiedSets.push(varQuantifiedSets[varName]);
       }
       
+      // `sum <decls> | <intExpr>`: accumulate the numeric body over every
+      // binding of the quantified variables. Unlike the boolean quantifiers
+      // below, the body evaluates to a number, so this needs its own loop --
+      // and it must not use the boolean numeric-comparison optimization, which
+      // skips body evaluation entirely.
+      if (ctx.quant()!.SUM_TOK()) {
+        const sumCombinations = getCombinations(quantifiedSets);
+        const sumEnv: Environment = { env: {}, type: "quantDecl" };
+        this.environmentStack.push(sumEnv);
+
+        let total = 0;
+        for (const tuple of sumCombinations) {
+          if (isDisjoint) {
+            const seen = new Set();
+            let tupleDisjoint = true;
+            for (const val of tuple) {
+              if (seen.has(val)) {
+                tupleDisjoint = false;
+                break;
+              }
+              seen.add(val);
+            }
+            if (!tupleDisjoint) {
+              continue;
+            }
+          }
+          for (let j = 0; j < varNames.length; j++) {
+            sumEnv.env[varNames[j]] = tuple[j];
+          }
+          const bodyValue = this.visit(barExpr);
+          const bodyNumber = extractNumber(bodyValue);
+          if (bodyNumber === undefined) {
+            this.environmentStack.pop();
+            throw new Error(
+              "Expected the expression after the bar in a `sum` to evaluate to a number!"
+            );
+          }
+          total += bodyNumber;
+        }
+
+        this.environmentStack.pop();
+        this.cacheResult(ctx, freeVarsKey, total);
+        return total;
+      }
+
       // Try to optimize numeric comparisons
       let product: Tuple[];
       let useOptimizedPath = false;
@@ -856,7 +901,8 @@ export class ForgeExprEvaluator
           return value;
         }
       }
-      // TODO: don't have support for SUM_TOK yet
+      // NOTE: SUM_TOK is handled above (it returns a number, not a boolean),
+      // before this boolean-quantifier result logic.
     }
 
     // TODO: fix this!
