@@ -614,5 +614,39 @@ describe("sgq-evaluator ", () => {
     const result = evaluatorUtil.evaluateExpression(expr);
     expect(result).toBe(true);
   });
-  
+
+  // Int in this fixture is the bitwidth-4 range {-8 .. 7}.
+  it("sum aggregates a numeric body over the full quantified set", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // -8 + -7 + ... + 6 + 7  ==  -8
+    expect(evaluatorUtil.evaluateExpression("sum i: Int | @num:i")).toBe(-8);
+  });
+
+  it("sum aggregates over a comprehension subset", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // 1 + 2 + ... + 7  ==  28
+    expect(evaluatorUtil.evaluateExpression("sum i: {x: Int | x > 0} | @num:i")).toBe(28);
+    // Body is a real int expression, evaluated per binding: 2 * 28 == 56
+    expect(evaluatorUtil.evaluateExpression("sum i: {x: Int | x > 0} | multiply[@num:i, 2]")).toBe(56);
+  });
+
+  it("sum over an empty set is 0", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    expect(evaluatorUtil.evaluateExpression("sum i: {x: Int | x > 100} | @num:i")).toBe(0);
+  });
+
+  it("sum ranges over the cartesian product of multiple variables", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // For i, j in {1..7}: sum of (i + j) == 2 * |S| * sum(S) == 2 * 7 * 28 == 392
+    expect(evaluatorUtil.evaluateExpression("sum i, j: {x: Int | x > 0} | add[@num:i, @num:j]")).toBe(392);
+  });
+
 });
