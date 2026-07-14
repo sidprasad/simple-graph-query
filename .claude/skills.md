@@ -69,12 +69,14 @@ A -> B         // cartesian product
 ```forge
 A = B          // set equality
 A in B         // subset (A ⊆ B)
-A ni B         // superset (A ⊇ B)
+A ni B         // non-membership: !(A in B)
 x < y          // numeric less than
 x > y          // numeric greater than
 x <= y         // less than or equal (also: =<)
 x >= y         // greater than or equal
 ```
+A scalar is treated as a singleton set, so `in` is uniformly subset:
+`a in b` for two scalars is equality, `a in (b + c + ...)` is membership.
 
 ### Multiplicity Expressions
 ```forge

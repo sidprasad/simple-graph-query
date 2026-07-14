@@ -304,6 +304,31 @@ describe("sgq-evaluator ", () => {
     expect(quantifierTwoResult).toBe(true);
   });
 
+  it("treats a scalar as a singleton set for `in`/`ni` (Alloy/Forge subset semantics)", () => {
+    const datum = new TTTDataInstance();
+    const ev = new SimpleGraphQueryEvaluator(datum);
+
+    // Scalar `in` scalar is equality: a singleton is a subset of a singleton
+    // iff the elements are equal. This path previously always returned false.
+    expect(ev.evaluateExpression("1 in 1")).toBe(true);
+    expect(ev.evaluateExpression("1 in 2")).toBe(false);
+    expect(ev.evaluateExpression("@:(X0) in red")).toBe(true); // label "red" == "red"
+    expect(ev.evaluateExpression("@:(X0) in blue")).toBe(false);
+
+    // `ni` is the negation, so for scalars it now reads as inequality.
+    expect(ev.evaluateExpression("1 ni 1")).toBe(false);
+    expect(ev.evaluateExpression("1 ni 2")).toBe(true);
+
+    // Membership against a real (multi-element) set is unchanged...
+    expect(ev.evaluateExpression("@:(X0) in (red + blue)")).toBe(true);
+    expect(ev.evaluateExpression("@:(X0) not in (red + blue)")).toBe(false);
+
+    // ...and `in` with a single value now behaves, so the old "use = for one
+    // value" footgun is gone: this comprehension keeps only the red player.
+    const reds = ev.evaluateExpression("{p: Player | @:p in red}");
+    expect(areEquivalentTupleArrays(reds, [["X0"]])).toBe(true);
+  });
+
   it("can evaluate implies with else", () => {
     const datum = new TTTDataInstance();
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
