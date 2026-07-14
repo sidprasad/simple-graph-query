@@ -233,7 +233,7 @@ function bitwidthWraparound(value: number, bitwidth: number): number {
 // list as we support more
 
 const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder"];
-const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign"];
+const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign", "floor", "ceil"];
 const SUPPORTED_SET_BUILTINS: string[] = ["min", "max"];
 
 export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
@@ -2259,7 +2259,7 @@ export class ForgeExprEvaluator
         result = arg1 * arg2;
         break;
       case "divide":
-        result = Math.floor(arg1 / arg2); // Integer division
+        result = arg1 / arg2; // Real (floating-point) division
         break;
       case "remainder":
         result = arg1 % arg2;
@@ -2277,20 +2277,19 @@ export class ForgeExprEvaluator
 
 
 
-    if (!isSingleValue(args) || !isNumber(args)) {
+    const v = extractNumber(args);
+    if (v === undefined) {
       throw new Error(`Expected 1 argument for ${operation} that evaluates to a number.`);
     }
 
-    let v = args;
-
     // Possible unary operations:
-    //abs[]: returns the absolute value of value
-    //sign[]: returns 1 if value is > 0, 0 if value is 0, and -1 if value is < 0
+    //abs[]:   returns the absolute value of value
+    //sign[]:  returns 1 if value is > 0, 0 if value is 0, and -1 if value is < 0
+    //floor[]: rounds value down to the nearest integer
+    //ceil[]:  rounds value up to the nearest integer
 
     if (operation === "abs") {
-      let res = Math.abs(v);
-      // Now adjust to the bitwidth
-      return res;
+      return Math.abs(v);
     }
     else if (operation === "sign") {
       if (v > 0) {
@@ -2300,6 +2299,12 @@ export class ForgeExprEvaluator
       } else {
         return 0;
       }
+    }
+    else if (operation === "floor") {
+      return Math.floor(v);
+    }
+    else if (operation === "ceil") {
+      return Math.ceil(v);
     } else {
       throw new Error(`Unsupported operation: ${operation}`);
     }

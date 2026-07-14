@@ -162,4 +162,29 @@ describe("@: operator with string-first approach", () => {
     const result2 = evaluatorUtil.evaluateExpression('multiply[@num:(0.5), @num:(4.0)]');
     expect(result2).toBe(2);
   });
+
+  it("divide performs real (floating-point) division", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    // Previously floored to an integer; now returns the exact quotient.
+    expect(evaluatorUtil.evaluateExpression('divide[7, 2]')).toBe(3.5);
+    expect(evaluatorUtil.evaluateExpression('divide[1, 4]')).toBe(0.25);
+    // Evenly-divisible operands are unaffected.
+    expect(evaluatorUtil.evaluateExpression('divide[6, 3]')).toBe(2);
+  });
+
+  it("supports floor and ceil", () => {
+    const datum = new TTTDataInstance();
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
+
+    expect(evaluatorUtil.evaluateExpression('floor[@num:(3.7)]')).toBe(3);
+    expect(evaluatorUtil.evaluateExpression('ceil[@num:(3.2)]')).toBe(4);
+    // Integers pass through unchanged.
+    expect(evaluatorUtil.evaluateExpression('floor[6]')).toBe(6);
+    expect(evaluatorUtil.evaluateExpression('ceil[6]')).toBe(6);
+    // floor/ceil compose with real division.
+    expect(evaluatorUtil.evaluateExpression('floor[divide[7, 2]]')).toBe(3);
+    expect(evaluatorUtil.evaluateExpression('ceil[divide[7, 2]]')).toBe(4);
+  });
 });

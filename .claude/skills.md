@@ -103,10 +103,12 @@ true, false    // boolean literals
 add[a, b]         // integer addition
 subtract[a, b]    // integer subtraction  
 multiply[a, b]    // integer multiplication
-divide[a, b]      // integer division (floor)
+divide[a, b]      // real (floating-point) division
 remainder[a, b]   // modulo
 abs[x]            // absolute value
 sign[x]           // returns -1, 0, or 1
+floor[x]          // round down to the nearest integer
+ceil[x]           // round up to the nearest integer
 min[Set]          // minimum value in set
 max[Set]          // maximum value in set
 ```
