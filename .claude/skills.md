@@ -40,6 +40,9 @@ lone x: Set | expr     // at most one
 one x: Set | expr      // exactly one
 two x: Set | expr      // exactly two
 
+// Aggregator (returns a number, not a boolean)
+sum x: Set | intExpr   // sums intExpr over every binding of x
+
 // Multiple variables
 all x, y: Set | expr
 all disj x, y: Set | expr   // x and y must be different
@@ -130,7 +133,6 @@ These Forge/Alloy features are **not available**:
 | Let bindings | `let x = e \| body` | Not implemented |
 | Override | `R ++ S` | Not implemented |
 | Type restriction | `S <: R`, `R :> S` | Not implemented |
-| Sum expression | `sum x: S \| intExpr` | Not implemented |
 | Temporal operators | `always`, `eventually`, `after`, `until`, etc. | Requires trace semantics |
 | Primed expressions | `expr'` | Requires state model |
 | Backquoted atoms | `` `AtomName `` | Not implemented |
