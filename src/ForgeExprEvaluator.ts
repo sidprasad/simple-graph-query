@@ -1293,24 +1293,21 @@ export class ForgeExprEvaluator
           break;
         case "in":
         case "ni": {
-          let membershipResult: boolean;
-          // this should be true if the left value is equal to the right value,
-          // or a subset of it
-          if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
-            if (areTupleArraysEqual(leftChildValue, rightChildValue)) {
-              membershipResult = true;
-            } else {
-              // check if left is subset of right
-              membershipResult = isTupleArraySubset(leftChildValue, rightChildValue);
-            }
-          } else if (isTupleArray(rightChildValue)) {
-            membershipResult = rightChildValue.some(
-              (tuple) => tuple.length === 1 && tuple[0] === leftChildValue
-            );
-          } else {
-            // left is a tuple array but right is a single value, so false
-            membershipResult = false;
-          }
+          // In Alloy/Forge everything is a relation, and a scalar is just a
+          // singleton set. Lift any scalar operand to a singleton tuple so `in`
+          // is uniformly subset:
+          //   a in b     ({a} ⊆ {b})  -> equality when both are scalars
+          //   a in {..}  ({a} ⊆ set)  -> membership
+          //   {..} in b  (set ⊆ {b})  -> subset of a singleton
+          // isTupleArraySubset already returns true for equal sets and for an
+          // empty left-hand set, so a single subset check covers every case.
+          const leftSet: Tuple[] = isSingleValue(leftChildValue)
+            ? [[leftChildValue]]
+            : leftChildValue;
+          const rightSet: Tuple[] = isSingleValue(rightChildValue)
+            ? [[rightChildValue]]
+            : rightChildValue;
+          const membershipResult = isTupleArraySubset(leftSet, rightSet);
           results = ctx.compareOp()?.text === "ni" ? !membershipResult : membershipResult;
           break;
         }
