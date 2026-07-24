@@ -752,11 +752,20 @@ export class ForgeExprEvaluator
         return total;
       }
 
-      // Try to optimize numeric comparisons
+      // Try to optimize numeric comparisons.
+      //
+      // The optimizer generates ONLY the bindings that satisfy the comparison
+      // and marks each as true (skipping body evaluation). That is sound for
+      // quantifiers whose result depends on the *satisfying* bindings --
+      // `some`/`no`/`one`/`two`/`lone` (which count them) -- but NOT for `all`,
+      // whose result depends on the existence of a *falsifying* binding. If we
+      // discard the falsifying bindings, `all` never sees a counterexample and
+      // returns `!foundFalse === true` unconditionally. So exclude `all`.
       let product: Tuple[];
       let useOptimizedPath = false;
-      
-      if (!isDisjoint && varNames.length >= 2 && areAllNumericSets(quantifiedSets)) {
+
+      const isAllQuantifier = ctx.quant()!.ALL_TOK() !== undefined;
+      if (!isDisjoint && !isAllQuantifier && varNames.length >= 2 && areAllNumericSets(quantifiedSets)) {
         // Try to detect and optimize numeric comparison patterns
         const pattern = detectNumericComparisonPattern(barExpr, varNames);
         if (pattern && pattern.type !== 'none') {
@@ -1802,8 +1811,16 @@ export class ForgeExprEvaluator
     if (ctx.TILDE_TOK()) {
       // this flips the order of the elements in the tuples of a relation if
       // the relation has arity 2
-      if (isTupleArray(childrenResults) && childrenResults.length > 0 && childrenResults[0].length === 2) {
-        return childrenResults.map((tuple) => [tuple[1], tuple[0]]);
+      if (isTupleArray(childrenResults)) {
+        // The transpose of the empty relation is the empty relation. Guarding
+        // only on `length > 0` made `~<empty>` throw (e.g. `~(left - left)`),
+        // even though `^`/`*` handle the empty relation fine.
+        if (childrenResults.length === 0) {
+          return [];
+        }
+        if (childrenResults[0].length === 2) {
+          return childrenResults.map((tuple) => [tuple[1], tuple[0]]);
+        }
       }
       throw new Error("expected the expression provided to ~ to have arity 2; bad arity received!");
     }
