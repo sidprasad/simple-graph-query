@@ -777,3 +777,56 @@ describe("sgq-analyzer.string-literals", () => {
     expect(analyzeForgeExpression("Playr", makeSchema()).unresolvedNames).toEqual(["Playr"]);
   });
 });
+
+describe("sgq-analyzer.unresolved-names.completeness", () => {
+  // Name collection runs as its own traversal, not as a side effect of the
+  // folding visitor. Folding short-circuits as soon as one child settles the
+  // verdict, so anything it skipped would otherwise go unreported -- and a
+  // name-checker that goes quiet exactly when it proves something is the worst
+  // possible failure mode for it.
+  const unresolved = (expr: string) => withSchema(expr).unresolvedNames;
+
+  it("reports names in a comprehension whose first domain is empty", () => {
+    expect(unresolved("{x : none, y : Playr | Foo = Foo}")).toEqual(["Playr", "Foo"]);
+    expect(unresolved("{x : none | Playr}")).toEqual(["Playr"]);
+  });
+
+  it("reports names in a quantifier whose domain is empty", () => {
+    expect(unresolved("all x : none | Playr")).toEqual(["Playr"]);
+    expect(unresolved("some x : none | Playr")).toEqual(["Playr"]);
+  });
+
+  it("reports names past a short-circuiting boolean operand", () => {
+    expect(unresolved("false and Playr = Playr")).toEqual(["Playr"]);
+    expect(unresolved("Playr = Playr and false")).toEqual(["Playr"]);
+    expect(unresolved("(1 = 2) and Zork")).toEqual(["Zork"]);
+    expect(unresolved("#none = 0 and Foo = Foo")).toEqual(["Foo"]);
+  });
+
+  it("reports names on both sides of an operation folded to empty", () => {
+    expect(unresolved("none & Playr")).toEqual(["Playr"]);
+    expect(unresolved("Playr & none")).toEqual(["Playr"]);
+    expect(unresolved("Foo & none & Bar")).toEqual(["Foo", "Bar"]);
+  });
+
+  it("still respects binder scope during the complete traversal", () => {
+    // The separate walk must not regress scoping: binder variables stay silent,
+    // and still do not escape their own body.
+    expect(unresolved("{x : none | x = x}")).toBeUndefined();
+    expect(unresolved("all x : none | x = x")).toBeUndefined();
+    expect(unresolved("{x : none | x = x} + x")).toEqual(["x"]);
+    expect(unresolved("all p : Player | (some m : none | p = p) and m = m")).toEqual(["m"]);
+  });
+
+  it("does not report the binding occurrence of a variable", () => {
+    // `x` in `x : Player` is a declaration, not a reference.
+    expect(unresolved("{x : Player | true}")).toBeUndefined();
+    expect(unresolved("all zzz : Player | true")).toBeUndefined();
+  });
+
+  it("reports a name even when the status is ill-typed", () => {
+    const r = withSchema("Player in (Player -> Player) and Zork = Zork");
+    expect(r.status).toBe("ill-typed");
+    expect(r.unresolvedNames).toEqual(["Zork"]);
+  });
+});

@@ -263,6 +263,12 @@ export class ForgeExprStaticAnalyzer
     this.unresolved.clear();
     this.boundScopes.length = 0;
     const v = this.visit(ctx);
+
+    // Collected separately from the fold, which short-circuits. See
+    // `collectUnresolvedNames`.
+    this.boundScopes.length = 0;
+    this.collectUnresolvedNames(ctx);
+
     const names =
       this.unresolved.size > 0
         ? { unresolvedNames: Array.from(this.unresolved) }
@@ -1010,14 +1016,76 @@ export class ForgeExprStaticAnalyzer
         }
         return UNKNOWN;
       }
-      // Nothing in the schema answers to this name. Unlike the evaluator — which
-      // sees one instance and cannot tell a typo from a sig that is empty in
-      // this frame — a schema lists every declared entity, so this really is a
-      // name that does not exist. Binder variables and builtins are excluded.
-      if (!this.isBound(id) && !SUPPORTED_BUILTINS.includes(id)) {
-        this.unresolved.add(id);
-      }
     }
     return UNKNOWN;
+  }
+
+  // ---------------------------------------------------------------------
+  // Unresolved-name collection
+  //
+  // This is a separate traversal rather than a side effect of the folding
+  // visitor above. Folding short-circuits — it returns as soon as one child
+  // settles the verdict — so names in the subtrees it skipped would never be
+  // seen. `{x : none, y : Playr | Foo = Foo}` folds to `empty` at the first
+  // decl and never looks at `Playr` or `Foo`. Reporting has to be complete
+  // regardless of how quickly the verdict is decided.
+  // ---------------------------------------------------------------------
+
+  /** Walk the whole tree, recording every name the schema does not declare. */
+  private collectUnresolvedNames(node: ParseTree): void {
+    if (!this.schema) return;
+
+    if (node instanceof NameContext) {
+      this.recordIfUnresolved(getIdentifierName(node));
+      return;
+    }
+
+    // A binder scopes its variables over the body but not over the domains it
+    // binds them from, and its declared names are binding occurrences rather
+    // than references — so neither is walked generically.
+    const binder = this.asBinder(node);
+    if (binder) {
+      const bound = new Set<string>();
+      let decl: QuantDeclListContext | undefined = binder.declList;
+      while (decl) {
+        this.collectUnresolvedNames(decl.quantDecl().expr());
+        this.collectNamesFromList(decl.quantDecl().nameList(), bound);
+        decl = decl.quantDeclList();
+      }
+      if (binder.body) {
+        this.withBoundScope(bound, () => this.collectUnresolvedNames(binder.body!));
+      }
+      return;
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectUnresolvedNames(node.getChild(i));
+    }
+  }
+
+  /** The binder parts of a quantifier or set comprehension, if this node is one. */
+  private asBinder(
+    node: ParseTree
+  ): { declList: QuantDeclListContext | undefined; body: ParseTree | undefined } | undefined {
+    const isQuantifier = node instanceof ExprContext && node.quant() !== undefined;
+    const isComprehension =
+      node instanceof Expr18Context && node.LEFT_CURLY_TOK() !== undefined;
+    if (!isQuantifier && !isComprehension) return undefined;
+
+    const ctx = node as ExprContext | Expr18Context;
+    const declList = ctx.quantDeclList();
+    if (!declList) return undefined;
+    return { declList, body: ctx.blockOrBar() };
+  }
+
+  private recordIfUnresolved(id: string): void {
+    if (id === "true" || id === "false") return;
+    if (this.isBound(id) || SUPPORTED_BUILTINS.includes(id)) return;
+    // Nothing in the schema answers to this name. Unlike the evaluator — which
+    // sees one instance and cannot tell a typo from a sig that is empty in this
+    // frame — a schema lists every declared entity, so this really is a name
+    // that does not exist.
+    if (this.schema!.getType(id) || this.schema!.getRelations(id).length > 0) return;
+    this.unresolved.add(id);
   }
 }

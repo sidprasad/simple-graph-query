@@ -375,6 +375,11 @@ function editDistance(a: string, b: string, limit: number): number {
  */
 export function unquoteStringLiteral(text: string): string {
   const body = text.slice(1, -1);
+  // Overwhelmingly the common case, and the only one worth optimizing: with no
+  // backslash there is nothing to resolve, so skip the scan entirely.
+  if (body.indexOf("\\") === -1) {
+    return body;
+  }
   let out = "";
   for (let i = 0; i < body.length; i++) {
     if (body[i] !== "\\") {

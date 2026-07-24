@@ -271,6 +271,16 @@ describe("sgq-evaluator.diagnostics", () => {
       expect(diagnostics).toEqual([]);
     });
 
+    it("does not report the previous call's warnings on a parse error", () => {
+      // A parse error returns before the evaluator runs, so there is nothing to
+      // reset on it. Diagnostics live on the wrapper and are cleared here, or a
+      // failed parse would inherit whatever the last successful call warned
+      // about — attributing `Playr` to an expression that never mentioned it.
+      expect(names(ev, "Playr")).toEqual(["Playr"]);
+      expect(ev.evaluateExpressionWithDiagnostics("(").diagnostics).toEqual([]);
+      expect(ev.evaluateExpressionWithDiagnostics('"unterminated').diagnostics).toEqual([]);
+    });
+
     it("does not carry diagnostics from a failed call into the next one", () => {
       expect(
         ev.evaluateExpressionWithDiagnostics("Playr + (Player.Player.Player)").diagnostics
