@@ -4,7 +4,9 @@ OPEN_TOK: 'open';
 LEFT_SQUARE_TOK: '[';
 RIGHT_SQUARE_TOK: ']';
 AS_TOK: 'as';
-FILE_PATH_TOK: '"' (~["\\] | '\\' .)* '"';
+// Double-quoted literal. Serves both as a file path in `open`/`option` decls and
+// as a string literal in expression position (see the `const` rule in Forge.g4).
+STRING_TOK: '"' (~["\\] | '\\' .)* '"';
 VAR_TOK: 'var';
 ABSTRACT_TOK: 'abstract';
 SIG_TOK: 'sig';

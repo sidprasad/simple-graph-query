@@ -10,7 +10,7 @@ alloyModule:  importDecl* paragraph*
             | evalDecl*;
 
 importDecl: OPEN_TOK qualName (LEFT_SQUARE_TOK qualNameList RIGHT_SQUARE_TOK)? (AS_TOK name)?
-      | OPEN_TOK FILE_PATH_TOK (AS_TOK name)?;
+      | OPEN_TOK STRING_TOK (AS_TOK name)?;
 
 paragraph: sigDecl | predDecl | funDecl | assertDecl | cmdDecl | testExpectDecl | sexprDecl
          | queryDecl | evalRelDecl | optionDecl | instDecl | exampleDecl
@@ -40,7 +40,7 @@ testExpectDecl: TEST_TOK? EXPECT_TOK name? testBlock;
 testBlock: LEFT_CURLY_TOK testDecl* RIGHT_CURLY_TOK;
 scope: FOR_TOK number (BUT_TOK typescopeList)? | FOR_TOK typescopeList;
 typescope: EXACTLY_TOK? number qualName;
-const: NONE_TOK | UNIV_TOK | IDEN_TOK | MINUS_TOK? number;
+const: NONE_TOK | UNIV_TOK | IDEN_TOK | MINUS_TOK? number | STRING_TOK;
 
 // TODO: ERROR: WE ARE PARSING SOME QUANTIFIED PROPERTY DECL AS PROPERTYDECL 
 
@@ -60,7 +60,7 @@ block: LEFT_CURLY_TOK expr* RIGHT_CURLY_TOK;
 blockOrBar: block | BAR_TOK expr;
 quant: ALL_TOK | NO_TOK | SUM_TOK | mult;
 qualName: (THIS_TOK SLASH_TOK)? (name SLASH_TOK)* name | INT_TOK | SUM_TOK;
-optionDecl: OPTION_TOK qualName (qualName | FILE_PATH_TOK | MINUS_TOK? number);
+optionDecl: OPTION_TOK qualName (qualName | STRING_TOK | MINUS_TOK? number);
 
 // Accept both regular identifiers and backtick-quoted identifiers (for escaping reserved keywords)
 name: IDENTIFIER_TOK | QUOTED_IDENTIFIER_TOK;
