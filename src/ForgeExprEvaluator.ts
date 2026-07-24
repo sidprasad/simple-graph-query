@@ -187,10 +187,13 @@ function deduplicateConcat(parts: Tuple[][]): Tuple[] {
   const result: Tuple[] = [];
   const resultKeys: string[] = [];
   for (const part of parts) {
+    // Bulk parts go through ensureKeys so their keys are REGISTERED, not just
+    // consumed -- otherwise a relation reaching dedup via union would be
+    // re-serialized on every union until some other op registered it.
     // Arrays below KEY_REGISTER_MIN are never registered, so skip the WeakMap
-    // probe for them -- this helper is called once per join inside quantifier
-    // loops, where the probe is measurable pure overhead.
-    const partKeys = part.length >= KEY_REGISTER_MIN ? relationKeys.get(part) : undefined;
+    // machinery for them entirely -- this helper is called once per join
+    // inside quantifier loops, where even the probe is measurable overhead.
+    const partKeys = part.length >= KEY_REGISTER_MIN ? ensureKeys(part) : undefined;
     for (let i = 0; i < part.length; i++) {
       const key = partKeys !== undefined ? partKeys[i] : JSON.stringify(part[i]);
       if (!seen.has(key)) {
