@@ -6,6 +6,91 @@ A TypeScript library for evaluating relational + some more expressions with a br
 
 MIT
 
+## Strings
+
+Strings are written as double-quoted literals:
+
+```
+{y : Color | @:y = "Black"}
+```
+
+A literal always denotes a string, whatever the instance happens to contain. It
+may hold any characters — spaces, punctuation, reserved keywords — and supports
+the escapes `\"`, `\\`, `\n`, `\t`, `\r`, and `\0`; any other escaped character
+stands for itself.
+
+```
+"dark blue"     "#FF0000"     "2 of clubs"     "set"     "say \"hi\""
+```
+
+There is no implicit conversion: `"12" = 12` and `"true" = true` are both false.
+Use `@num:` / `@bool:` to convert explicitly.
+
+### Embedding in YAML
+
+`@` is a reserved indicator in YAML, so an expression beginning with `@:` cannot
+be a plain scalar — it has to be quoted whether or not it contains a string
+literal. Single-quoted and block scalars pass `"` through untouched and are the
+recommended styles:
+
+```yaml
+selector: '@:y = "Black"'
+
+selector: |-
+  @:y = "Black"
+```
+
+A double-quoted YAML scalar also works, but requires escaping: `"@:y = \"Black\""`.
+
+### Prior to 3.0
+
+Any identifier that failed to resolve was silently reinterpreted as a string, so
+`@:y = Black` worked only as long as nothing in the instance was named `Black`.
+Adding a sig by that name silently changed what the query meant, labels
+containing spaces or punctuation were inexpressible, and typos evaluated to
+themselves instead of being reported. Bare names are no longer strings; quote
+them.
+
+## Unresolved names
+
+A name that matches nothing in the instance evaluates to the **empty relation**
+and raises a diagnostic. It is not an error:
+
+```ts
+const { value, diagnostics } = evaluator.evaluateExpressionWithDiagnostics("Playr");
+// value       -> []
+// diagnostics -> [{
+//   kind: "unresolved-name",
+//   severity: "warning",
+//   name: "Playr",
+//   suggestion: "Player",
+//   message: "'Playr' does not name a type, relation, or atom in this instance; ..."
+// }]
+```
+
+An instance carries only *populated* types and relations, so a sig with no atoms
+is absent from it entirely — and a sig can empty out between frames of one
+trace. A missing name is therefore indistinguishable from a typo at evaluation
+time, which is why this is a warning for the consumer to surface rather than an
+error. `evaluateExpression` is unchanged and returns the value alone.
+
+Note that empty means predicates pass vacuously: `no Playr` is `true`. This is
+correct for an empty set, and the diagnostic is the only thing distinguishing it
+from a real result — so consumers should show these warnings, not drop them.
+
+### Static analysis
+
+`analyzeForgeExpression(expr, schema)` reports the same names in
+`unresolvedNames`, alongside (not instead of) its status. Given a *schema* it
+is conclusive, because a schema declares every entity whether populated or not:
+
+```ts
+analyzeForgeExpression("none & Playr", schema);
+// { status: "empty", reason: "...", unresolvedNames: ["Playr"] }
+```
+
+Without a schema the field is omitted — there is nothing to check names against.
+
 ## Selector synthesis overview
 
 The selector synthesizer infers a relational expression that returns exactly the atoms supplied in a set of training examples (pairs of `Set<IAtom>` and `IDataInstance`). The current implementation uses a bounded, enumerative search over a compact expression grammar (identifiers, unions/intersections/differences, joins, and transitive closure) that mirrors a lightweight Alloy fragment. The search works breadth-first by depth so that the first solution found is the simplest expression within the bound, and it only explores identifiers shared by every example plus Alloy built-ins like `univ` and `iden`.

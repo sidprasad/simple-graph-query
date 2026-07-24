@@ -320,6 +320,81 @@ export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
 );
 
 /**
+ * A non-fatal condition noticed while evaluating an expression.
+ *
+ * Diagnostics never change the value of an expression — they are advisory, and
+ * consumers are expected to surface them to whoever wrote the query. Severity
+ * is always `"warning"`: the evaluator sees a single instance, not a schema, so
+ * it is not in a position to declare an unresolved name an error.
+ */
+export interface Diagnostic {
+  kind: "unresolved-name";
+  severity: "warning";
+  /** The name that could not be resolved. */
+  name: string;
+  /** Human-readable message suitable for showing to a query author. */
+  message: string;
+  /** Closest name in the instance, when one is close enough to be worth offering. */
+  suggestion?: string;
+}
+
+/**
+ * Levenshtein distance, abandoned early once it provably exceeds `limit`.
+ * Returns `limit + 1` in that case, which callers treat as "too far".
+ */
+function editDistance(a: string, b: string, limit: number): number {
+  if (Math.abs(a.length - b.length) > limit) {
+    return limit + 1;
+  }
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    let rowMin = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const value = Math.min(
+        previous[j] + 1,        // deletion
+        current[j - 1] + 1,     // insertion
+        previous[j - 1] + cost  // substitution
+      );
+      current.push(value);
+      rowMin = Math.min(rowMin, value);
+    }
+    if (rowMin > limit) {
+      return limit + 1; // no completion of this row can come back under the limit
+    }
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+/**
+ * Strip the surrounding double quotes from a STRING_TOK and resolve its escape
+ * sequences. The lexer rule is `'"' (~["\\] | '\\' .)* '"'`, so a backslash
+ * always consumes exactly one following character.
+ */
+export function unquoteStringLiteral(text: string): string {
+  const body = text.slice(1, -1);
+  let out = "";
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] !== "\\") {
+      out += body[i];
+      continue;
+    }
+    const escaped = body[++i];
+    switch (escaped) {
+      case "n": out += "\n"; break;
+      case "t": out += "\t"; break;
+      case "r": out += "\r"; break;
+      case "0": out += "\0"; break;
+      // `\"`, `\\`, and anything else stand for the character itself.
+      default: out += escaped; break;
+    }
+  }
+  return out;
+}
+
+/**
  * A recursive evaluator for Forge expressions.
  * This visitor walks the parse tree and prints the type of operation encountered.
  */
@@ -331,7 +406,10 @@ export class ForgeExprEvaluator
   private freeVariables: FreeVariables;
   // NOTE: strings will be of the format "<var-name>=<value>|..." sorted in
   // increasing lexicographic order of variable names
-  private cachedResults: Map<ParseTree, Map<string, EvalResult>> = new Map();
+  private cachedResults: Map<
+    ParseTree,
+    Map<string, { result: EvalResult; diagnostics: Diagnostic[] }>
+  > = new Map();
 
   private instanceData: IDataInstance;
   
@@ -341,6 +419,10 @@ export class ForgeExprEvaluator
   // Index for relations: Map<relationName, Map<firstElement, Tuple[]>>
   // This allows O(1) lookup for patterns like atom.field
   private relationIndexCache: Map<string, Map<SingleValue, Tuple[]>> | null = null;
+
+  // Diagnostics accumulated during the current evaluation, keyed by name so a
+  // name referenced many times (e.g. inside a comprehension body) reports once.
+  private diagnostics: Map<string, Diagnostic> = new Map();
 
   constructor(
     datum: IDataInstance,
@@ -355,6 +437,74 @@ export class ForgeExprEvaluator
     this.freeVariables = new Map();
   }
 
+  /** Diagnostics recorded since the last `resetDiagnostics()`. */
+  public getDiagnostics(): Diagnostic[] {
+    return Array.from(this.diagnostics.values());
+  }
+
+  /** Clear diagnostics. Callers that reuse an evaluator must call this per evaluation. */
+  public resetDiagnostics(): void {
+    this.diagnostics.clear();
+  }
+
+  /**
+   * Record a name that could not be resolved against this instance.
+   *
+   * This is deliberately a warning rather than an error. The instance format
+   * carries only populated types and relations, so a sig with no atoms in this
+   * instance is indistinguishable from a typo — and a sig can empty out between
+   * frames of the same trace. Failing hard would break working selectors at
+   * exactly the frames where a set happens to be empty.
+   */
+  private reportUnresolvedName(name: string): void {
+    if (this.diagnostics.has(name)) {
+      return;
+    }
+    const suggestion = this.suggestName(name);
+    this.diagnostics.set(name, {
+      kind: "unresolved-name",
+      severity: "warning",
+      name,
+      message:
+        `'${name}' does not name a type, relation, or atom in this instance; ` +
+        `it evaluates to the empty set.` +
+        (suggestion ? ` Did you mean '${suggestion}'?` : "") +
+        ` If you meant the string "${name}", write it in double quotes.`,
+      ...(suggestion !== undefined ? { suggestion } : {}),
+    });
+  }
+
+  /** Closest name in this instance within a small edit distance, if any. */
+  private suggestName(name: string): string | undefined {
+    this.buildRelationCache();
+    const candidates = new Set<string>();
+    for (const t of this.instanceData.getTypes()) {
+      candidates.add(t.id);
+    }
+    for (const relationName of this.relationCache!.keys()) {
+      candidates.add(relationName);
+    }
+    for (const atom of this.instanceData.getAtoms()) {
+      candidates.add(atom.id);
+    }
+
+    // Allow one edit for short names, two for longer ones. Without this bound
+    // every unresolved name would get a nonsense suggestion.
+    const maxDistance = name.length <= 4 ? 1 : 2;
+    let best: string | undefined;
+    let bestDistance = maxDistance + 1;
+    for (const candidate of candidates) {
+      if (Math.abs(candidate.length - name.length) >= bestDistance) {
+        continue; // length alone rules it out
+      }
+      const distance = editDistance(name, candidate, bestDistance);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    return best;
+  }
 
   // helper function to build relation cache and indexes
   private buildRelationCache(): void {
@@ -457,8 +607,8 @@ export class ForgeExprEvaluator
       }
     }
 
-    // Fallback: return the value itself
-    console.error(`No atom found for value: ${value}`);
+    // Not an atom id. This is the normal case for a string literal — the label
+    // of `"Black"` is just `Black` — so it is not worth reporting.
     return value;
   }
 
@@ -600,11 +750,23 @@ export class ForgeExprEvaluator
   }
 
   // helper function
-  private cacheResult(ctx: ParseTree, freeVarsKey: string, result: EvalResult) {
+  private cacheResult(
+    ctx: ParseTree,
+    freeVarsKey: string,
+    result: EvalResult,
+    diagnosticsBefore: Set<string>
+  ) {
     if (!this.cachedResults.has(ctx)) {
       this.cachedResults.set(ctx, new Map());
     }
-    this.cachedResults.get(ctx)!.set(freeVarsKey, result);
+    // Diagnostics raised while evaluating this subtree are cached with the
+    // result. Without this, evaluating the same expression twice would report
+    // an unresolved name only the first time, because the second call is a
+    // cache hit and never reaches visitName.
+    const diagnostics = Array.from(this.diagnostics.values()).filter(
+      (d) => !diagnosticsBefore.has(d.name)
+    );
+    this.cachedResults.get(ctx)!.set(freeVarsKey, { result, diagnostics });
   }
 
   // helper function
@@ -731,11 +893,20 @@ export class ForgeExprEvaluator
 
     // check in the cache
     if (foundAllVars && this.cachedResults.has(ctx)) {
-      if (this.cachedResults.get(ctx)!.has(freeVarsKey)) {
-        // cache hit!
-        return this.cachedResults.get(ctx)!.get(freeVarsKey)!;
+      const cached = this.cachedResults.get(ctx)!.get(freeVarsKey);
+      if (cached !== undefined) {
+        // cache hit! Replay the diagnostics this subtree produced, so a repeat
+        // evaluation reports the same warnings as the first one.
+        for (const diagnostic of cached.diagnostics) {
+          if (!this.diagnostics.has(diagnostic.name)) {
+            this.diagnostics.set(diagnostic.name, diagnostic);
+          }
+        }
+        return cached.result;
       }
     }
+    // Snapshot so we can attribute newly-raised diagnostics to this subtree.
+    const diagnosticsBefore = new Set(this.diagnostics.keys());
     // cache miss! compute results and store the result in the cache before
     // returning. Store the result only for this context node (not for the
     // children) to manage the cache size
@@ -827,7 +998,7 @@ export class ForgeExprEvaluator
         }
 
         this.environmentStack.pop();
-        this.cacheResult(ctx, freeVarsKey, total);
+        this.cacheResult(ctx, freeVarsKey, total, diagnosticsBefore);
         return total;
       }
 
@@ -921,13 +1092,13 @@ export class ForgeExprEvaluator
         if (ctx.quant()!.ALL_TOK() && foundFalse) {
           this.environmentStack.pop();
           const value = false;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         }
         if (ctx.quant()!.NO_TOK() && foundTrue) {
           this.environmentStack.pop();
           const value = false;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         }
         if (ctx.quant()!.mult()) {
@@ -935,25 +1106,25 @@ export class ForgeExprEvaluator
           if (multExpr.LONE_TOK() && result.length > 1) {
             this.environmentStack.pop();
             const value = false;
-            this.cacheResult(ctx, freeVarsKey, value);
+            this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
             return value;
           }
           if (multExpr.SOME_TOK() && foundTrue) {
             this.environmentStack.pop();
             const value = true;
-            this.cacheResult(ctx, freeVarsKey, value);
+            this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
             return value;
           }
           if (multExpr.ONE_TOK() && result.length > 1) {
             this.environmentStack.pop();
             const value = false;
-            this.cacheResult(ctx, freeVarsKey, value);
+            this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
             return value;
           }
           if (multExpr.TWO_TOK() && result.length > 2) {
             this.environmentStack.pop();
             const value = false;
-            this.cacheResult(ctx, freeVarsKey, value);
+            this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
             return value;
           }
         }
@@ -963,29 +1134,29 @@ export class ForgeExprEvaluator
 
       if (ctx.quant()!.ALL_TOK()) {
         const value = !foundFalse;
-        this.cacheResult(ctx, freeVarsKey, value);
+        this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
         return value;
       } else if (ctx.quant()!.NO_TOK()) {
         const value = !foundTrue;
-        this.cacheResult(ctx, freeVarsKey, value);
+        this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
         return value;
       } else if (ctx.quant()!.mult()) {
         const multExpr = ctx.quant()!.mult()!;
         if (multExpr.LONE_TOK()) {
           const value = result.length <= 1;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         } else if (multExpr.SOME_TOK()) {
           const value = foundTrue;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         } else if (multExpr.ONE_TOK()) {
           const value = result.length === 1;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         } else if (multExpr.TWO_TOK()) {
           const value = result.length === 2;
-          this.cacheResult(ctx, freeVarsKey, value);
+          this.cacheResult(ctx, freeVarsKey, value, diagnosticsBefore);
           return value;
         }
       }
@@ -998,7 +1169,7 @@ export class ForgeExprEvaluator
     //console.log('childrenResults in expr:', childrenResults);
     if (results === undefined) {
       //console.log('returning childrenResults in expr:', childrenResults);
-      this.cacheResult(ctx, freeVarsKey, childrenResults);
+      this.cacheResult(ctx, freeVarsKey, childrenResults, diagnosticsBefore);
       return childrenResults;
     }
     if (isSingleValue(results)) {
@@ -1010,7 +1181,7 @@ export class ForgeExprEvaluator
       results = results.concat(childrenResults);
     }
     //console.log('results being returned in expr:', results);
-    this.cacheResult(ctx, freeVarsKey, results);
+    this.cacheResult(ctx, freeVarsKey, results, diagnosticsBefore);
     return results;
   }
 
@@ -1859,55 +2030,22 @@ export class ForgeExprEvaluator
         throw new Error("Unknown label operator");
       }
 
-      try {
-        const innerResult = this.visit(innerExpr);
+      const innerResult = this.visit(innerExpr);
 
-        // Special case: if result is empty array, it means unknown identifier, so use the text
-        if (isTupleArray(innerResult) && innerResult.length === 0) {
-          // For unknown identifiers, try to convert the text directly
-          let text = innerExpr.text;
-          // Remove parentheses if present
-          if (text.startsWith('(') && text.endsWith(')')) {
-            text = text.slice(1, -1);
-          }
-          try {
-            return convertFunction(text);
-          } catch (error) {
-            // If conversion fails, fall back to string for unknown identifiers
-            return text;
-          }
+      if (isSingleValue(innerResult)) {
+        return convertFunction(innerResult);
+      } else if (isTupleArray(innerResult)) {
+        // For single-element tuple arrays, return the converted label of the element
+        if (innerResult.length === 1 && innerResult[0].length === 1) {
+          return convertFunction(innerResult[0][0]);
         }
-
-        if (isSingleValue(innerResult)) {
-          return convertFunction(innerResult);
-        } else if (isTupleArray(innerResult)) {
-          // For single-element tuple arrays, return the converted label of the element
-          if (innerResult.length === 1 && innerResult[0].length === 1) {
-            return convertFunction(innerResult[0][0]);
-          }
-          // For multi-element cases, apply conversion to each tuple element
-          return innerResult.map((tuple) =>
-            tuple.map((value) => convertFunction(value))
-          );
-        }
-        throw new Error(`${operatorName} operator can only be applied to single values or tuple arrays`);
-      } catch (error) {
-        // If evaluation fails due to unknown identifier, use the text as the label
-        if (error instanceof NameNotFoundError) {
-          // Extract the identifier from the inner expression
-          let identifierText = innerExpr.text;
-          if (identifierText.startsWith('(') && identifierText.endsWith(')')) {
-            identifierText = identifierText.slice(1, -1);
-          }
-          try {
-            return convertFunction(identifierText);
-          } catch (conversionError) {
-            // If conversion fails, fall back to string for unknown identifiers
-            return identifierText;
-          }
-        }
-        throw error;
+        // Otherwise convert elementwise. An empty operand yields an empty
+        // result — the operand evaluated fine, it just denotes nothing.
+        return innerResult.map((tuple) =>
+          tuple.map((value) => convertFunction(value))
+        );
       }
+      throw new Error(`${operatorName} operator can only be applied to single values or tuple arrays`);
     }
 
     const childrenResults = this.visitChildren(ctx);
@@ -2064,6 +2202,12 @@ export class ForgeExprEvaluator
         }
         
         return univRelation;
+      }
+      // A double-quoted string literal. This is the ONLY way to write a string,
+      // so `"Black"` is a string regardless of whether the instance happens to
+      // contain a sig or atom named Black.
+      if (constant.STRING_TOK() !== undefined) {
+        return unquoteStringLiteral(constant.STRING_TOK()!.text);
       }
       // Handle boolean constants
       if (constant.text === 'true') {
@@ -2355,16 +2499,15 @@ export class ForgeExprEvaluator
       return identifier;
     }
 
-    // Check if this looks like a label identifier (for label comparison).
-    // Labels can be any alphanumeric string with underscores.
-    // This allows identifiers like "Black", "red", "my_label", "Color_123", etc.
-    // to be treated as string literals in label comparisons (e.g., @:y = Black).
-    const labelLikePattern = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-    if (labelLikePattern.test(identifier)) {
-      return identifier;
-    }
-
-    throw new NameNotFoundError(`bad name ${identifier} referenced!`);
+    // Nothing in this instance answers to this name. Report it and evaluate to
+    // the empty relation rather than throwing: a selector is authored against a
+    // model but run against instances that vary, and a sig that is empty in this
+    // instance is absent from the instance data entirely. See
+    // `reportUnresolvedName`.
+    //
+    // Note this is NOT how string literals are written — use `"..."`.
+    this.reportUnresolvedName(identifier);
+    return [];
   }
 
   visitQualName(ctx: QualNameContext): EvalResult {

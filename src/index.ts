@@ -3,7 +3,7 @@ import { ForgeParser, ExprContext, PredDeclContext } from './forge-antlr/ForgePa
 import { ForgeLexer } from './forge-antlr/ForgeLexer';
 import { ForgeListenerImpl } from './forge-antlr/ForgeListenerImpl';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
-import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
+import { Diagnostic, EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
 import { ForgeExprStaticAnalyzer, StaticAnalysis } from './ForgeExprStaticAnalyzer';
 import { IDataInstance, IForgeSchema, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
@@ -104,6 +104,30 @@ export class SimpleGraphQueryEvaluator {
 
 
 
+  /**
+   * Evaluate `forgeExpr` and return both its value and any diagnostics raised
+   * along the way.
+   *
+   * Diagnostics are advisory and never change the value — today the only kind
+   * is an unresolved name, which evaluates to the empty set. Consumers should
+   * surface them to whoever authored the query; see {@link Diagnostic}.
+   *
+   * Note that an unresolved name is a warning rather than an error on purpose.
+   * An instance carries only populated types and relations, so a sig that is
+   * empty here looks exactly like a typo, and a sig can empty out between
+   * frames of one trace. Deciding which it is needs context this library does
+   * not have.
+   */
+  evaluateExpressionWithDiagnostics(
+    forgeExpr: string
+  ): { value: EvaluationResult; diagnostics: Diagnostic[] } {
+    const value = this.evaluateExpression(forgeExpr);
+    // `evaluateExpression` discards the cached evaluator when it throws, so
+    // read diagnostics defensively rather than assuming one is still around.
+    const diagnostics = this.cachedEvaluator?.getDiagnostics() ?? [];
+    return { value, diagnostics };
+  }
+
   evaluateExpression(forgeExpr: string): EvaluationResult {
 
     // Check cache first
@@ -133,6 +157,9 @@ export class SimpleGraphQueryEvaluator {
       this.cachedEvaluatorDatum = this.datum;
     }
     const evaluator = this.cachedEvaluator;
+    // Diagnostics describe this evaluation, not the whole life of the reused
+    // evaluator, so clear whatever the previous call left behind.
+    evaluator.resetDiagnostics();
 
     try {
 
@@ -201,6 +228,7 @@ export function analyzeForgeExpression(
 
 export { ForgeExprStaticAnalyzer, StaticAnalysis };
 export type { IForgeSchema };
+export type { Diagnostic };
 
 export {
   synthesizeSelector,

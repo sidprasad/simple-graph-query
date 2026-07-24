@@ -312,20 +312,20 @@ describe("sgq-evaluator ", () => {
     // iff the elements are equal. This path previously always returned false.
     expect(ev.evaluateExpression("1 in 1")).toBe(true);
     expect(ev.evaluateExpression("1 in 2")).toBe(false);
-    expect(ev.evaluateExpression("@:(X0) in red")).toBe(true); // label "red" == "red"
-    expect(ev.evaluateExpression("@:(X0) in blue")).toBe(false);
+    expect(ev.evaluateExpression('@:(X0) in "red"')).toBe(true); // label "red" == "red"
+    expect(ev.evaluateExpression('@:(X0) in "blue"')).toBe(false);
 
     // `ni` is the negation, so for scalars it now reads as inequality.
     expect(ev.evaluateExpression("1 ni 1")).toBe(false);
     expect(ev.evaluateExpression("1 ni 2")).toBe(true);
 
     // Membership against a real (multi-element) set is unchanged...
-    expect(ev.evaluateExpression("@:(X0) in (red + blue)")).toBe(true);
-    expect(ev.evaluateExpression("@:(X0) not in (red + blue)")).toBe(false);
+    expect(ev.evaluateExpression('@:(X0) in ("red" + "blue")')).toBe(true);
+    expect(ev.evaluateExpression('@:(X0) not in ("red" + "blue")')).toBe(false);
 
     // ...and `in` with a single value now behaves, so the old "use = for one
     // value" footgun is gone: this comprehension keeps only the red player.
-    const reds = ev.evaluateExpression("{p: Player | @:p in red}");
+    const reds = ev.evaluateExpression('{p: Player | @:p in "red"}');
     expect(areEquivalentTupleArrays(reds, [["X0"]])).toBe(true);
   });
 
@@ -461,18 +461,22 @@ describe("sgq-evaluator ", () => {
   });
 
 
-  it("treats unknown identifiers as string literals (label behavior)", () => {
- 
+  it("evaluates an unresolved name to the empty set and warns", () => {
+
     const datum = new TTTDataInstance();
 
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
     const expr = "NonExistentRelation";
 
-    const result = evaluatorUtil.evaluateExpression(expr);
-
-    // With the permissive label pattern, unknown identifiers are treated as string literals
-    expect(result).toBe("NonExistentRelation");
-
+    // An unresolved name is NOT a string literal (write `"..."` for that) and
+    // is not an error either — the instance only carries populated types and
+    // relations, so an empty sig is indistinguishable from a typo.
+    const { value, diagnostics } = evaluatorUtil.evaluateExpressionWithDiagnostics(expr);
+    expect(areEquivalentTupleArrays(value, [])).toBe(true);
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0].kind).toBe("unresolved-name");
+    expect(diagnostics[0].severity).toBe("warning");
+    expect(diagnostics[0].name).toBe("NonExistentRelation");
   });
 
   it("can distinguish between ID comparison (=) and label comparison (@:)", () => {
