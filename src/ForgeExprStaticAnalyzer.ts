@@ -26,6 +26,7 @@ import {
   QuantContext,
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
+import { SUPPORTED_BUILTINS } from "./ForgeExprEvaluator";
 import { IForgeSchema, IRelation, IType } from "./types";
 
 // Internal lattice element used during recursion.
@@ -43,12 +44,25 @@ type Abstract =
 
 const UNKNOWN: Abstract = { kind: "unknown" };
 
-export type StaticAnalysis =
+/**
+ * Names the expression references that the schema does not declare.
+ *
+ * This is reported alongside — not instead of — the status, because an
+ * expression can both name something undeclared and be provably empty. It is
+ * populated only when a schema is supplied: without one there is nothing to
+ * check a name against.
+ *
+ * Unlike the evaluator's `unresolved-name` diagnostic, this IS conclusive. A
+ * schema declares every entity whether or not it is populated, so a name absent
+ * from the schema cannot be explained away as a sig that happens to be empty.
+ */
+export type StaticAnalysis = (
   | { status: "unsat"; reason: string }       // boolean expr provably false
   | { status: "tautology"; reason: string }   // boolean expr provably true
   | { status: "empty"; reason: string }       // set/relation expr provably empty
   | { status: "ill-typed"; reason: string }   // statically malformed (e.g. arity mismatch)
-  | { status: "unknown" };
+  | { status: "unknown" }
+) & { unresolvedNames?: string[] };
 
 // Helper that wraps the schema with O(1) lookups and lattice queries.
 class SchemaInfo {
@@ -185,9 +199,31 @@ export class ForgeExprStaticAnalyzer
 {
   private readonly schema?: SchemaInfo;
 
+  // Variables bound by enclosing quantifiers / comprehensions. Consulted only
+  // for unresolved-name reporting, so a binder variable is not mistaken for a
+  // missing schema entity.
+  private readonly boundScopes: Set<string>[] = [];
+
+  // Names that resolve to nothing in the schema, in first-seen order.
+  private readonly unresolved: Set<string> = new Set();
+
   constructor(schema?: IForgeSchema) {
     super();
     if (schema) this.schema = new SchemaInfo(schema);
+  }
+
+  private isBound(name: string): boolean {
+    return this.boundScopes.some((scope) => scope.has(name));
+  }
+
+  /** Run `body` with `names` treated as bound. */
+  private withBoundScope<T>(names: Set<string>, body: () => T): T {
+    this.boundScopes.push(names);
+    try {
+      return body();
+    } finally {
+      this.boundScopes.pop();
+    }
   }
 
   // Walk a nameList (`a, b, c`) and accumulate identifiers into `out`.
@@ -224,19 +260,31 @@ export class ForgeExprStaticAnalyzer
 
   // Public entry: convert internal lattice value to a verdict + reason.
   analyze(ctx: ParseTree): StaticAnalysis {
+    this.unresolved.clear();
+    this.boundScopes.length = 0;
     const v = this.visit(ctx);
+
+    // Collected separately from the fold, which short-circuits. See
+    // `collectUnresolvedNames`.
+    this.boundScopes.length = 0;
+    this.collectUnresolvedNames(ctx);
+
+    const names =
+      this.unresolved.size > 0
+        ? { unresolvedNames: Array.from(this.unresolved) }
+        : {};
     if (v.kind === "bool") {
       return v.value
-        ? { status: "tautology", reason: "expression folds to literal true" }
-        : { status: "unsat", reason: "expression folds to literal false" };
+        ? { status: "tautology", reason: "expression folds to literal true", ...names }
+        : { status: "unsat", reason: "expression folds to literal false", ...names };
     }
     if (v.kind === "empty") {
-      return { status: "empty", reason: "expression is provably the empty set" };
+      return { status: "empty", reason: "expression is provably the empty set", ...names };
     }
     if (v.kind === "ill-typed") {
-      return { status: "ill-typed", reason: v.reason };
+      return { status: "ill-typed", reason: v.reason, ...names };
     }
-    return { status: "unknown" };
+    return { status: "unknown", ...names };
   }
 
   // Arity of an Abstract when known; -1 means "not determinable".
@@ -291,8 +339,8 @@ export class ForgeExprStaticAnalyzer
     // Reserved-name check at the binder: under a schema, type/relation names
     // cannot be reused as quantified variables.
     const declListTop = ctx.quantDeclList();
+    const boundHere = new Set<string>();
     if (declListTop) {
-      const boundHere = new Set<string>();
       this.collectBoundNames(declListTop, boundHere);
       const reservedError = this.illTypedIfBindsReservedName(boundHere);
       if (reservedError) return reservedError;
@@ -318,7 +366,7 @@ export class ForgeExprStaticAnalyzer
     // and would need the binding to be meaningful).
     let body: Abstract = UNKNOWN;
     if (blockOrBar.BAR_TOK() && blockOrBar.expr()) {
-      body = this.visit(blockOrBar.expr()!);
+      body = this.withBoundScope(boundHere, () => this.visit(blockOrBar.expr()!));
     }
 
     const mult = quant.mult();
@@ -919,7 +967,9 @@ export class ForgeExprStaticAnalyzer
       if (reservedError) return reservedError;
       const blockOrBar = ctx.blockOrBar();
       if (blockOrBar && blockOrBar.BAR_TOK() && blockOrBar.expr()) {
-        const body = this.visit(blockOrBar.expr()!);
+        const body = this.withBoundScope(boundHere, () =>
+          this.visit(blockOrBar.expr()!)
+        );
         if (body.kind === "ill-typed") return body;
         if (body.kind === "bool" && !body.value) return { kind: "empty" };
       }
@@ -964,8 +1014,78 @@ export class ForgeExprStaticAnalyzer
             ? { kind: "typed", arity, columnTypes: cols as string[] }
             : { kind: "typed", arity };
         }
+        return UNKNOWN;
       }
     }
     return UNKNOWN;
+  }
+
+  // ---------------------------------------------------------------------
+  // Unresolved-name collection
+  //
+  // This is a separate traversal rather than a side effect of the folding
+  // visitor above. Folding short-circuits — it returns as soon as one child
+  // settles the verdict — so names in the subtrees it skipped would never be
+  // seen. `{x : none, y : Playr | Foo = Foo}` folds to `empty` at the first
+  // decl and never looks at `Playr` or `Foo`. Reporting has to be complete
+  // regardless of how quickly the verdict is decided.
+  // ---------------------------------------------------------------------
+
+  /** Walk the whole tree, recording every name the schema does not declare. */
+  private collectUnresolvedNames(node: ParseTree): void {
+    if (!this.schema) return;
+
+    if (node instanceof NameContext) {
+      this.recordIfUnresolved(getIdentifierName(node));
+      return;
+    }
+
+    // A binder scopes its variables over the body but not over the domains it
+    // binds them from, and its declared names are binding occurrences rather
+    // than references — so neither is walked generically.
+    const binder = this.asBinder(node);
+    if (binder) {
+      const bound = new Set<string>();
+      let decl: QuantDeclListContext | undefined = binder.declList;
+      while (decl) {
+        this.collectUnresolvedNames(decl.quantDecl().expr());
+        this.collectNamesFromList(decl.quantDecl().nameList(), bound);
+        decl = decl.quantDeclList();
+      }
+      if (binder.body) {
+        this.withBoundScope(bound, () => this.collectUnresolvedNames(binder.body!));
+      }
+      return;
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectUnresolvedNames(node.getChild(i));
+    }
+  }
+
+  /** The binder parts of a quantifier or set comprehension, if this node is one. */
+  private asBinder(
+    node: ParseTree
+  ): { declList: QuantDeclListContext | undefined; body: ParseTree | undefined } | undefined {
+    const isQuantifier = node instanceof ExprContext && node.quant() !== undefined;
+    const isComprehension =
+      node instanceof Expr18Context && node.LEFT_CURLY_TOK() !== undefined;
+    if (!isQuantifier && !isComprehension) return undefined;
+
+    const ctx = node as ExprContext | Expr18Context;
+    const declList = ctx.quantDeclList();
+    if (!declList) return undefined;
+    return { declList, body: ctx.blockOrBar() };
+  }
+
+  private recordIfUnresolved(id: string): void {
+    if (id === "true" || id === "false") return;
+    if (this.isBound(id) || SUPPORTED_BUILTINS.includes(id)) return;
+    // Nothing in the schema answers to this name. Unlike the evaluator — which
+    // sees one instance and cannot tell a typo from a sig that is empty in this
+    // frame — a schema lists every declared entity, so this really is a name
+    // that does not exist.
+    if (this.schema!.getType(id) || this.schema!.getRelations(id).length > 0) return;
+    this.unresolved.add(id);
   }
 }

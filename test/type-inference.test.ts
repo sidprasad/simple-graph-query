@@ -61,7 +61,7 @@ describe("@: operator with string-first approach", () => {
     expect(rightSide).toBe("12");
 
     // String comparison should still work
-    const result2 = evaluatorUtil.evaluateExpression('@:(n2) = black');
+    const result2 = evaluatorUtil.evaluateExpression('@:(n2) = "black"');
     expect(result2).toBe(true);
   });
 

@@ -20,7 +20,7 @@ export class ForgeLexer extends Lexer {
 	public static readonly LEFT_SQUARE_TOK = 2;
 	public static readonly RIGHT_SQUARE_TOK = 3;
 	public static readonly AS_TOK = 4;
-	public static readonly FILE_PATH_TOK = 5;
+	public static readonly STRING_TOK = 5;
 	public static readonly VAR_TOK = 6;
 	public static readonly ABSTRACT_TOK = 7;
 	public static readonly SIG_TOK = 8;
@@ -142,7 +142,7 @@ export class ForgeLexer extends Lexer {
 	];
 
 	public static readonly ruleNames: string[] = [
-		"OPEN_TOK", "LEFT_SQUARE_TOK", "RIGHT_SQUARE_TOK", "AS_TOK", "FILE_PATH_TOK", 
+		"OPEN_TOK", "LEFT_SQUARE_TOK", "RIGHT_SQUARE_TOK", "AS_TOK", "STRING_TOK", 
 		"VAR_TOK", "ABSTRACT_TOK", "SIG_TOK", "LEFT_CURLY_TOK", "RIGHT_CURLY_TOK", 
 		"EXTENDS_TOK", "IN_TOK", "PLUS_TOK", "LONE_TOK", "SOME_TOK", "ONE_TOK", 
 		"TWO_TOK", "SET_TOK", "FUNC_TOK", "PFUNC_TOK", "DISJ_TOK", "COLON_TOK", 
@@ -183,7 +183,7 @@ export class ForgeLexer extends Lexer {
 	];
 	private static readonly _SYMBOLIC_NAMES: Array<string | undefined> = [
 		undefined, "OPEN_TOK", "LEFT_SQUARE_TOK", "RIGHT_SQUARE_TOK", "AS_TOK", 
-		"FILE_PATH_TOK", "VAR_TOK", "ABSTRACT_TOK", "SIG_TOK", "LEFT_CURLY_TOK", 
+		"STRING_TOK", "VAR_TOK", "ABSTRACT_TOK", "SIG_TOK", "LEFT_CURLY_TOK", 
 		"RIGHT_CURLY_TOK", "EXTENDS_TOK", "IN_TOK", "PLUS_TOK", "LONE_TOK", "SOME_TOK", 
 		"ONE_TOK", "TWO_TOK", "SET_TOK", "FUNC_TOK", "PFUNC_TOK", "DISJ_TOK", 
 		"COLON_TOK", "WHEAT_TOK", "PRED_TOK", "DOT_TOK", "FUN_TOK", "LEFT_PAREN_TOK", 

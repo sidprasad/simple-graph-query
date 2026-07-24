@@ -616,3 +616,217 @@ describe("ForgeExprStaticAnalyzer — conservative cases", () => {
     expectUnknown("");
   });
 });
+
+describe("sgq-analyzer.unresolved-names", () => {
+  const unresolved = (expr: string) => withSchema(expr).unresolvedNames;
+
+  describe("reporting", () => {
+    it("reports a name the schema does not declare", () => {
+      expect(unresolved("Playr")).toEqual(["Playr"]);
+      expect(unresolved("NoSuchThing")).toEqual(["NoSuchThing"]);
+    });
+
+    it("reports each distinct name once, in first-seen order", () => {
+      expect(unresolved("Foo + Bar")).toEqual(["Foo", "Bar"]);
+      expect(unresolved("Bar + Foo")).toEqual(["Bar", "Foo"]);
+      expect(unresolved("Foo + Foo + Foo")).toEqual(["Foo"]);
+    });
+
+    it("reports names in every expression position", () => {
+      expect(unresolved("Player.parnt")).toEqual(["parnt"]);
+      expect(unresolved("#Playr")).toEqual(["Playr"]);
+      expect(unresolved("~Playr")).toEqual(["Playr"]);
+      expect(unresolved("^Playr")).toEqual(["Playr"]);
+      expect(unresolved("Playr & Player")).toEqual(["Playr"]);
+      expect(unresolved("Playr - Player")).toEqual(["Playr"]);
+      expect(unresolved("some Playr")).toEqual(["Playr"]);
+      expect(unresolved("{x : Playr | true}")).toEqual(["Playr"]);
+      expect(unresolved("all x : Playr | true")).toEqual(["Playr"]);
+    });
+
+    it("reports names used inside a binder body", () => {
+      expect(unresolved("{x : Player | x in Playr}")).toEqual(["Playr"]);
+      expect(unresolved("all p : Player | p in Playr")).toEqual(["Playr"]);
+    });
+  });
+
+  describe("what is NOT reported", () => {
+    it("stays silent for declared types and relations", () => {
+      for (const expr of [
+        "Player", "Object", "Move", "Color", "Pawn", "Knight",
+        "parent", "move", "color",
+        "Player.parent", "Player.move", "parent + move",
+      ]) {
+        expect(unresolved(expr)).toBeUndefined();
+      }
+    });
+
+    it("stays silent for binder variables", () => {
+      expect(unresolved("{x : Player | x = x}")).toBeUndefined();
+      expect(unresolved("all p : Player | p in Player")).toBeUndefined();
+      expect(unresolved("some p : Player | p.parent = p")).toBeUndefined();
+    });
+
+    it("stays silent for variables bound by nested binders", () => {
+      expect(
+        unresolved("all p : Player | some m : Move | p.move = m")
+      ).toBeUndefined();
+      expect(
+        unresolved("{x : Player | some y : Move | x.move = y}")
+      ).toBeUndefined();
+    });
+
+    it("stays silent for multiple variables bound by one binder", () => {
+      expect(unresolved("all p, q : Player | p = q")).toBeUndefined();
+      expect(unresolved("{x, y : Player | x = y}")).toBeUndefined();
+    });
+
+    it("stays silent for builtins and literals", () => {
+      expect(unresolved("add[1, 2]")).toBeUndefined();
+      expect(unresolved("true")).toBeUndefined();
+      expect(unresolved("false")).toBeUndefined();
+      expect(unresolved("1 = 1")).toBeUndefined();
+      expect(unresolved("none")).toBeUndefined();
+      expect(unresolved("univ")).toBeUndefined();
+      expect(unresolved("iden")).toBeUndefined();
+      expect(unresolved('"Playr"')).toBeUndefined();
+    });
+
+    it("stays silent without a schema, since there is nothing to check against", () => {
+      expect(analyzeForgeExpression("Playr").unresolvedNames).toBeUndefined();
+      expect(analyzeForgeExpression("Foo + Bar").unresolvedNames).toBeUndefined();
+    });
+  });
+
+  describe("binder scope", () => {
+    it("does not let a binder variable escape its own body", () => {
+      expect(unresolved("{x : Player | x = x} + x")).toEqual(["x"]);
+      expect(unresolved("x + {x : Player | x = x}")).toEqual(["x"]);
+    });
+
+    it("does not let a nested binder variable escape to the outer body", () => {
+      expect(
+        unresolved("all p : Player | (some m : Move | p = p) and m = m")
+      ).toEqual(["m"]);
+    });
+  });
+
+  describe("interaction with status", () => {
+    it("is reported alongside, not instead of, the status", () => {
+      const empty = withSchema("none & Playr");
+      expect(empty.status).toBe("empty");
+      expect(empty.unresolvedNames).toEqual(["Playr"]);
+    });
+
+    it("is reported alongside a folded boolean", () => {
+      const taut = withSchema("true or Playr = Playr");
+      expect(taut.status).toBe("tautology");
+      expect(taut.unresolvedNames).toEqual(["Playr"]);
+    });
+
+    it("is omitted entirely when every name resolves", () => {
+      expect(withSchema("Player")).not.toHaveProperty("unresolvedNames");
+    });
+  });
+
+  describe("isolation between calls", () => {
+    it("does not carry names over from a previous analysis", () => {
+      expect(unresolved("Playr")).toEqual(["Playr"]);
+      expect(unresolved("Player")).toBeUndefined();
+      expect(unresolved("Foo")).toEqual(["Foo"]);
+    });
+  });
+});
+
+describe("sgq-analyzer.string-literals", () => {
+  // The analyzer must never claim a verdict a string literal does not support.
+  // `unknown` is the safe top; a wrong `unsat` or `empty` would let a consumer
+  // skip evaluating a query that actually matches something.
+  it("folds a literal compared with itself", () => {
+    expectTaut('"a" = "a"');
+    expectTaut('"" = ""');
+  });
+
+  it("stays conservative rather than guessing on distinct literals", () => {
+    // `"a" = "b"` is in fact false, but the analyzer does not model string
+    // values, so it must not claim unsat -- only never claim tautology.
+    expect(analyzeForgeExpression('"a" = "b"').status).not.toBe("tautology");
+  });
+
+  it("never reports a literal as empty", () => {
+    for (const expr of ['"a"', '""', '"a" + "b"', '"a" -> "b"']) {
+      expect(analyzeForgeExpression(expr).status).not.toBe("empty");
+      expect(analyzeForgeExpression(expr).status).not.toBe("unsat");
+    }
+  });
+
+  it("still folds an intersection with none", () => {
+    expectEmpty('none & "a"');
+  });
+
+  it("never reports a literal as ill-typed", () => {
+    for (const expr of ['"a"', '"a" = "b"', '{x : Player | @:x = "red"}']) {
+      expect(analyzeForgeExpression(expr, makeSchema()).status).not.toBe("ill-typed");
+    }
+  });
+
+  it("does not treat literal text as a name to resolve", () => {
+    // `"Playr"` is a string, not a reference, so it raises nothing even though
+    // the bare name would.
+    expect(analyzeForgeExpression('"Playr"', makeSchema()).unresolvedNames).toBeUndefined();
+    expect(analyzeForgeExpression("Playr", makeSchema()).unresolvedNames).toEqual(["Playr"]);
+  });
+});
+
+describe("sgq-analyzer.unresolved-names.completeness", () => {
+  // Name collection runs as its own traversal, not as a side effect of the
+  // folding visitor. Folding short-circuits as soon as one child settles the
+  // verdict, so anything it skipped would otherwise go unreported -- and a
+  // name-checker that goes quiet exactly when it proves something is the worst
+  // possible failure mode for it.
+  const unresolved = (expr: string) => withSchema(expr).unresolvedNames;
+
+  it("reports names in a comprehension whose first domain is empty", () => {
+    expect(unresolved("{x : none, y : Playr | Foo = Foo}")).toEqual(["Playr", "Foo"]);
+    expect(unresolved("{x : none | Playr}")).toEqual(["Playr"]);
+  });
+
+  it("reports names in a quantifier whose domain is empty", () => {
+    expect(unresolved("all x : none | Playr")).toEqual(["Playr"]);
+    expect(unresolved("some x : none | Playr")).toEqual(["Playr"]);
+  });
+
+  it("reports names past a short-circuiting boolean operand", () => {
+    expect(unresolved("false and Playr = Playr")).toEqual(["Playr"]);
+    expect(unresolved("Playr = Playr and false")).toEqual(["Playr"]);
+    expect(unresolved("(1 = 2) and Zork")).toEqual(["Zork"]);
+    expect(unresolved("#none = 0 and Foo = Foo")).toEqual(["Foo"]);
+  });
+
+  it("reports names on both sides of an operation folded to empty", () => {
+    expect(unresolved("none & Playr")).toEqual(["Playr"]);
+    expect(unresolved("Playr & none")).toEqual(["Playr"]);
+    expect(unresolved("Foo & none & Bar")).toEqual(["Foo", "Bar"]);
+  });
+
+  it("still respects binder scope during the complete traversal", () => {
+    // The separate walk must not regress scoping: binder variables stay silent,
+    // and still do not escape their own body.
+    expect(unresolved("{x : none | x = x}")).toBeUndefined();
+    expect(unresolved("all x : none | x = x")).toBeUndefined();
+    expect(unresolved("{x : none | x = x} + x")).toEqual(["x"]);
+    expect(unresolved("all p : Player | (some m : none | p = p) and m = m")).toEqual(["m"]);
+  });
+
+  it("does not report the binding occurrence of a variable", () => {
+    // `x` in `x : Player` is a declaration, not a reference.
+    expect(unresolved("{x : Player | true}")).toBeUndefined();
+    expect(unresolved("all zzz : Player | true")).toBeUndefined();
+  });
+
+  it("reports a name even when the status is ill-typed", () => {
+    const r = withSchema("Player in (Player -> Player) and Zork = Zork");
+    expect(r.status).toBe("ill-typed");
+    expect(r.unresolvedNames).toEqual(["Zork"]);
+  });
+});

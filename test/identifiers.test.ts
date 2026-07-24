@@ -27,7 +27,7 @@ describe("sgq-evaluator.identifiers  ", () => {
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
 
     // Test that the expression returns all RBTreeNodes where the color is black
-    const expr = "{ x : RBTreeNode | @:(x.color) = black }";
+    const expr = '{ x : RBTreeNode | @:(x.color) = "black" }';
     const result = evaluatorUtil.evaluateExpression(expr);
 
     // This should be the set of all black nodes (5 nodes: n6, n9, n13, n15, n0)
@@ -65,20 +65,54 @@ describe("sgq-evaluator.identifiers  ", () => {
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
 
     // Test with "Black" (uppercase first letter)
-    const expr1 = "{y : Color | @:y = Black}";
+    const expr1 = '{y : Color | @:y = "Black"}';
     const result1 = evaluatorUtil.evaluateExpression(expr1);
     expect(areEquivalentTupleArrays(result1, [["atom3"]])).toBe(true);
 
     // Test with "Red" (uppercase first letter)
-    const expr2 = "{y : Color | @:y = Red}";
+    const expr2 = '{y : Color | @:y = "Red"}';
     const result2 = evaluatorUtil.evaluateExpression(expr2);
     expect(areEquivalentTupleArrays(result2, [["atom6"]])).toBe(true);
 
     // Test that lowercase doesn't match (case-sensitive comparison)
-    const expr3 = "{y : Color | @:y = black}";
+    const expr3 = '{y : Color | @:y = "black"}';
     const result3 = evaluatorUtil.evaluateExpression(expr3);
     expect(areEquivalentTupleArrays(result3, [])).toBe(true);
   });
 
+  it("does not let instance names capture string literals", () => {
+    // `None` is a type id in this instance, so the bare name `None` used to
+    // resolve to that type's atoms rather than to the string "None". A quoted
+    // literal always means the string, whatever the instance happens to contain.
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(new LabelTestDataInstance());
+
+    expect(evaluatorUtil.evaluateExpression('"None"')).toBe("None");
+    expect(areEquivalentTupleArrays(
+      evaluatorUtil.evaluateExpression('{y : Color | @:y = "None"}'), []
+    )).toBe(true);
+
+    // Labels that are not valid identifiers are now expressible at all.
+    expect(evaluatorUtil.evaluateExpression('"dark blue"')).toBe("dark blue");
+    expect(evaluatorUtil.evaluateExpression('"#FF0000"')).toBe("#FF0000");
+    expect(evaluatorUtil.evaluateExpression('"say \\"hi\\""')).toBe('say "hi"');
+  });
+
+  it("propagates emptiness through label operators instead of substituting source text", () => {
+    // A label operator evaluates its operand first; an operand that legitimately
+    // evaluates to the empty set must yield the empty set, not the operand's
+    // source text. Previously `@:(none)` returned the string "none" and
+    // `@:(n0.colour)` returned the string "n0.colour".
+    const evaluatorUtil = new SimpleGraphQueryEvaluator(new RBTTDataInstance());
+
+    for (const op of ["@:", "@str:", "@num:", "@bool:"]) {
+      // `none` is the empty relation
+      expect(areEquivalentTupleArrays(evaluatorUtil.evaluateExpression(`${op}(none)`), [])).toBe(true);
+      // a join that matches nothing (no `colour` field on RBTreeNode)
+      expect(areEquivalentTupleArrays(evaluatorUtil.evaluateExpression(`${op}(n0.colour)`), [])).toBe(true);
+    }
+
+    // a non-empty operand still resolves to its label
+    expect(evaluatorUtil.evaluateExpression("@:(n0.color)")).toBe("black");
+  });
 
 });

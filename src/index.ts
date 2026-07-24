@@ -3,7 +3,7 @@ import { ForgeParser, ExprContext, PredDeclContext } from './forge-antlr/ForgePa
 import { ForgeLexer } from './forge-antlr/ForgeLexer';
 import { ForgeListenerImpl } from './forge-antlr/ForgeListenerImpl';
 import { ParseTreeWalker } from 'antlr4ts/tree/ParseTreeWalker';
-import { EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
+import { Diagnostic, EvalResult, ForgeExprEvaluator, NameNotFoundError } from './ForgeExprEvaluator';
 import { ForgeExprStaticAnalyzer, StaticAnalysis } from './ForgeExprStaticAnalyzer';
 import { IDataInstance, IForgeSchema, IAtom, IRelation, ITuple, IType } from './types';
 import { ParseErrorListener } from './errorListener';
@@ -70,6 +70,12 @@ export class SimpleGraphQueryEvaluator {
   private cachedEvaluator: ForgeExprEvaluator | null = null;
   private cachedEvaluatorDatum: IDataInstance | null = null;
 
+  // Diagnostics from the most recent evaluateExpression call. Kept here rather
+  // than read back off the evaluator, because a failed evaluation discards the
+  // evaluator — and a query that warns and *then* errors is exactly when the
+  // warning is most worth keeping.
+  private lastDiagnostics: Diagnostic[] = [];
+
   constructor(datum: IDataInstance) {
     this.datum = datum;
   }
@@ -104,6 +110,27 @@ export class SimpleGraphQueryEvaluator {
 
 
 
+  /**
+   * Evaluate `forgeExpr` and return both its value and any diagnostics raised
+   * along the way.
+   *
+   * Diagnostics are advisory and never change the value — today the only kind
+   * is an unresolved name, which evaluates to the empty set. Consumers should
+   * surface them to whoever authored the query; see {@link Diagnostic}.
+   *
+   * Note that an unresolved name is a warning rather than an error on purpose.
+   * An instance carries only populated types and relations, so a sig that is
+   * empty here looks exactly like a typo, and a sig can empty out between
+   * frames of one trace. Deciding which it is needs context this library does
+   * not have.
+   */
+  evaluateExpressionWithDiagnostics(
+    forgeExpr: string
+  ): { value: EvaluationResult; diagnostics: Diagnostic[] } {
+    const value = this.evaluateExpression(forgeExpr);
+    return { value, diagnostics: this.lastDiagnostics };
+  }
+
   evaluateExpression(forgeExpr: string): EvaluationResult {
 
     // Check cache first
@@ -119,6 +146,7 @@ export class SimpleGraphQueryEvaluator {
       }
       catch (e) {
         // if we can't parse the expression, we return an error
+        this.lastDiagnostics = []; // nothing was evaluated
         return {
           error: new Error(`Error parsing expression "${forgeExpr}"`)
         };
@@ -133,14 +161,23 @@ export class SimpleGraphQueryEvaluator {
       this.cachedEvaluatorDatum = this.datum;
     }
     const evaluator = this.cachedEvaluator;
+    // Diagnostics describe this evaluation, not the whole life of the reused
+    // evaluator, so clear whatever the previous call left behind.
+    evaluator.resetDiagnostics();
 
     try {
 
       let result: EvalResult | undefined = evaluator.visit(tree);
 
+      this.lastDiagnostics = evaluator.getDiagnostics();
       // ensure we're visiting an ExprContext
       return result;
     } catch (error) {
+      // Capture diagnostics BEFORE discarding the evaluator. A query that
+      // warns about an unresolved name and then fails for an unrelated reason
+      // should still surface the warning.
+      this.lastDiagnostics = evaluator.getDiagnostics();
+
       // The visit threw mid-traversal, so the evaluator's transient state
       // (environment stack) may be inconsistent. Discard the cached
       // evaluator so the next call rebuilds from a clean slate. The
@@ -201,6 +238,7 @@ export function analyzeForgeExpression(
 
 export { ForgeExprStaticAnalyzer, StaticAnalysis };
 export type { IForgeSchema };
+export type { Diagnostic };
 
 export {
   synthesizeSelector,
