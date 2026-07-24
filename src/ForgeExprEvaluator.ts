@@ -1345,20 +1345,36 @@ export class ForgeExprEvaluator
     if (ctx.SET_TOK()) {
       return childrenResults;
     }
-    if (ctx.ONE_TOK()) {
-      return isTupleArray(childrenResults) && childrenResults.length === 1;
-    }
-    if (ctx.TWO_TOK()) {
-      return isTupleArray(childrenResults) && childrenResults.length === 2;
-    }
-    if (ctx.NO_TOK()) {
-      return isTupleArray(childrenResults) && childrenResults.length === 0;
-    }
-    if (ctx.SOME_TOK()) {
-      return isTupleArray(childrenResults) && childrenResults.length > 0;
-    }
-    if (ctx.LONE_TOK()) {
-      return isTupleArray(childrenResults) && childrenResults.length <= 1;
+    // For the multiplicity checks, a bare scalar (atom or int) is a singleton
+    // set of size 1. A boolean is not a set, so it gets size -1 and every
+    // multiplicity below is false (matching the previous behavior).
+    if (
+      ctx.ONE_TOK() ||
+      ctx.TWO_TOK() ||
+      ctx.NO_TOK() ||
+      ctx.SOME_TOK() ||
+      ctx.LONE_TOK()
+    ) {
+      const setSize = isTupleArray(childrenResults)
+        ? childrenResults.length
+        : isString(childrenResults) || isNumber(childrenResults)
+          ? 1
+          : -1;
+      if (ctx.ONE_TOK()) {
+        return setSize === 1;
+      }
+      if (ctx.TWO_TOK()) {
+        return setSize === 2;
+      }
+      if (ctx.NO_TOK()) {
+        return setSize === 0;
+      }
+      if (ctx.SOME_TOK()) {
+        return setSize > 0;
+      }
+      if (ctx.LONE_TOK()) {
+        return setSize === 0 || setSize === 1;
+      }
     }
 
     return childrenResults;
@@ -1373,6 +1389,10 @@ export class ForgeExprEvaluator
 
       // should only work if arities are the same
       if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
+        // Union has set semantics: two equal scalars collapse to one element.
+        if (leftChildValue === rightChildValue) {
+          return [[leftChildValue]];
+        }
         return [[leftChildValue], [rightChildValue]];
       } else if (isSingleValue(leftChildValue) && isTupleArray(rightChildValue)) {
         if (rightChildValue.length === 0) {
@@ -1462,10 +1482,15 @@ export class ForgeExprEvaluator
     //console.log('childrenResults in expr9:', childrenResults);
 
     if (ctx.CARD_TOK()) {
-      if (!isTupleArray(childrenResults)) {
-        throw new Error("The cardinal operator must be applied to a set of tuples!");
+      if (isTupleArray(childrenResults)) {
+        return childrenResults.length;
       }
-      return childrenResults.length;
+      // A scalar atom or int is a singleton set (cardinality 1). Booleans are
+      // formulas, not sets, so they remain an error.
+      if (isString(childrenResults) || isNumber(childrenResults)) {
+        return 1;
+      }
+      throw new Error("The cardinal operator must be applied to a set of tuples!");
     }
 
     return childrenResults;
@@ -1877,6 +1902,14 @@ export class ForgeExprEvaluator
         //   throw new Error(`Constant ${value} is outside the bitwidth of ${this.bitwidth}!`);
         // }
         return value;
+      }
+      // Handle none (the empty relation). Without this, `none` falls through to
+      // the string-literal branch below and evaluates to the string "none",
+      // which then pollutes every set operation it touches (e.g.
+      // `S + none` gains a spurious `["none"]` element and `#none` throws).
+      // The static analyzer already treats `none` as the empty set.
+      if (constant.NONE_TOK() !== undefined) {
+        return [];
       }
       // Handle iden (identity relation)
       if (constant.IDEN_TOK() !== undefined) {
