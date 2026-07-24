@@ -737,3 +737,43 @@ describe("sgq-analyzer.unresolved-names", () => {
     });
   });
 });
+
+describe("sgq-analyzer.string-literals", () => {
+  // The analyzer must never claim a verdict a string literal does not support.
+  // `unknown` is the safe top; a wrong `unsat` or `empty` would let a consumer
+  // skip evaluating a query that actually matches something.
+  it("folds a literal compared with itself", () => {
+    expectTaut('"a" = "a"');
+    expectTaut('"" = ""');
+  });
+
+  it("stays conservative rather than guessing on distinct literals", () => {
+    // `"a" = "b"` is in fact false, but the analyzer does not model string
+    // values, so it must not claim unsat -- only never claim tautology.
+    expect(analyzeForgeExpression('"a" = "b"').status).not.toBe("tautology");
+  });
+
+  it("never reports a literal as empty", () => {
+    for (const expr of ['"a"', '""', '"a" + "b"', '"a" -> "b"']) {
+      expect(analyzeForgeExpression(expr).status).not.toBe("empty");
+      expect(analyzeForgeExpression(expr).status).not.toBe("unsat");
+    }
+  });
+
+  it("still folds an intersection with none", () => {
+    expectEmpty('none & "a"');
+  });
+
+  it("never reports a literal as ill-typed", () => {
+    for (const expr of ['"a"', '"a" = "b"', '{x : Player | @:x = "red"}']) {
+      expect(analyzeForgeExpression(expr, makeSchema()).status).not.toBe("ill-typed");
+    }
+  });
+
+  it("does not treat literal text as a name to resolve", () => {
+    // `"Playr"` is a string, not a reference, so it raises nothing even though
+    // the bare name would.
+    expect(analyzeForgeExpression('"Playr"', makeSchema()).unresolvedNames).toBeUndefined();
+    expect(analyzeForgeExpression("Playr", makeSchema()).unresolvedNames).toEqual(["Playr"]);
+  });
+});

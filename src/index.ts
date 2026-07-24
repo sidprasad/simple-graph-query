@@ -70,6 +70,12 @@ export class SimpleGraphQueryEvaluator {
   private cachedEvaluator: ForgeExprEvaluator | null = null;
   private cachedEvaluatorDatum: IDataInstance | null = null;
 
+  // Diagnostics from the most recent evaluateExpression call. Kept here rather
+  // than read back off the evaluator, because a failed evaluation discards the
+  // evaluator — and a query that warns and *then* errors is exactly when the
+  // warning is most worth keeping.
+  private lastDiagnostics: Diagnostic[] = [];
+
   constructor(datum: IDataInstance) {
     this.datum = datum;
   }
@@ -122,10 +128,7 @@ export class SimpleGraphQueryEvaluator {
     forgeExpr: string
   ): { value: EvaluationResult; diagnostics: Diagnostic[] } {
     const value = this.evaluateExpression(forgeExpr);
-    // `evaluateExpression` discards the cached evaluator when it throws, so
-    // read diagnostics defensively rather than assuming one is still around.
-    const diagnostics = this.cachedEvaluator?.getDiagnostics() ?? [];
-    return { value, diagnostics };
+    return { value, diagnostics: this.lastDiagnostics };
   }
 
   evaluateExpression(forgeExpr: string): EvaluationResult {
@@ -143,6 +146,7 @@ export class SimpleGraphQueryEvaluator {
       }
       catch (e) {
         // if we can't parse the expression, we return an error
+        this.lastDiagnostics = []; // nothing was evaluated
         return {
           error: new Error(`Error parsing expression "${forgeExpr}"`)
         };
@@ -165,9 +169,15 @@ export class SimpleGraphQueryEvaluator {
 
       let result: EvalResult | undefined = evaluator.visit(tree);
 
+      this.lastDiagnostics = evaluator.getDiagnostics();
       // ensure we're visiting an ExprContext
       return result;
     } catch (error) {
+      // Capture diagnostics BEFORE discarding the evaluator. A query that
+      // warns about an unresolved name and then fails for an unrelated reason
+      // should still surface the warning.
+      this.lastDiagnostics = evaluator.getDiagnostics();
+
       // The visit threw mid-traversal, so the evaluator's transient state
       // (environment stack) may be inconsistent. Discard the cached
       // evaluator so the next call rebuilds from a clean slate. The

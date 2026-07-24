@@ -185,6 +185,21 @@ describe("sgq-evaluator.diagnostics", () => {
       const short = ev.evaluateExpressionWithDiagnostics("Qw").diagnostics[0];
       expect(short.suggestion).toBeUndefined();
     });
+
+    it("is deterministic across evaluators and repeat calls", () => {
+      const a = new SimpleGraphQueryEvaluator(new TTTDataInstance());
+      const b = new SimpleGraphQueryEvaluator(new TTTDataInstance());
+      const first = a.evaluateExpressionWithDiagnostics("Playr").diagnostics[0].suggestion;
+      const again = a.evaluateExpressionWithDiagnostics("Playr").diagnostics[0].suggestion;
+      const other = b.evaluateExpressionWithDiagnostics("Playr").diagnostics[0].suggestion;
+      expect(again).toBe(first);
+      expect(other).toBe(first);
+    });
+
+    it("does not suggest the name itself", () => {
+      const [d] = ev.evaluateExpressionWithDiagnostics("Playr").diagnostics;
+      expect(d.suggestion).not.toBe("Playr");
+    });
   });
 
   describe("accumulation", () => {
@@ -232,6 +247,40 @@ describe("sgq-evaluator.diagnostics", () => {
       // The same name resolves in the new instance, so the warning goes away.
       expect(names(ev, "RBTreeNode")).toEqual([]);
       expect(names(ev, "Player")).toEqual(["Player"]);
+    });
+  });
+
+  describe("error paths", () => {
+    const isError = (r: unknown) =>
+      r !== null && typeof r === "object" && !Array.isArray(r) && "error" in (r as object);
+
+    it("keeps diagnostics raised before an evaluation error", () => {
+      // A failed evaluation discards the inner evaluator. Diagnostics must be
+      // captured first — a query that has BOTH a typo and an unrelated failure
+      // is exactly when the typo is most worth reporting.
+      const { value, diagnostics } = ev.evaluateExpressionWithDiagnostics(
+        "Playr + (Player.Player.Player)"
+      );
+      expect(isError(value)).toBe(true);
+      expect(diagnostics.map((d) => d.name)).toEqual(["Playr"]);
+    });
+
+    it("reports no diagnostics for a parse error, since nothing was evaluated", () => {
+      const { value, diagnostics } = ev.evaluateExpressionWithDiagnostics("Playr + (((");
+      expect(isError(value)).toBe(true);
+      expect(diagnostics).toEqual([]);
+    });
+
+    it("does not carry diagnostics from a failed call into the next one", () => {
+      expect(
+        ev.evaluateExpressionWithDiagnostics("Playr + (Player.Player.Player)").diagnostics
+      ).toHaveLength(1);
+      expect(ev.evaluateExpressionWithDiagnostics("Player").diagnostics).toEqual([]);
+    });
+
+    it("recovers and still reports on the call after a failure", () => {
+      ev.evaluateExpressionWithDiagnostics("Playr + (Player.Player.Player)");
+      expect(names(ev, "Foo")).toEqual(["Foo"]);
     });
   });
 

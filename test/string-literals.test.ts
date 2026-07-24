@@ -74,6 +74,18 @@ describe("sgq-evaluator.string-literals", () => {
       expect(ev.evaluateExpression('"a\\-b"')).toBe("a-b");
     });
 
+    it("consumes exactly one character after a backslash", () => {
+      // The query text here is  "\\n"  — an escaped backslash followed by a
+      // literal `n`, which must NOT collapse into a newline.
+      expect(ev.evaluateExpression('"\\\\n"')).toBe("\\n");
+      expect(ev.evaluateExpression('"\\\\n"')).not.toBe("\n");
+      expect(ev.evaluateExpression('"\\\\n"')).toHaveLength(2);
+
+      // ...whereas a single backslash before `n` is the newline escape.
+      expect(ev.evaluateExpression('"\\n"')).toBe("\n");
+      expect(ev.evaluateExpression('"\\n"')).toHaveLength(1);
+    });
+
     it("unquoteStringLiteral matches the evaluator on the same inputs", () => {
       expect(unquoteStringLiteral('""')).toBe("");
       expect(unquoteStringLiteral('"plain"')).toBe("plain");
@@ -135,6 +147,22 @@ describe("sgq-evaluator.string-literals", () => {
       expect(ev.evaluateExpression('"a" = "b" implies "x" = "y" else "p" = "p"')).toBe(true);
     });
 
+    it("is in univ exactly when its text is an atom id", () => {
+      // Atom ids are strings, so membership is decided by text. `"X0"` is in
+      // univ for the same reason `X0 = "X0"` holds; `"a"` names no atom.
+      expect(ev.evaluateExpression('"X0" in univ')).toBe(true);
+      expect(ev.evaluateExpression('"a" in univ')).toBe(false);
+      expect(ev.evaluateExpression("X0 in univ")).toBe(true);
+    });
+
+    it("is distinct from the empty relation", () => {
+      // `""` is a one-element set containing the empty string; `none` has no
+      // elements at all.
+      expect(ev.evaluateExpression('"" = none')).toBe(false);
+      expect(ev.evaluateExpression('#("")')).toBe(1);
+      expect(ev.evaluateExpression("#(none)")).toBe(0);
+    });
+
     it("compares equal to an atom id with the same text", () => {
       // Atom ids are strings internally, so this holds. Use @: when you mean to
       // compare against an atom's *label* rather than its id.
@@ -174,6 +202,30 @@ describe("sgq-evaluator.string-literals", () => {
     });
   });
 
+  describe("in relational position", () => {
+    it("forms products", () => {
+      expect(tuples(ev.evaluateExpression('"a" -> "b"'), [["a", "b"]])).toBe(true);
+      expect(ev.evaluateExpression('#("a" -> "b")')).toBe(1);
+      expect(
+        tuples(ev.evaluateExpression('("a" + "b") -> "c"'), [["a", "c"], ["b", "c"]])
+      ).toBe(true);
+    });
+
+    it("transposes", () => {
+      expect(tuples(ev.evaluateExpression('~("a" -> "b")'), [["b", "a"]])).toBe(true);
+    });
+
+    it("joins", () => {
+      expect(tuples(ev.evaluateExpression('("a" -> "b").("b")'), [["a"]])).toBe(true);
+      expect(tuples(ev.evaluateExpression('("a" -> "b").("c")'), [])).toBe(true);
+    });
+
+    it("mixes with atoms in a product", () => {
+      expect(tuples(ev.evaluateExpression('X0 -> "red"'), [["X0", "red"]])).toBe(true);
+      expect(tuples(ev.evaluateExpression('(X0 -> "red").("red")'), [["X0"]])).toBe(true);
+    });
+  });
+
   describe("capture resistance", () => {
     it("means the string even when the instance declares that name", () => {
       // `None` is a type id in this instance and `Color` a type with atoms. A
@@ -204,5 +256,49 @@ describe("sgq-evaluator.string-literals", () => {
       );
       expect(diagnostics).toEqual([]);
     });
+  });
+});
+
+describe("sgq-evaluator.string-literals.other-visitors", () => {
+  // The quantifier/numeric optimizer and the free-variable finder walk the same
+  // `const` nodes as the evaluator. Neither was changed for string literals, so
+  // these pin down that a literal does not disturb either.
+  let rbt: SimpleGraphQueryEvaluator;
+  beforeEach(() => {
+    rbt = new SimpleGraphQueryEvaluator(new RBTTDataInstance());
+  });
+
+  it("works under universal and existential quantifiers", () => {
+    expect(rbt.evaluateExpression('all x : RBTreeNode | @:(x.color) = "black"')).toBe(false);
+    expect(rbt.evaluateExpression('some x : RBTreeNode | @:(x.color) = "black"')).toBe(true);
+    expect(rbt.evaluateExpression('no x : RBTreeNode | @:(x.color) = "purple"')).toBe(true);
+  });
+
+  it("works alongside a numeric constraint the optimizer handles", () => {
+    expect(
+      rbt.evaluateExpression(
+        'some x : RBTreeNode | @num:(x.value) = 12 and @:(x.color) = "black"'
+      )
+    ).toBe(true);
+    expect(rbt.evaluateExpression("all x : RBTreeNode | @num:(x.value) > 0")).toBe(true);
+  });
+
+  it("works under nested quantifiers with a free outer variable", () => {
+    expect(
+      rbt.evaluateExpression(
+        'all x : RBTreeNode | some y : RBTreeNode | @:(y.color) = "red" or @:(x.color) = "red"'
+      )
+    ).toBe(true);
+  });
+
+  it("works under cardinality and sum aggregation", () => {
+    expect(rbt.evaluateExpression('#{x : RBTreeNode | @:(x.color) = "black"}')).toBe(5);
+    expect(rbt.evaluateExpression("sum x : RBTreeNode | @num:(x.value)")).toBe(70);
+  });
+
+  it("gives the same answer on a repeated evaluation (memoized path)", () => {
+    const expr = 'all x : RBTreeNode | @:(x.color) = "black"';
+    expect(rbt.evaluateExpression(expr)).toBe(false);
+    expect(rbt.evaluateExpression(expr)).toBe(false);
   });
 });
