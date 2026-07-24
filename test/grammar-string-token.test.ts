@@ -92,3 +92,99 @@ describe("grammar.STRING_TOK", () => {
     });
   });
 });
+
+describe("grammar.STRING_TOK.lexer-interaction", () => {
+  let ev: SimpleGraphQueryEvaluator;
+  beforeEach(() => {
+    ev = new SimpleGraphQueryEvaluator(new TTTDataInstance());
+  });
+
+  describe("a literal shields syntax the lexer would otherwise act on", () => {
+    it("keeps comment markers as data", () => {
+      // STRING_TOK is declared before the comment rules and matches greedily
+      // from the opening quote, so a marker inside one is never a comment.
+      expect(ev.evaluateExpression('"a // b"')).toBe("a // b");
+      expect(ev.evaluateExpression('"a -- b"')).toBe("a -- b");
+      expect(ev.evaluateExpression('"/* x */"')).toBe("/* x */");
+      expect(ev.evaluateExpression('"#lang forge"')).toBe("#lang forge");
+    });
+
+    it("keeps unbalanced comment markers as data", () => {
+      expect(ev.evaluateExpression('"a /* b"')).toBe("a /* b");
+      expect(ev.evaluateExpression('"a */ b"')).toBe("a */ b");
+    });
+
+    it("keeps an apostrophe as data rather than starting a prime", () => {
+      // `'` is PRIME_TOK outside a literal.
+      expect(ev.evaluateExpression("\"it's\"")).toBe("it's");
+      expect(ev.evaluateExpression("\"x'\"")).toBe("x'");
+    });
+
+    it("keeps a backtick as data rather than opening a quoted identifier", () => {
+      expect(ev.evaluateExpression('"`backtick`"')).toBe("`backtick`");
+    });
+
+    it("keeps query syntax as data", () => {
+      expect(ev.evaluateExpression('"{x : Player | true}"')).toBe("{x : Player | true}");
+      expect(ev.evaluateExpression('"@:(x.color)"')).toBe("@:(x.color)");
+      expect(ev.evaluateExpression('"a -> b"')).toBe("a -> b");
+      expect(ev.evaluateExpression('"a & b + c"')).toBe("a & b + c");
+    });
+
+    it("spans a literal newline", () => {
+      expect(ev.evaluateExpression('"line1\nline2"')).toBe("line1\nline2");
+    });
+  });
+
+  describe("comments outside a literal still work", () => {
+    it("ignores a trailing comment after a literal", () => {
+      expect(ev.evaluateExpression('"a" // trailing comment')).toBe("a");
+      expect(ev.evaluateExpression('"a" -- trailing comment')).toBe("a");
+    });
+
+    it("ignores a block comment between literals", () => {
+      expect(ev.evaluateExpression('"a" /* mid */ + "b"')).toEqual([["a"], ["b"]]);
+    });
+
+    it("treats // with no space as an identifier, not a comment", () => {
+      // Pre-existing and independent of string literals: `/` is a valid
+      // IDENTIFIER_TOK character so that qualified names like `util/ordering`
+      // lex. For `//x` the identifier and comment rules tie at three
+      // characters, and the identifier rule is declared first, so it wins. With
+      // a space the comment rule matches longer and wins instead.
+      expect(ev.evaluateExpressionWithDiagnostics("//x").diagnostics.map((d) => d.name))
+        .toEqual(["//x"]);
+      expect(ev.evaluateExpression('"a" // x')).toBe("a");
+    });
+  });
+
+  describe("quotes inside quotes", () => {
+    it("holds an escaped empty literal", () => {
+      expect(ev.evaluateExpression('"\\"\\""')).toBe('""');
+    });
+
+    it("holds a literal containing an escaped literal", () => {
+      expect(ev.evaluateExpression('"@:(x.color) = \\"black\\""')).toBe(
+        '@:(x.color) = "black"'
+      );
+    });
+
+    it("holds two levels of escaping", () => {
+      // Source:  "nested \"a \\\" b\" done"
+      expect(ev.evaluateExpression('"nested \\"a \\\\\\" b\\" done"')).toBe(
+        'nested "a \\" b" done'
+      );
+    });
+
+    it("round-trips a whole query held as a literal", () => {
+      // This is the shape a YAML spec produces: a selector string that itself
+      // contains a string literal.
+      const inner = '{p : Player | @:p = "red"}';
+      const asLiteral = '"' + inner.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+
+      expect(ev.evaluateExpression(asLiteral)).toBe(inner);
+      // ...and the recovered text is still a working query.
+      expect(ev.evaluateExpression(inner)).toEqual([["X0"]]);
+    });
+  });
+});
