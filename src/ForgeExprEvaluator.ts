@@ -99,9 +99,53 @@ function isString(value: EvalResult): value is string {
   return typeof value === "string";
 }
 
-// Helper to create a string key from a tuple for fast lookup
+// Helper to create a string key from a tuple for fast lookup.
+//
+// The key is JSON.stringify because it is type-preserving: the atom 1 and the
+// atom "1" must not collide (buildRelationCache coerces numeric-looking atoms
+// to numbers). Measurement also showed V8's stringify outruns hand-rolled
+// delimiter keys, so there is nothing to gain from a custom key function.
 function tupleToKey(tuple: Tuple): string {
   return JSON.stringify(tuple);
+}
+
+// Canonical-key side-channel: relationKeys maps a RELATION VALUE (an outer
+// Tuple[] array) to its tuples' canonical keys, index-aligned. Keys are
+// computed at most once per relation value; set operations (union,
+// intersection, difference, dedup, subset) then reuse them instead of
+// re-serializing every tuple on every operation.
+//
+// This is keyed on the outer array -- NOT per tuple -- deliberately:
+//  * Relation values are immutable-after-creation in this evaluator (every
+//    operator returns a fresh array; nothing splices/pushes into a result it
+//    has handed out), so an array's keys can never go stale.
+//  * Live entries number in the dozens (base relations + recent
+//    intermediates), so GC ephemeron processing stays trivially cheap. A
+//    per-TUPLE WeakMap memo was measured to be catastrophically slower
+//    (100k+ high-churn entries make major GCs ~10x more expensive).
+//  * The WeakMap drops entries automatically when intermediate results die,
+//    so this adds no leak, and nothing user-visible is attached to tuples.
+const relationKeys = new WeakMap<Tuple[], string[]>();
+
+// Only relation values at least this large get registered in relationKeys.
+// Tiny relations (e.g. the singleton sets compared thousands of times inside
+// quantifier loops) are cheaper to re-serialize than to churn through
+// WeakMap.set; the side-channel exists to amortize keying of BULK relations.
+const KEY_REGISTER_MIN = 16;
+
+// Get the canonical keys for a relation value, computing (and, for bulk
+// relations, registering) them on first use. First use costs one stringify
+// per tuple (exactly what a single set operation used to cost); every later
+// operation on the same registered relation value gets its keys for free.
+function ensureKeys(tuples: Tuple[]): string[] {
+  let keys = relationKeys.get(tuples);
+  if (keys === undefined) {
+    keys = tuples.map((t) => JSON.stringify(t));
+    if (tuples.length >= KEY_REGISTER_MIN) {
+      relationKeys.set(tuples, keys);
+    }
+  }
+  return keys;
 }
 
 function areTuplesEqual(a: Tuple, b: Tuple): boolean {
@@ -109,9 +153,23 @@ function areTuplesEqual(a: Tuple, b: Tuple): boolean {
 }
 
 function isTupleArraySubset(a: Tuple[], b: Tuple[]): boolean {
+  // Tiny operands (e.g. the singleton comparisons quantifier loops make
+  // thousands of times) can never be registered in relationKeys, so the key
+  // side-channel is pure overhead for them -- compare directly, with the
+  // short-circuit the direct path allows.
+  if (a.length < KEY_REGISTER_MIN && b.length < KEY_REGISTER_MIN) {
+    const bSet = new Set(b.map(tupleToKey));
+    return a.every((tupleA) => bSet.has(tupleToKey(tupleA)));
+  }
   // Optimize using Set for O(n) lookup instead of O(n²)
-  const bSet = new Set(b.map(tupleToKey));
-  return a.every((tupleA) => bSet.has(tupleToKey(tupleA)));
+  const bSet = new Set(ensureKeys(b));
+  const aKeys = ensureKeys(a);
+  for (let i = 0; i < a.length; i++) {
+    if (!bSet.has(aKeys[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export function areTupleArraysEqual(a: Tuple[], b: Tuple[]): boolean {
@@ -121,18 +179,38 @@ export function areTupleArraysEqual(a: Tuple[], b: Tuple[]): boolean {
   return isTupleArraySubset(a, b) && isTupleArraySubset(b, a);
 }
 
-function deduplicateTuples(tuples: Tuple[]): Tuple[] {
-  // Optimize using Set for O(n) deduplication instead of O(n²)
+// Deduplicate the concatenation of several tuple arrays (set semantics),
+// reusing each part's registered keys when available and registering the
+// result's keys so downstream operations get them for free.
+function deduplicateConcat(parts: Tuple[][]): Tuple[] {
   const seen = new Set<string>();
   const result: Tuple[] = [];
-  for (const tuple of tuples) {
-    const key = tupleToKey(tuple);
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(tuple);
+  const resultKeys: string[] = [];
+  for (const part of parts) {
+    // Bulk parts go through ensureKeys so their keys are REGISTERED, not just
+    // consumed -- otherwise a relation reaching dedup via union would be
+    // re-serialized on every union until some other op registered it.
+    // Arrays below KEY_REGISTER_MIN are never registered, so skip the WeakMap
+    // machinery for them entirely -- this helper is called once per join
+    // inside quantifier loops, where even the probe is measurable overhead.
+    const partKeys = part.length >= KEY_REGISTER_MIN ? ensureKeys(part) : undefined;
+    for (let i = 0; i < part.length; i++) {
+      const key = partKeys !== undefined ? partKeys[i] : JSON.stringify(part[i]);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(part[i]);
+        resultKeys.push(key);
+      }
     }
   }
+  if (result.length >= KEY_REGISTER_MIN) {
+    relationKeys.set(result, resultKeys);
+  }
   return result;
+}
+
+function deduplicateTuples(tuples: Tuple[]): Tuple[] {
+  return deduplicateConcat([tuples]);
 }
 
 function getCombinations(arrays: Tuple[][]): Tuple[] {
@@ -178,22 +256,23 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
   }
 
   // Use more efficient BFS with index-based queue to avoid O(n) shift() operations
-  // NOTE: we use Set<string> instead of Set<[SingleValue, SingleValue]> since
-  // TS would compute equality over the object's reference instead of the value
-  // when the value is an array
-  const transitiveClosureSet = new Set<string>();
-  
+  // NOTE: no dedup set is needed here -- within one `start`, the `visited`
+  // check guarantees each `current` is emitted at most once, and pairs from
+  // different starts differ in their first element. So we can emit real
+  // tuples directly instead of round-tripping through JSON.stringify/parse.
+  const result: Tuple[] = [];
+
   for (const start of graph.keys()) {
     const visited = new Set<SingleValue>();
     const queue: SingleValue[] = [...(graph.get(start) ?? [])];
     let queueIndex = 0; // Use index instead of shift() for O(1) access
-    
+
     while (queueIndex < queue.length) {
       const current = queue[queueIndex++];
       if (visited.has(current)) continue;
       visited.add(current);
 
-      transitiveClosureSet.add(JSON.stringify([start, current]));
+      result.push([start, current]);
 
       const neighbors = graph.get(current);
       if (neighbors) {
@@ -206,8 +285,7 @@ function transitiveClosure(pairs: Tuple[]): Tuple[] {
     }
   }
 
-  // convert the result back to a Tuple[] and return
-  return Array.from(transitiveClosureSet).map((pair) => JSON.parse(pair));
+  return result;
 }
 
 function bitwidthWraparound(value: number, bitwidth: number): number {
@@ -289,16 +367,17 @@ export class ForgeExprEvaluator
     const relations = this.instanceData.getRelations();
 
     for (const relation of relations) {
-      let relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) => tuple.atoms);
-
-      // Convert numeric and boolean strings to their actual types
-      relationAtoms = relationAtoms.map((tuple) =>
-        tuple.map((value) =>
-          this.isConvertibleToNumber(value) ? Number(value) : value
-        )
-      );
-      relationAtoms = relationAtoms.map((tuple) =>
-        tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
+      // Convert numeric and boolean strings to their actual types, in a
+      // single pass (one fresh tuple array per tuple, not one per coercion).
+      // Numeric-vs-boolean order matches the old two-pass behavior: the two
+      // predicates are disjoint (Number("true") is NaN), so checking numeric
+      // first is equivalent.
+      const relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) =>
+        tuple.atoms.map((value) => {
+          if (this.isConvertibleToNumber(value)) return Number(value);
+          if (this.isConvertibleToBoolean(value)) return this.convertToBoolean(value);
+          return value;
+        })
       );
 
       // Relation NAMES are not unique — only the qualified id (`Sig<:label`) is.
@@ -1408,7 +1487,7 @@ export class ForgeExprEvaluator
           return leftChildValue;
         }
         if (rightChildValue[0].length === 1) {
-          return deduplicateTuples([[leftChildValue], ...rightChildValue]);
+          return deduplicateConcat([[[leftChildValue]], rightChildValue]);
         }
         throw new Error("arity mismatch in set union!");
       } else if (isTupleArray(leftChildValue) && isSingleValue(rightChildValue)) {
@@ -1416,7 +1495,7 @@ export class ForgeExprEvaluator
           return rightChildValue;
         }
         if (leftChildValue[0].length === 1) {
-          return deduplicateTuples([...leftChildValue, [rightChildValue]]);
+          return deduplicateConcat([leftChildValue, [[rightChildValue]]]);
         }
         throw new Error("arity mismatch in set union!");
       } else if (isTupleArray(leftChildValue) && isTupleArray(rightChildValue)) {
@@ -1430,7 +1509,7 @@ export class ForgeExprEvaluator
           return leftChildValue;
         }
         if (leftChildValue[0].length === rightChildValue[0].length) {
-          return deduplicateTuples([...leftChildValue, ...rightChildValue]);
+          return deduplicateConcat([leftChildValue, rightChildValue]);
         }
       } else {
         throw new Error("unexpected error: expressions added are not well defined!");
@@ -1473,9 +1552,22 @@ export class ForgeExprEvaluator
           return leftChildValue;
         }
         if (leftChildValue[0].length === rightChildValue[0].length) {
-          // Optimize set difference using Set for O(n+m) instead of O(n*m)
-          const rightSet = new Set(rightChildValue.map(tupleToKey));
-          return leftChildValue.filter(tuple => !rightSet.has(tupleToKey(tuple)));
+          // Optimize set difference using Set for O(n+m) instead of O(n*m),
+          // reusing canonical keys instead of re-serializing each side.
+          const rightSet = new Set(ensureKeys(rightChildValue));
+          const leftKeys = ensureKeys(leftChildValue);
+          const result: Tuple[] = [];
+          const resultKeys: string[] = [];
+          for (let i = 0; i < leftChildValue.length; i++) {
+            if (!rightSet.has(leftKeys[i])) {
+              result.push(leftChildValue[i]);
+              resultKeys.push(leftKeys[i]);
+            }
+          }
+          if (result.length >= KEY_REGISTER_MIN) {
+            relationKeys.set(result, resultKeys);
+          }
+          return result;
         }
       } else {
         throw new Error("unexpected error: expressions subtracted are not well defined!");
@@ -1559,9 +1651,22 @@ export class ForgeExprEvaluator
           return [];
         }
         if (leftChildValue[0].length === rightChildValue[0].length) {
-          // Optimize set intersection using Set for O(n+m) instead of O(n*m)
-          const rightSet = new Set(rightChildValue.map(tupleToKey));
-          return leftChildValue.filter(tuple => rightSet.has(tupleToKey(tuple)));
+          // Optimize set intersection using Set for O(n+m) instead of O(n*m),
+          // reusing canonical keys instead of re-serializing each side.
+          const rightSet = new Set(ensureKeys(rightChildValue));
+          const leftKeys = ensureKeys(leftChildValue);
+          const result: Tuple[] = [];
+          const resultKeys: string[] = [];
+          for (let i = 0; i < leftChildValue.length; i++) {
+            if (rightSet.has(leftKeys[i])) {
+              result.push(leftChildValue[i]);
+              resultKeys.push(leftKeys[i]);
+            }
+          }
+          if (result.length >= KEY_REGISTER_MIN) {
+            relationKeys.set(result, resultKeys);
+          }
+          return result;
         }
       } else {
         throw new Error("unexpected error: expressions intersected are not well defined!");
@@ -1834,15 +1939,9 @@ export class ForgeExprEvaluator
       if (isTupleArray(childrenResults)) {
         const transitiveClosureResult = transitiveClosure(childrenResults);
         const idenResult = this.getIden();
-        // Optimize: Use Set for efficient deduplication instead of deduplicateTuples
-        const resultSet = new Set<string>();
-        for (const tuple of idenResult) {
-          resultSet.add(tupleToKey(tuple));
-        }
-        for (const tuple of transitiveClosureResult) {
-          resultSet.add(tupleToKey(tuple));
-        }
-        return Array.from(resultSet).map(key => JSON.parse(key));
+        // Dedup while preserving the original tuple objects (and their
+        // memoized keys) -- avoids re-materializing every tuple via JSON.parse.
+        return deduplicateTuples(idenResult.concat(transitiveClosureResult));
       }
     }
 
