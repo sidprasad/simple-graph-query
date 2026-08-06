@@ -14,11 +14,13 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.js'],
     fallback: {
-      // Node.js polyfills for antlr4ts
+      // antlr4ts calls assert() and reads util.inspect.custom at runtime, so
+      // both are real polyfills. It never requires buffer or stream, so those
+      // resolve to empty modules and stay out of the bundle.
       "assert": require.resolve("assert/"),
-      "buffer": require.resolve("buffer/"),
       "util": require.resolve("util/"),
-      "stream": require.resolve("stream-browserify"),
+      "buffer": false,
+      "stream": false,
       "process": require.resolve("process/browser"),
       "os": false,
       "path": false,
@@ -28,7 +30,6 @@ module.exports = {
   plugins: [
     new webpack.ProvidePlugin({
       process: 'process/browser',
-      Buffer: ['buffer', 'Buffer'],
     }),
   ],
   module: {
@@ -48,9 +49,9 @@ module.exports = {
       }
     ]
   },
-  mode: 'development',
-  devtool: 'source-map',
-  optimization: {
-    minimize: false
-  }
+  mode: 'production',
+  // The .map is not published, so the bundle must not point at it. "hidden"
+  // still writes the map next to the bundle for local debugging, but leaves
+  // out the sourceMappingURL comment that would 404 for consumers.
+  devtool: 'hidden-source-map'
 };

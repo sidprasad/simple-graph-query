@@ -33,7 +33,6 @@ import {
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
 import { IAtom, IDataInstance, ITuple, IRelation } from "./types";
-import { isArray } from "lodash";
 import {
   ForgeExprFreeVariableFinder,
   FreeVariables,
@@ -2556,7 +2555,7 @@ export class ForgeExprEvaluator
     }
 
     let arg1: number;
-    if (isArray(args[0])) {
+    if (Array.isArray(args[0])) {
       if (!isNumber(args[0][0])) {
         throw new Error(`Expected a number for the first argument of ${operation}`);
       }
@@ -2569,7 +2568,7 @@ export class ForgeExprEvaluator
     }
 
     let arg2: number;
-    if (isArray(args[1])) {
+    if (Array.isArray(args[1])) {
       if (!isNumber(args[1][0])) {
         throw new Error(`Expected a number for the second argument of ${operation}`);
       }
