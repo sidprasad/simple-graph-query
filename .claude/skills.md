@@ -59,6 +59,9 @@ A & B          // intersection
 A.B            // relational join (last column of A joins first column of B)
 A[B]           // box join (equivalent to B.A)
 A -> B         // cartesian product
+R ++ S         // override: S, plus R's tuples starting outside S's domain
+S <: R         // domain restriction: R's tuples that start in S
+R :> S         // range restriction: R's tuples that end in S
 ^R             // transitive closure
 *R             // reflexive transitive closure
 ~R             // transpose/inverse
@@ -69,7 +72,7 @@ A -> B         // cartesian product
 ```forge
 A = B          // set equality
 A in B         // subset (A ⊆ B)
-A ni B         // non-membership: !(A in B)
+A ni B         // reverse containment: B in A
 x < y          // numeric less than
 x > y          // numeric greater than
 x <= y         // less than or equal (also: =<)
@@ -99,6 +102,7 @@ two expr       // true if |expr| = 2
 none           // empty set
 univ           // all atoms in the instance
 iden           // identity relation {(a,a) | a in univ}
+`Atom0         // atom literal: the atom with that id
 Int            // integer type
 true, false    // boolean literals
 ```
@@ -116,6 +120,7 @@ floor[x]          // round down to the nearest integer
 ceil[x]           // round up to the nearest integer
 min[Set]          // minimum value in set
 max[Set]          // maximum value in set
+sum[Set]          // sum of values in set (0 for the empty set)
 ```
 
 ### Label Access (Custom Extension)
@@ -133,11 +138,9 @@ These Forge/Alloy features are **not available**:
 | Feature | Syntax | Reason |
 |---------|--------|--------|
 | Let bindings | `let x = e \| body` | Not implemented |
-| Override | `R ++ S` | Not implemented |
-| Type restriction | `S <: R`, `R :> S` | Not implemented |
 | Temporal operators | `always`, `eventually`, `after`, `until`, etc. | Requires trace semantics |
 | Primed expressions | `expr'` | Requires state model |
-| Backquoted atoms | `` `AtomName `` | Not implemented |
+| Arrow multiplicities | `A one -> lone B` | Declaration/constraint syntax, no value as an expression |
 
 ## Code Examples
 
