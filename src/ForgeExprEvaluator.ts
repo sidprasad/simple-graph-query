@@ -2654,32 +2654,43 @@ export class ForgeExprEvaluator
     }
   }
 
+  // Resolve one element of a set-builtin argument to a number. An integer can
+  // reach here as a string -- atom ids are strings, and `@:` projects a label,
+  // so `@:(x.value)` yields "12" rather than 12 -- so a string that names a
+  // number is one, following the same convention as the `univ` branch.
+  private setOperandAsNumber(
+    operation: typeof SUPPORTED_SET_BUILTINS[number],
+    value: SingleValue
+  ): number {
+    if (isNumber(value)) {
+      return value;
+    }
+    if (isString(value) && this.isConvertibleToNumber(value)) {
+      return Number(value);
+    }
+    throw new Error(
+      `${operation} expects all elements to be numbers, got: ${JSON.stringify(value)}`
+    );
+  }
+
   private evaluateSetOperation(
     operation: typeof SUPPORTED_SET_BUILTINS[number],
     args: EvalResult
   ): number {
     // min and max operate on a set of integers and return the min/max value
     // The argument should be a set (tuple array of arity 1) of numbers
-    
+
     let numbers: number[] = [];
-    
+
     if (isSingleValue(args)) {
-      if (isNumber(args)) {
-        numbers = [args];
-      } else {
-        throw new Error(`Expected a set of numbers for ${operation}`);
-      }
+      numbers = [this.setOperandAsNumber(operation, args)];
     } else if (isTupleArray(args)) {
       // Extract numbers from the tuple array
       for (const tuple of args) {
         if (tuple.length !== 1) {
           throw new Error(`${operation} expects a set of arity 1 (single column)`);
         }
-        const value = tuple[0];
-        if (!isNumber(value)) {
-          throw new Error(`${operation} expects all elements to be numbers, got: ${typeof value}`);
-        }
-        numbers.push(value);
+        numbers.push(this.setOperandAsNumber(operation, tuple[0]));
       }
     } else {
       throw new Error(`Expected a set of numbers for ${operation}`);
