@@ -1573,8 +1573,10 @@ export class ForgeExprEvaluator
           const rightSet: Tuple[] = isSingleValue(rightChildValue)
             ? [[rightChildValue]]
             : rightChildValue;
-          const membershipResult = isTupleArraySubset(leftSet, rightSet);
-          results = ctx.compareOp()?.text === "ni" ? !membershipResult : membershipResult;
+          // `a ni b` is reverse containment -- it means `b in a`, NOT `a not in b`.
+          const [subset, superset] =
+            ctx.compareOp()?.text === "ni" ? [rightSet, leftSet] : [leftSet, rightSet];
+          results = isTupleArraySubset(subset, superset);
           break;
         }
         case "is":

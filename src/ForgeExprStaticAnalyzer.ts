@@ -557,30 +557,25 @@ export class ForgeExprStaticAnalyzer
     const op = ctx.compareOp();
     if (!op) return this.visitChildren(ctx);
 
-    const leftCtx = ctx.expr6()!;
-    const rightCtx = ctx.expr7()!;
-    const l = this.visit(leftCtx);
-    const r = this.visit(rightCtx);
-    const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
-    if (bail) return bail;
     const negate = ctx.NEG_TOK() !== undefined;
     // `=<` and `<=` are one token (LEQ_TOK) but two spellings; the folding
     // below dispatches on source text, so normalize to one of them.
     const opText = op.text === "=<" ? "<=" : op.text;
 
-    // `ni` is non-membership (the codebase's evaluator implements it as
-    // !(in)). We fold it by computing the corresponding `in` verdict and
-    // letting `finalize` invert. This keeps the static verdict in agreement
-    // with runtime semantics for expressions like `X ni X` (false) and
-    // `none ni 1` (true).
+    // `a ni b` is reverse containment: it means `b in a`. Folding it as `in`
+    // over swapped operands keeps one implementation of the subset reasoning.
     const isNi = opText === "ni";
     const opForLogic = isNi ? "in" : opText;
-    const finalize = (value: boolean): Abstract => {
-      let v = value;
-      if (isNi) v = !v;
-      if (negate) v = !v;
-      return { kind: "bool", value: v };
-    };
+    const leftCtx = isNi ? ctx.expr7()! : ctx.expr6()!;
+    const rightCtx = isNi ? ctx.expr6()! : ctx.expr7()!;
+    const l = this.visit(leftCtx);
+    const r = this.visit(rightCtx);
+    const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+    if (bail) return bail;
+    const finalize = (value: boolean): Abstract => ({
+      kind: "bool",
+      value: negate ? !value : value,
+    });
 
     // Same-subtree shortcuts hold regardless of unknown values.
     if (sameSubtree(leftCtx, rightCtx)) {
@@ -632,10 +627,11 @@ export class ForgeExprStaticAnalyzer
       if (lIsKnownSingleton && r.kind === "empty") return finalize(false);
     }
 
-    // Arity mismatch on arity-sensitive comparisons → ill-typed.
+    // Arity mismatch on arity-sensitive comparisons → ill-typed. Reported over
+    // the operands as written, so the message matches the source for `ni` too.
     if (opText === "=" || opText === "in" || opText === "ni") {
-      const la = ForgeExprStaticAnalyzer.arityOf(l);
-      const ra = ForgeExprStaticAnalyzer.arityOf(r);
+      const la = ForgeExprStaticAnalyzer.arityOf(isNi ? r : l);
+      const ra = ForgeExprStaticAnalyzer.arityOf(isNi ? l : r);
       if (la > 0 && ra > 0 && la !== ra) {
         return {
           kind: "ill-typed",
@@ -644,10 +640,8 @@ export class ForgeExprStaticAnalyzer
       }
     }
 
-    // Schema-driven: subtype tautologies for `in` (and `ni` via finalize
-    // inversion when A ⊆ B → A in B is true → A ni B is false). We
-    // deliberately do NOT positively fold `ni` from the lattice — concluding
-    // "not (A ⊆ B)" requires disjointness reasoning we don't perform here.
+    // Schema-driven: subtype tautologies for `in`. With `ni` already swapped
+    // into `in`, `A ni B` folds to a tautology exactly when B is a subtype of A.
     if (this.schema && l.kind === "typed" && r.kind === "typed") {
       const lCols = l.columnTypes;
       const rCols = r.columnTypes;

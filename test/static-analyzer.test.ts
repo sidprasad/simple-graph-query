@@ -432,15 +432,14 @@ describe("ForgeExprStaticAnalyzer — schema-aware: subtype `in` tautologies", (
     expect(withSchema("Pawn in Object").status).toBe("tautology");
   });
 
-  it("folds `ni` as the negation of `in`", () => {
-    // ni is non-membership (matches the evaluator's semantics). A ni B is
-    // unsat exactly when A in B is a tautology, i.e., A is a subtype of B.
-    expect(withSchema("Pawn ni Player").status).toBe("unsat");
-    expect(withSchema("Knight ni Object").status).toBe("unsat");
-    // Conversely, A ni B is not provable from a non-subtype direction —
-    // Player ni Pawn could still be vacuously true (if Player is empty), so
-    // we stay conservative.
-    expect(withSchema("Player ni Pawn").status).toBe("unknown");
+  it("folds `ni` as `in` over swapped operands", () => {
+    // A ni B is B in A, so it folds to a tautology exactly when B is a
+    // subtype of A.
+    expect(withSchema("Player ni Pawn").status).toBe("tautology");
+    expect(withSchema("Object ni Knight").status).toBe("tautology");
+    // The other direction is not provable: Pawn ni Player says every Player
+    // is a Pawn, which the lattice does not give us.
+    expect(withSchema("Pawn ni Player").status).toBe("unknown");
   });
 
   it("does not falsely declare non-subtype in relations", () => {
@@ -481,7 +480,12 @@ describe("ForgeExprStaticAnalyzer — schema-aware: arity mismatches", () => {
 
   it("flags `in` / `ni` between operands of different arity", () => {
     expect(withSchema("Player in parent").status).toBe("ill-typed");
-    expect(withSchema("parent ni Player").status).toBe("ill-typed");
+    // `ni` folds by swapping its operands; the message still describes the
+    // expression as written.
+    expect(withSchema("parent ni Player")).toMatchObject({
+      status: "ill-typed",
+      reason: expect.stringContaining("left has arity 2, right has arity 1"),
+    });
   });
 
   it("flags set ops between operands of different arity", () => {
@@ -540,23 +544,27 @@ describe("ForgeExprStaticAnalyzer — reserved schema names at binders", () => {
   });
 });
 
-describe("ForgeExprStaticAnalyzer — ni is non-membership (not reverse containment)", () => {
-  it("X ni X is false (matches evaluator's !in semantics)", () => {
-    expectUnsat("Thing ni Thing");
-    expectUnsat("1 ni 1");
+describe("ForgeExprStaticAnalyzer — ni is reverse containment", () => {
+  it("X ni X is true (X contains itself)", () => {
+    expectTaut("Thing ni Thing");
+    expectTaut("1 ni 1");
   });
 
-  it("none ni singleton is true (singleton is not in empty)", () => {
+  it("X ni none is true (every set contains the empty set)", () => {
     expectTaut("1 ni none");
     expectTaut("true ni none");
+    expectTaut("none ni none");
+    expectTaut("Thing ni (Thing - Thing)");
   });
 
-  it("none ni none is false (empty is in empty)", () => {
-    expectUnsat("none ni none");
+  it("none ni singleton is false (the empty set contains nothing)", () => {
+    expectUnsat("none ni 1");
+    expectUnsat("none ni true");
   });
 
-  it("empty ni X is false (empty is in everything)", () => {
-    expectUnsat("(Thing - Thing) ni Thing");
+  it("stays conservative where containment is data-dependent", () => {
+    // Thing could be empty, in which case `Thing in (Thing - Thing)` holds.
+    expectUnknown("(Thing - Thing) ni Thing");
   });
 });
 
