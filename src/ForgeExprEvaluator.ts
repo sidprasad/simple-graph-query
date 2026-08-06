@@ -1863,6 +1863,17 @@ export class ForgeExprEvaluator
       if (ctx.expr12() === undefined || ctx.expr13() === undefined) {
         throw new Error("Expected the arrow operator to have 2 operands of the right type!");
       }
+      // `A one -> lone B` constrains a field declaration; as an expression it
+      // denotes nothing beyond the cross product, so evaluating it as one would
+      // silently discard what the author wrote.
+      const arrowOp = ctx.arrowOp()!;
+      if (arrowOp.mult().length > 0 || arrowOp.SET_TOK().length > 0) {
+        throw new Error(
+          `Cannot evaluate the multiplicity annotations in '${arrowOp.text}': ` +
+          "they are declaration and constraint syntax, not part of an expression. " +
+          "Write a plain '->' for the cross product."
+        );
+      }
       const leftChildValue = this.visit(ctx.expr12()!);
       const rightChildValue = this.visit(ctx.expr13()!);
 
