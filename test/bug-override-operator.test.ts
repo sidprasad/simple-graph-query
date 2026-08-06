@@ -1,16 +1,9 @@
-import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
-import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
+import { SimpleGraphQueryEvaluator } from "../src";
+import { Tuple } from "../src/ForgeExprEvaluator";
 import { TTTDataInstance } from "./testdatainstances";
+import { errorMessage, tuples } from "./helpers";
 
-function errorMessage(result: EvaluationResult): string | undefined {
-  return result !== null && typeof result === "object" && !Array.isArray(result) && "error" in result
-    ? result.error.message
-    : undefined;
-}
 
-function tuples(result: EvaluationResult, expected: Tuple[]) {
-  return Array.isArray(result) && areTupleArraysEqual(result as Tuple[], expected);
-}
 
 // `p ++ q` is relational override: q wins wherever the two start at the same
 // atom. It used to throw "**NOT IMPLEMENTING FOR NOW**".

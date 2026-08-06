@@ -1,10 +1,7 @@
-import { analyzeForgeExpression, EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
-import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
+import { analyzeForgeExpression, SimpleGraphQueryEvaluator } from "../src";
 import { TTTDataInstance } from "./testdatainstances";
+import { errorMessage, tuples } from "./helpers";
 
-function tuples(result: EvaluationResult, expected: Tuple[]) {
-  return Array.isArray(result) && areTupleArraysEqual(result as Tuple[], expected);
-}
 
 // `=<` is Forge's second spelling of `<=`. The lexer folds the two into one
 // token, so nothing but the evaluator's and analyzer's text dispatch can tell
@@ -40,10 +37,8 @@ describe("sgq-evaluator — `=<` is `<=`", () => {
   });
 
   it("rejects non-numeric operands the way `<=` does", () => {
-    const asError = (r: EvaluationResult) =>
-      r !== null && typeof r === "object" && !Array.isArray(r) && "error" in r ? r.error : undefined;
-    expect(asError(ev.evaluateExpression("Board =< 1"))?.message).toContain("number operands");
-    expect(asError(ev.evaluateExpression("Board <= 1"))?.message).toContain("number operands");
+    expect(errorMessage(ev.evaluateExpression("Board =< 1"))).toContain("number operands");
+    expect(errorMessage(ev.evaluateExpression("Board <= 1"))).toContain("number operands");
   });
 
   it("folds in the static analyzer like `<=`", () => {

@@ -1,16 +1,8 @@
-import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
-import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
+import { SimpleGraphQueryEvaluator } from "../src";
 import { TTTDataInstance } from "./testdatainstances";
+import { errorMessage, tuples } from "./helpers";
 
-function errorMessage(result: EvaluationResult): string | undefined {
-  return result !== null && typeof result === "object" && !Array.isArray(result) && "error" in result
-    ? result.error.message
-    : undefined;
-}
 
-function tuples(result: EvaluationResult, expected: Tuple[]) {
-  return Array.isArray(result) && areTupleArraysEqual(result as Tuple[], expected);
-}
 
 // `<:` restricts a relation to the tuples starting in a set, `:>` to the ones
 // ending in it. Both used to throw "**NOT IMPLEMENTING FOR NOW**".

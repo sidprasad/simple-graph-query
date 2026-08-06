@@ -30,6 +30,7 @@ import {
   QuantDeclListContext,
   NameListContext,
   QuantDeclContext,
+  CompareOpContext,
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
 import { IAtom, IDataInstance, ITuple, IRelation } from "./types";
@@ -325,6 +326,30 @@ export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
 );
 
 /**
+ * The canonical spelling of a comparison operator.
+ *
+ * Some operators have two spellings that the lexer folds into a single token —
+ * `<=` and `=<` are both `LEQ_TOK`. Reading `compareOp().text` gives back
+ * whichever one the author typed, so any dispatch on that text has to enumerate
+ * both, and every new dispatch site has to rediscover the fact. Every OTHER
+ * multi-spelling operator in the grammar (`||`/`or`, `!`/`not`, `=>`/`implies`)
+ * is dispatched on token presence and so never had the problem; this brings
+ * `compareOp` in line, and makes the alias unrepresentable rather than merely
+ * handled.
+ */
+export function compareOpKind(op: CompareOpContext): string {
+  if (op.IN_TOK()) return "in";
+  if (op.NI_TOK()) return "ni";
+  if (op.EQ_TOK()) return "=";
+  if (op.LT_TOK()) return "<";
+  if (op.GT_TOK()) return ">";
+  if (op.LEQ_TOK()) return "<=";
+  if (op.GEQ_TOK()) return ">=";
+  if (op.IS_TOK()) return "is";
+  return op.text;
+}
+
+/**
  * A non-fatal condition noticed while evaluating an expression.
  *
  * Diagnostics never change the value of an expression — they are advisory, and
@@ -527,17 +552,9 @@ export class ForgeExprEvaluator
     const relations = this.instanceData.getRelations();
 
     for (const relation of relations) {
-      // Convert numeric and boolean strings to their actual types, in a
-      // single pass (one fresh tuple array per tuple, not one per coercion).
-      // Numeric-vs-boolean order matches the old two-pass behavior: the two
-      // predicates are disjoint (Number("true") is NaN), so checking numeric
-      // first is equivalent.
+      // One fresh tuple array per tuple, not one per coercion.
       const relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) =>
-        tuple.atoms.map((value) => {
-          if (this.isConvertibleToNumber(value)) return Number(value);
-          if (this.isConvertibleToBoolean(value)) return this.convertToBoolean(value);
-          return value;
-        })
+        tuple.atoms.map((value) => this.atomValue(value))
       );
 
       // Relation NAMES are not unique — only the qualified id (`Sig<:label`) is.
@@ -717,7 +734,7 @@ export class ForgeExprEvaluator
   // The value an atom denotes. Ids are strings, but an atom whose id spells a
   // number or a boolean IS that number or boolean -- otherwise `1` and `true`
   // would come back as "1" and "true" and compare against nothing.
-  private atomValue(id: string): SingleValue {
+  private atomValue(id: SingleValue): SingleValue {
     if (this.isConvertibleToNumber(id)) {
       return Number(id);
     }
@@ -1503,7 +1520,8 @@ export class ForgeExprEvaluator
       let leftNum = extractNumber(leftChildValue);
       let rightNum = extractNumber(rightChildValue);
 
-      switch (ctx.compareOp()?.text) {
+      const compareOp = compareOpKind(ctx.compareOp()!);
+      switch (compareOp) {
         case "=":
           if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
             results = leftChildValue === rightChildValue;
@@ -1547,9 +1565,6 @@ export class ForgeExprEvaluator
 
 
           break;
-        // `=<` is the same token as `<=` (see LEQ_TOK), but the switch is on
-        // source text, so both spellings need an arm.
-        case "=<":
         case "<=":
           if (leftNum === undefined || rightNum === undefined) {
             throw new Error(
@@ -1581,7 +1596,7 @@ export class ForgeExprEvaluator
           const rightSet = asTupleArray(rightChildValue);
           // `a ni b` is reverse containment -- it means `b in a`, NOT `a not in b`.
           const [subset, superset] =
-            ctx.compareOp()?.text === "ni" ? [rightSet, leftSet] : [leftSet, rightSet];
+            compareOp === "ni" ? [rightSet, leftSet] : [leftSet, rightSet];
           results = isTupleArraySubset(subset, superset);
           break;
         }
@@ -1589,7 +1604,7 @@ export class ForgeExprEvaluator
           throw new Error("**NOT IMPLEMENTING FOR NOW** Type Check (`is`)");
         default:
           throw new Error(
-            `Unexpected compare operator provided: ${ctx.compareOp()?.text}`
+            `Unexpected compare operator provided: ${compareOp}`
           );
       }
     }
@@ -1785,8 +1800,6 @@ export class ForgeExprEvaluator
 
   visitExpr10(ctx: Expr10Context): EvalResult {
     //console.log('visiting expr10:', ctx.text);
-    let results: EvalResult = [];
-
     if (ctx.PPLUS_TOK()) {
       if (ctx.expr10() === undefined || ctx.expr11() === undefined) {
         throw new Error("Expected the pplus operator to have 2 operands of the right type!");
@@ -2187,8 +2200,6 @@ export class ForgeExprEvaluator
 
   visitExpr18(ctx: Expr18Context): EvalResult {
     // console.log('visiting expr18:', ctx.text);
-    let results: EvalResult = [];
-
     if (ctx.const()) {
       const constant = ctx.const()!;
       if (constant.number() !== undefined) {
@@ -2520,15 +2531,7 @@ export class ForgeExprEvaluator
     }
 
     if (result !== undefined) {
-      result = result.map((tuple) =>
-        tuple.map((value) =>
-          this.isConvertibleToNumber(value) ? Number(value) : value
-        )
-      );
-      result = result.map((tuple) =>
-        tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
-      );
-      return result;
+      return result.map((tuple) => tuple.map((value) => this.atomValue(value)));
     }
 
     // return identifier;
@@ -2697,10 +2700,9 @@ export class ForgeExprEvaluator
     operation: typeof SUPPORTED_SET_BUILTINS[number],
     value: SingleValue
   ): number {
-    if (isNumber(value)) {
-      return value;
-    }
-    if (isString(value) && this.isConvertibleToNumber(value)) {
+    // `isConvertibleToNumber` already covers both: it is true for a number, and
+    // for a string that names one, and false for a boolean.
+    if (this.isConvertibleToNumber(value)) {
       return Number(value);
     }
     throw new Error(

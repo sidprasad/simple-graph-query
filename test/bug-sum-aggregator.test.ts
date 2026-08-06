@@ -1,11 +1,7 @@
-import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
+import { SimpleGraphQueryEvaluator } from "../src";
 import { RBTTDataInstance, TTTDataInstance } from "./testdatainstances";
+import { errorMessage } from "./helpers";
 
-function errorMessage(result: EvaluationResult): string | undefined {
-  return result !== null && typeof result === "object" && !Array.isArray(result) && "error" in result
-    ? result.error.message
-    : undefined;
-}
 
 // `sum` has its own lexer token, so `sum[e]` used to miss the builtin dispatch
 // in box-join position and join against a relation named `sum` instead -- an

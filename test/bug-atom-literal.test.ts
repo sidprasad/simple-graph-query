@@ -1,10 +1,7 @@
 import { SimpleGraphQueryEvaluator } from "../src";
-import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
 import { RBTTDataInstance, TTTDataInstance } from "./testdatainstances";
+import { tuples } from "./helpers";
 
-function tuples(result: unknown, expected: Tuple[]) {
-  return Array.isArray(result) && areTupleArraysEqual(result as Tuple[], expected);
-}
 
 // A backquoted name is an atom literal. The evaluator used to answer every one
 // of them with the placeholder string "**UNIMPLEMENTED** Backquoted Name".

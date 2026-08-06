@@ -1,11 +1,7 @@
-import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
+import { SimpleGraphQueryEvaluator } from "../src";
 import { RBTTDataInstance, TTTDataInstance } from "./testdatainstances";
+import { errorMessage } from "./helpers";
 
-function errorMessage(result: EvaluationResult): string | undefined {
-  return result !== null && typeof result === "object" && !Array.isArray(result) && "error" in result
-    ? result.error.message
-    : undefined;
-}
 
 // `min`/`max` used to demand elements that were already JS numbers, so any set
 // whose integers arrived as strings -- atom ids, and every `@:` label

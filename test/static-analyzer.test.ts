@@ -53,6 +53,10 @@ function makeSchema(): IForgeSchema {
   });
   const relations: IRelation[] = [
     mkRel("parent", ["Player", "Player"]),
+    // Declared exactly like `parent`, and unrelated to it. Two relations over
+    // the same column types contain each other in neither direction, which is
+    // what keeps the schema-driven `in` fold honest.
+    mkRel("parent2", ["Player", "Player"]),
     mkRel("move", ["Player", "Move"]),
     mkRel("color", ["Object", "Color"]),
   ];
@@ -445,6 +449,29 @@ describe("ForgeExprStaticAnalyzer — schema-aware: subtype `in` tautologies", (
   it("does not falsely declare non-subtype in relations", () => {
     expect(withSchema("Player in Pawn").status).toBe("unknown");
     expect(withSchema("Player in Move").status).toBe("unknown");
+  });
+
+  it("does not fold `in` between two relations that merely share column types", () => {
+    // Column types are an upper BOUND on each column, not a description of the
+    // contents. `parent` and `move` both start at Player, and `parent` is
+    // bounded by Player on both columns -- but a bound on each side says
+    // nothing about containment between them. Two distinct relations declared
+    // over the same types contain each other in neither direction.
+    //
+    // This folded to `tautology` (in BOTH directions, which is already a
+    // contradiction) until `typed` learned to distinguish an exact set from a
+    // bounded one. Only a bare sig name is exact.
+    expect(withSchema("parent in parent2").status).toBe("unknown");
+    expect(withSchema("parent2 in parent").status).toBe("unknown");
+    expect(withSchema("parent ni parent2").status).toBe("unknown");
+    // A relation is not contained in the product of its own column types
+    // either -- that direction is true, but not for a reason the lattice knows.
+    expect(withSchema("parent in (Player -> Player)").status).not.toBe("unsat");
+    // The sound cases are untouched: a bare sig IS the whole of its type.
+    expect(withSchema("Pawn in Player").status).toBe("tautology");
+    expect(withSchema("(Pawn -> Pawn) in (Player -> Player)").status).toBe("tautology");
+    // And a subexpression compared with itself still folds, via same-subtree.
+    expect(withSchema("parent in parent").status).toBe("tautology");
   });
 });
 

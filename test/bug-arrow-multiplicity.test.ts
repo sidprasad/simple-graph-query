@@ -1,16 +1,8 @@
-import { EvaluationResult, SimpleGraphQueryEvaluator } from "../src";
-import { Tuple, areTupleArraysEqual } from "../src/ForgeExprEvaluator";
+import { SimpleGraphQueryEvaluator } from "../src";
 import { TTTDataInstance } from "./testdatainstances";
+import { errorMessage, tuples } from "./helpers";
 
-function errorMessage(result: EvaluationResult): string | undefined {
-  return result !== null && typeof result === "object" && !Array.isArray(result) && "error" in result
-    ? result.error.message
-    : undefined;
-}
 
-function tuples(result: EvaluationResult, expected: Tuple[]) {
-  return Array.isArray(result) && areTupleArraysEqual(result as Tuple[], expected);
-}
 
 // The grammar admits multiplicity annotations on `->` because field
 // declarations use them. They are constraints, not operators: an annotated
