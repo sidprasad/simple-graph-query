@@ -311,7 +311,7 @@ function bitwidthWraparound(value: number, bitwidth: number): number {
 
 const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder"];
 const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign", "floor", "ceil"];
-const SUPPORTED_SET_BUILTINS: string[] = ["min", "max"];
+const SUPPORTED_SET_BUILTINS: string[] = ["min", "max", "sum"];
 
 export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
   SUPPORTED_UNARY_BUILTINS,
@@ -2524,6 +2524,13 @@ export class ForgeExprEvaluator
     // of the qualName nonterminal
     //console.log('visiting qualName:', ctx.text);
 
+    // `sum` has its own token, so unlike the other builtins it never reaches
+    // visitName -- without this, `sum[e]` box-joins a relation named `sum`,
+    // which no instance has, and quietly yields the empty set.
+    if (ctx.SUM_TOK()) {
+      return "sum";
+    }
+
 
     //// SP: Commented out this optimization for now///
     // if (ctx.INT_TOK()) {
@@ -2677,7 +2684,7 @@ export class ForgeExprEvaluator
     operation: typeof SUPPORTED_SET_BUILTINS[number],
     args: EvalResult
   ): number {
-    // min and max operate on a set of integers and return the min/max value
+    // min, max and sum operate on a set of integers and return a single value.
     // The argument should be a set (tuple array of arity 1) of numbers
 
     let numbers: number[] = [];
@@ -2695,11 +2702,17 @@ export class ForgeExprEvaluator
     } else {
       throw new Error(`Expected a set of numbers for ${operation}`);
     }
-    
+
+    // The empty sum is 0. min and max of an empty set have no value at all,
+    // so they still refuse it.
+    if (operation === "sum") {
+      return numbers.reduce((total, value) => total + value, 0);
+    }
+
     if (numbers.length === 0) {
       throw new Error(`${operation} requires a non-empty set`);
     }
-    
+
     if (operation === "min") {
       return Math.min(...numbers);
     } else if (operation === "max") {
