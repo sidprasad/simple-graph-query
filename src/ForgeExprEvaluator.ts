@@ -1537,6 +1537,9 @@ export class ForgeExprEvaluator
 
 
           break;
+        // `=<` is the same token as `<=` (see LEQ_TOK), but the switch is on
+        // source text, so both spellings need an arm.
+        case "=<":
         case "<=":
           if (leftNum === undefined || rightNum === undefined) {
             throw new Error(

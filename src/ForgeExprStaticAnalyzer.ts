@@ -564,7 +564,9 @@ export class ForgeExprStaticAnalyzer
     const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
     if (bail) return bail;
     const negate = ctx.NEG_TOK() !== undefined;
-    const opText = op.text;
+    // `=<` and `<=` are one token (LEQ_TOK) but two spellings; the folding
+    // below dispatches on source text, so normalize to one of them.
+    const opText = op.text === "=<" ? "<=" : op.text;
 
     // `ni` is non-membership (the codebase's evaluator implements it as
     // !(in)). We fold it by computing the corresponding `in` verdict and
