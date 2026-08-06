@@ -1787,9 +1787,25 @@ export class ForgeExprEvaluator
       if (ctx.expr10() === undefined || ctx.expr11() === undefined) {
         throw new Error("Expected the pplus operator to have 2 operands of the right type!");
       }
-      const leftChildValue = this.visit(ctx.expr10()!);
-      const rightChildValue = this.visit(ctx.expr11()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** pplus (`++`)");
+      const original = asTupleArray(this.visit(ctx.expr10()!));
+      const replacement = asTupleArray(this.visit(ctx.expr11()!));
+
+      // should only work if arities are the same
+      if (
+        original.length > 0 &&
+        replacement.length > 0 &&
+        original[0].length !== replacement[0].length
+      ) {
+        throw new Error("arity mismatch in relational override!");
+      }
+
+      // `p ++ q` overrides by first atom: wherever q has a tuple, every tuple
+      // of p starting at the same atom goes, rather than the two merging.
+      const overridden = new Set(replacement.map((tuple) => tuple[0]));
+      return deduplicateConcat([
+        original.filter((tuple) => !overridden.has(tuple[0])),
+        replacement,
+      ]);
     }
 
     return this.visitChildren(ctx);
