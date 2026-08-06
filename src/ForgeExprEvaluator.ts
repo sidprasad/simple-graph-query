@@ -714,6 +714,19 @@ export class ForgeExprEvaluator
     throw new Error(`Cannot convert ${value} to boolean`);
   }
 
+  // The value an atom denotes. Ids are strings, but an atom whose id spells a
+  // number or a boolean IS that number or boolean -- otherwise `1` and `true`
+  // would come back as "1" and "true" and compare against nothing.
+  private atomValue(id: string): SingleValue {
+    if (this.isConvertibleToNumber(id)) {
+      return Number(id);
+    }
+    if (this.isConvertibleToBoolean(id)) {
+      return this.convertToBoolean(id);
+    }
+    return id;
+  }
+
   // Optimized dotJoin that can use pre-built relation indexes
   private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
     const leftExpr = asTupleArray(left);
@@ -794,17 +807,8 @@ export class ForgeExprEvaluator
           return;
         }
         seenAtomIds.add(atom.id);
-        
-        let value: SingleValue = atom.id;
-        // do some type conversions so we don't return a string if the value
-        // is a number or boolean
-        if (!isNaN(Number(value))) { // check if it's a number
-          value = Number(value);
-        } else if (value == "true" || value === "#t") {
-          value = true;
-        } else if (value == "false" || value === "#f") {
-          value = false;
-        }
+
+        const value = this.atomValue(atom.id);
         result.push([value, value]);
       });
     }
@@ -2212,18 +2216,12 @@ export class ForgeExprEvaluator
         // The identity relation contains tuples (x, x) for every atom x in the universe
         const atoms = this.instanceData.getAtoms();
         const idenRelation: Tuple[] = [];
-        
+
         for (const atom of atoms) {
-          let atomValue: SingleValue = atom.id;
-          // Convert numeric and boolean strings to their actual types
-          if (this.isConvertibleToNumber(atomValue)) {
-            atomValue = Number(atomValue);
-          } else if (this.isConvertibleToBoolean(atomValue)) {
-            atomValue = this.convertToBoolean(atomValue);
-          }
-          idenRelation.push([atomValue, atomValue]);
+          const value = this.atomValue(atom.id);
+          idenRelation.push([value, value]);
         }
-        
+
         return idenRelation;
       }
       // Handle univ (universal relation - all atoms)
@@ -2231,18 +2229,11 @@ export class ForgeExprEvaluator
         // The universal relation contains all atoms as unary tuples
         const atoms = this.instanceData.getAtoms();
         const univRelation: Tuple[] = [];
-        
+
         for (const atom of atoms) {
-          let atomValue: SingleValue = atom.id;
-          // Convert numeric and boolean strings to their actual types
-          if (this.isConvertibleToNumber(atomValue)) {
-            atomValue = Number(atomValue);
-          } else if (this.isConvertibleToBoolean(atomValue)) {
-            atomValue = this.convertToBoolean(atomValue);
-          }
-          univRelation.push([atomValue]);
+          univRelation.push([this.atomValue(atom.id)]);
         }
-        
+
         return univRelation;
       }
       // A double-quoted string literal. This is the ONLY way to write a string,
@@ -2267,11 +2258,15 @@ export class ForgeExprEvaluator
       throw new Error("`@` operator is Alloy specific; it is not supported by Forge!");
     }
     if (ctx.BACKQUOTE_TOK()) {
-      const name = this.visitChildren(ctx);
-      results.push(["**UNIMPLEMENTED** Backquoted Name (`` `x` ``)"]);
-
-      // TODO: implement this using name and then return the result
-      return results;
+      // An atom literal: `` `Board0 `` is that one atom of the instance, never
+      // the type or relation that happens to share the name.
+      const atomName = getIdentifierName(ctx.name()!);
+      const atom = this.instanceData.getAtoms().find((a) => a.id === atomName);
+      if (atom === undefined) {
+        this.reportUnresolvedName(atomName);
+        return [];
+      }
+      return [[this.atomValue(atom.id)]];
     }
     if (ctx.THIS_TOK()) {
       throw new Error("`this` is Alloy specific; it is not supported by Forge!");
