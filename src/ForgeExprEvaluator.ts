@@ -70,6 +70,12 @@ function isTupleArray(value: EvalResult): value is Tuple[] {
   return Array.isArray(value);
 }
 
+// In Alloy/Forge a scalar is a singleton set, so every relational operator
+// takes one after this lifting.
+function asTupleArray(value: EvalResult): Tuple[] {
+  return isSingleValue(value) ? [[value]] : value;
+}
+
 function isBoolean(value: EvalResult): value is boolean {
   return typeof value === "boolean";
 }
@@ -710,8 +716,8 @@ export class ForgeExprEvaluator
 
   // Optimized dotJoin that can use pre-built relation indexes
   private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
-    const leftExpr = isSingleValue(left) ? [[left]] : left;
-    const rightExpr = isSingleValue(right) ? [[right]] : right;
+    const leftExpr = asTupleArray(left);
+    const rightExpr = asTupleArray(right);
 
     // Try to use pre-built index if available
     let rightIndex: Map<SingleValue, Tuple[]> | undefined;
@@ -1567,12 +1573,8 @@ export class ForgeExprEvaluator
           //   {..} in b  (set ⊆ {b})  -> subset of a singleton
           // isTupleArraySubset already returns true for equal sets and for an
           // empty left-hand set, so a single subset check covers every case.
-          const leftSet: Tuple[] = isSingleValue(leftChildValue)
-            ? [[leftChildValue]]
-            : leftChildValue;
-          const rightSet: Tuple[] = isSingleValue(rightChildValue)
-            ? [[rightChildValue]]
-            : rightChildValue;
+          const leftSet = asTupleArray(leftChildValue);
+          const rightSet = asTupleArray(rightChildValue);
           // `a ni b` is reverse containment -- it means `b in a`, NOT `a not in b`.
           const [subset, superset] =
             ctx.compareOp()?.text === "ni" ? [rightSet, leftSet] : [leftSet, rightSet];
@@ -1877,13 +1879,8 @@ export class ForgeExprEvaluator
       const leftChildValue = this.visit(ctx.expr12()!);
       const rightChildValue = this.visit(ctx.expr13()!);
 
-      // Ensure both values are tuple arrays
-      const leftTuples = isSingleValue(leftChildValue) ? [[leftChildValue]] : leftChildValue;
-      const rightTuples = isSingleValue(rightChildValue) ? [[rightChildValue]] : rightChildValue;
-
-      if (!isTupleArray(leftTuples) || !isTupleArray(rightTuples)) {
-        throw new Error("Arrow operator operands must be tuple arrays or single values");
-      }
+      const leftTuples = asTupleArray(leftChildValue);
+      const rightTuples = asTupleArray(rightChildValue);
 
       // Compute the Cartesian product
       const result: Tuple[] = [];
@@ -1902,27 +1899,36 @@ export class ForgeExprEvaluator
 
   visitExpr13(ctx: Expr13Context): EvalResult {
     //console.log('visiting expr13:', ctx.text);
-    let results: EvalResult = [];
 
-    if (ctx.SUPT_TOK()) {
+    // Domain restriction `S <: r` keeps the tuples of r that start in S; range
+    // restriction `r :> S` keeps the ones that end in S. The set is always on
+    // the side the colon faces.
+    const restrictsDomain = ctx.SUBT_TOK() !== undefined;
+    if (restrictsDomain || ctx.SUPT_TOK()) {
       if (ctx.expr13() === undefined || ctx.expr14() === undefined) {
         throw new Error(
-          "Expected the supertype operator to have 2 operands of the right type!"
+          "Expected the restriction operator to have 2 operands of the right type!"
         );
       }
       const leftChildValue = this.visit(ctx.expr13()!);
       const rightChildValue = this.visit(ctx.expr14()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Supertype Operator (`:>`)");
-    }
-    if (ctx.SUBT_TOK()) {
-      if (ctx.expr13() === undefined || ctx.expr14() === undefined) {
+      const [restrictor, relation] = restrictsDomain
+        ? [leftChildValue, rightChildValue]
+        : [rightChildValue, leftChildValue];
+
+      const restrictorTuples = asTupleArray(restrictor);
+      const wrongArity = restrictorTuples.find((tuple) => tuple.length !== 1);
+      if (wrongArity !== undefined) {
         throw new Error(
-          "Expected the subtype operator to have 2 operands of the right type!"
+          `The ${restrictsDomain ? "<:" : ":>"} operator restricts by a set of arity 1, ` +
+          `but its ${restrictsDomain ? "left" : "right"} operand has arity ${wrongArity.length}`
         );
       }
-      const leftChildValue = this.visit(ctx.expr13()!);
-      const rightChildValue = this.visit(ctx.expr14()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Subtype Operator (`<:`)");
+
+      const restrictTo = new Set(restrictorTuples.map((tuple) => tuple[0]));
+      return asTupleArray(relation).filter((tuple) =>
+        restrictTo.has(restrictsDomain ? tuple[0] : tuple[tuple.length - 1])
+      );
     }
 
     return this.visitChildren(ctx);
