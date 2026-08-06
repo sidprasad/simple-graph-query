@@ -275,17 +275,18 @@ describe("sgq-evaluator ", () => {
     expect(result12).toEqual(true);
   });
 
-  it("can evaluate non-membership and multiplicity operators", () => {
+  it("can evaluate reverse containment and multiplicity operators", () => {
     const datum = new TTTDataInstance();
     const evaluatorUtil = new SimpleGraphQueryEvaluator(datum);
 
-    const nonMemberExpr = "X0 ni Board";
-    const nonMemberResult = evaluatorUtil.evaluateExpression(nonMemberExpr);
-    expect(nonMemberResult).toBe(true);
+    // `A ni B` is `B in A`, so Board contains Board0 but not X0.
+    const containsExpr = "Board ni Board0";
+    const containsResult = evaluatorUtil.evaluateExpression(containsExpr);
+    expect(containsResult).toBe(true);
 
-    const memberExpr = "Board0 ni Board";
-    const memberResult = evaluatorUtil.evaluateExpression(memberExpr);
-    expect(memberResult).toBe(false);
+    const doesNotContainExpr = "Board ni X0";
+    const doesNotContainResult = evaluatorUtil.evaluateExpression(doesNotContainExpr);
+    expect(doesNotContainResult).toBe(false);
 
     const twoExpr = "two (X0 + O0)";
     const twoResult = evaluatorUtil.evaluateExpression(twoExpr);
@@ -315,9 +316,9 @@ describe("sgq-evaluator ", () => {
     expect(ev.evaluateExpression('@:(X0) in "red"')).toBe(true); // label "red" == "red"
     expect(ev.evaluateExpression('@:(X0) in "blue"')).toBe(false);
 
-    // `ni` is the negation, so for scalars it now reads as inequality.
-    expect(ev.evaluateExpression("1 ni 1")).toBe(false);
-    expect(ev.evaluateExpression("1 ni 2")).toBe(true);
+    // `ni` is containment the other way round, so for scalars it is equality too.
+    expect(ev.evaluateExpression("1 ni 1")).toBe(true);
+    expect(ev.evaluateExpression("1 ni 2")).toBe(false);
 
     // Membership against a real (multi-element) set is unchanged...
     expect(ev.evaluateExpression('@:(X0) in ("red" + "blue")')).toBe(true);

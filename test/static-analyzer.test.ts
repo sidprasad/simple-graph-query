@@ -53,6 +53,10 @@ function makeSchema(): IForgeSchema {
   });
   const relations: IRelation[] = [
     mkRel("parent", ["Player", "Player"]),
+    // Declared exactly like `parent`, and unrelated to it. Two relations over
+    // the same column types contain each other in neither direction, which is
+    // what keeps the schema-driven `in` fold honest.
+    mkRel("parent2", ["Player", "Player"]),
     mkRel("move", ["Player", "Move"]),
     mkRel("color", ["Object", "Color"]),
   ];
@@ -432,20 +436,42 @@ describe("ForgeExprStaticAnalyzer — schema-aware: subtype `in` tautologies", (
     expect(withSchema("Pawn in Object").status).toBe("tautology");
   });
 
-  it("folds `ni` as the negation of `in`", () => {
-    // ni is non-membership (matches the evaluator's semantics). A ni B is
-    // unsat exactly when A in B is a tautology, i.e., A is a subtype of B.
-    expect(withSchema("Pawn ni Player").status).toBe("unsat");
-    expect(withSchema("Knight ni Object").status).toBe("unsat");
-    // Conversely, A ni B is not provable from a non-subtype direction —
-    // Player ni Pawn could still be vacuously true (if Player is empty), so
-    // we stay conservative.
-    expect(withSchema("Player ni Pawn").status).toBe("unknown");
+  it("folds `ni` as `in` over swapped operands", () => {
+    // A ni B is B in A, so it folds to a tautology exactly when B is a
+    // subtype of A.
+    expect(withSchema("Player ni Pawn").status).toBe("tautology");
+    expect(withSchema("Object ni Knight").status).toBe("tautology");
+    // The other direction is not provable: Pawn ni Player says every Player
+    // is a Pawn, which the lattice does not give us.
+    expect(withSchema("Pawn ni Player").status).toBe("unknown");
   });
 
   it("does not falsely declare non-subtype in relations", () => {
     expect(withSchema("Player in Pawn").status).toBe("unknown");
     expect(withSchema("Player in Move").status).toBe("unknown");
+  });
+
+  it("does not fold `in` between two relations that merely share column types", () => {
+    // Column types are an upper BOUND on each column, not a description of the
+    // contents. `parent` and `move` both start at Player, and `parent` is
+    // bounded by Player on both columns -- but a bound on each side says
+    // nothing about containment between them. Two distinct relations declared
+    // over the same types contain each other in neither direction.
+    //
+    // This folded to `tautology` (in BOTH directions, which is already a
+    // contradiction) until `typed` learned to distinguish an exact set from a
+    // bounded one. Only a bare sig name is exact.
+    expect(withSchema("parent in parent2").status).toBe("unknown");
+    expect(withSchema("parent2 in parent").status).toBe("unknown");
+    expect(withSchema("parent ni parent2").status).toBe("unknown");
+    // A relation is not contained in the product of its own column types
+    // either -- that direction is true, but not for a reason the lattice knows.
+    expect(withSchema("parent in (Player -> Player)").status).not.toBe("unsat");
+    // The sound cases are untouched: a bare sig IS the whole of its type.
+    expect(withSchema("Pawn in Player").status).toBe("tautology");
+    expect(withSchema("(Pawn -> Pawn) in (Player -> Player)").status).toBe("tautology");
+    // And a subexpression compared with itself still folds, via same-subtree.
+    expect(withSchema("parent in parent").status).toBe("tautology");
   });
 });
 
@@ -481,7 +507,12 @@ describe("ForgeExprStaticAnalyzer — schema-aware: arity mismatches", () => {
 
   it("flags `in` / `ni` between operands of different arity", () => {
     expect(withSchema("Player in parent").status).toBe("ill-typed");
-    expect(withSchema("parent ni Player").status).toBe("ill-typed");
+    // `ni` folds by swapping its operands; the message still describes the
+    // expression as written.
+    expect(withSchema("parent ni Player")).toMatchObject({
+      status: "ill-typed",
+      reason: expect.stringContaining("left has arity 2, right has arity 1"),
+    });
   });
 
   it("flags set ops between operands of different arity", () => {
@@ -540,23 +571,27 @@ describe("ForgeExprStaticAnalyzer — reserved schema names at binders", () => {
   });
 });
 
-describe("ForgeExprStaticAnalyzer — ni is non-membership (not reverse containment)", () => {
-  it("X ni X is false (matches evaluator's !in semantics)", () => {
-    expectUnsat("Thing ni Thing");
-    expectUnsat("1 ni 1");
+describe("ForgeExprStaticAnalyzer — ni is reverse containment", () => {
+  it("X ni X is true (X contains itself)", () => {
+    expectTaut("Thing ni Thing");
+    expectTaut("1 ni 1");
   });
 
-  it("none ni singleton is true (singleton is not in empty)", () => {
+  it("X ni none is true (every set contains the empty set)", () => {
     expectTaut("1 ni none");
     expectTaut("true ni none");
+    expectTaut("none ni none");
+    expectTaut("Thing ni (Thing - Thing)");
   });
 
-  it("none ni none is false (empty is in empty)", () => {
-    expectUnsat("none ni none");
+  it("none ni singleton is false (the empty set contains nothing)", () => {
+    expectUnsat("none ni 1");
+    expectUnsat("none ni true");
   });
 
-  it("empty ni X is false (empty is in everything)", () => {
-    expectUnsat("(Thing - Thing) ni Thing");
+  it("stays conservative where containment is data-dependent", () => {
+    // Thing could be empty, in which case `Thing in (Thing - Thing)` holds.
+    expectUnknown("(Thing - Thing) ni Thing");
   });
 });
 

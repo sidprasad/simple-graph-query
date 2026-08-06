@@ -12,8 +12,10 @@ import {
   Expr7Context,
   Expr8Context,
   Expr9Context,
+  Expr10Context,
   Expr11Context,
   Expr12Context,
+  Expr13Context,
   Expr14Context,
   Expr15Context,
   Expr17Context,
@@ -26,7 +28,7 @@ import {
   QuantContext,
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
-import { SUPPORTED_BUILTINS } from "./ForgeExprEvaluator";
+import { SUPPORTED_BUILTINS, compareOpKind } from "./ForgeExprEvaluator";
 import { IForgeSchema, IRelation, IType } from "./types";
 
 // Internal lattice element used during recursion.
@@ -38,7 +40,12 @@ type Abstract =
   | { kind: "bool"; value: boolean }
   | { kind: "num"; value: number }
   | { kind: "empty" }
-  | { kind: "typed"; arity: number; columnTypes?: readonly string[] }
+  // `columnTypes` bounds each column: every atom in column i belongs to that
+  // type. `exact` additionally says the expression denotes the WHOLE of that
+  // product -- true for a bare sig name, false for a relation, which is merely
+  // drawn from its declared columns. Bounds alone prove disjointness; only
+  // exactness proves containment. See the `in` fold in visitExpr6.
+  | { kind: "typed"; arity: number; columnTypes?: readonly string[]; exact?: boolean }
   | { kind: "ill-typed"; reason: string }
   | { kind: "unknown" };
 
@@ -557,28 +564,23 @@ export class ForgeExprStaticAnalyzer
     const op = ctx.compareOp();
     if (!op) return this.visitChildren(ctx);
 
-    const leftCtx = ctx.expr6()!;
-    const rightCtx = ctx.expr7()!;
+    const negate = ctx.NEG_TOK() !== undefined;
+    const opText = compareOpKind(op);
+
+    // `a ni b` is reverse containment: it means `b in a`. Folding it as `in`
+    // over swapped operands keeps one implementation of the subset reasoning.
+    const isNi = opText === "ni";
+    const opForLogic = isNi ? "in" : opText;
+    const leftCtx = isNi ? ctx.expr7()! : ctx.expr6()!;
+    const rightCtx = isNi ? ctx.expr6()! : ctx.expr7()!;
     const l = this.visit(leftCtx);
     const r = this.visit(rightCtx);
     const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
     if (bail) return bail;
-    const negate = ctx.NEG_TOK() !== undefined;
-    const opText = op.text;
-
-    // `ni` is non-membership (the codebase's evaluator implements it as
-    // !(in)). We fold it by computing the corresponding `in` verdict and
-    // letting `finalize` invert. This keeps the static verdict in agreement
-    // with runtime semantics for expressions like `X ni X` (false) and
-    // `none ni 1` (true).
-    const isNi = opText === "ni";
-    const opForLogic = isNi ? "in" : opText;
-    const finalize = (value: boolean): Abstract => {
-      let v = value;
-      if (isNi) v = !v;
-      if (negate) v = !v;
-      return { kind: "bool", value: v };
-    };
+    const finalize = (value: boolean): Abstract => ({
+      kind: "bool",
+      value: negate ? !value : value,
+    });
 
     // Same-subtree shortcuts hold regardless of unknown values.
     if (sameSubtree(leftCtx, rightCtx)) {
@@ -630,10 +632,11 @@ export class ForgeExprStaticAnalyzer
       if (lIsKnownSingleton && r.kind === "empty") return finalize(false);
     }
 
-    // Arity mismatch on arity-sensitive comparisons → ill-typed.
+    // Arity mismatch on arity-sensitive comparisons → ill-typed. Reported over
+    // the operands as written, so the message matches the source for `ni` too.
     if (opText === "=" || opText === "in" || opText === "ni") {
-      const la = ForgeExprStaticAnalyzer.arityOf(l);
-      const ra = ForgeExprStaticAnalyzer.arityOf(r);
+      const la = ForgeExprStaticAnalyzer.arityOf(isNi ? r : l);
+      const ra = ForgeExprStaticAnalyzer.arityOf(isNi ? l : r);
       if (la > 0 && ra > 0 && la !== ra) {
         return {
           kind: "ill-typed",
@@ -642,11 +645,19 @@ export class ForgeExprStaticAnalyzer
       }
     }
 
-    // Schema-driven: subtype tautologies for `in` (and `ni` via finalize
-    // inversion when A ⊆ B → A in B is true → A ni B is false). We
-    // deliberately do NOT positively fold `ni` from the lattice — concluding
-    // "not (A ⊆ B)" requires disjointness reasoning we don't perform here.
-    if (this.schema && l.kind === "typed" && r.kind === "typed") {
+    // Schema-driven: subtype tautologies for `in`. With `ni` already swapped
+    // into `in`, `A ni B` folds to a tautology exactly when B is a subtype of A.
+    //
+    // BOTH sides must be exact. Column types are an upper BOUND, and a bound on
+    // each side says nothing about containment between them: two distinct
+    // relations both declared `Player -> Player` bound identically, yet neither
+    // contains the other. Only a bare sig name denotes the whole of its type,
+    // which is what makes `Pawn in Player` follow from the lattice.
+    if (
+      this.schema &&
+      l.kind === "typed" && r.kind === "typed" &&
+      l.exact && r.exact
+    ) {
       const lCols = l.columnTypes;
       const rCols = r.columnTypes;
       if (lCols && rCols && lCols.length === rCols.length) {
@@ -763,25 +774,124 @@ export class ForgeExprStaticAnalyzer
     return this.visitChildren(ctx);
   }
 
+  // Relational override `p ++ q`: q wins wherever the two start at the same
+  // atom. The result always contains q, so — unlike union — knowing one side is
+  // empty tells us the answer outright, and the result can only be empty when
+  // both sides are.
+  visitExpr10(ctx: Expr10Context): Abstract {
+    if (ctx.PPLUS_TOK()) {
+      const leftCtx = ctx.expr10()!;
+      const rightCtx = ctx.expr11()!;
+      const l = this.visit(leftCtx);
+      const r = this.visit(rightCtx);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      // X ++ X → X: every tuple of X is overridden by itself.
+      if (sameSubtree(leftCtx, rightCtx)) return l;
+      // Empty is the identity on both sides.
+      if (l.kind === "empty" && r.kind === "empty") return { kind: "empty" };
+      if (l.kind === "empty") return r;
+      if (r.kind === "empty") return l;
+      // Arity mismatch is a static type error; the evaluator refuses it too.
+      const la = ForgeExprStaticAnalyzer.arityOf(l);
+      const ra = ForgeExprStaticAnalyzer.arityOf(r);
+      if (la > 0 && ra > 0 && la !== ra) {
+        return {
+          kind: "ill-typed",
+          reason: `arity mismatch in '++': left has arity ${la}, right has arity ${ra}`,
+        };
+      }
+      // Arity survives, but the column types do not: the result mixes tuples
+      // from both sides, so claiming either side's columns would be a lie.
+      if (la > 0 && ra > 0) return { kind: "typed", arity: la };
+      return UNKNOWN;
+    }
+    return this.visitChildren(ctx);
+  }
+
   visitExpr12(ctx: Expr12Context): Abstract {
     if (ctx.arrowOp()) {
+      // `A one -> lone B` is declaration and constraint syntax. It has no value
+      // as an expression, and folding it as a plain cross product would silently
+      // drop what the author wrote -- so it is malformed, not merely unknown.
+      const arrowOp = ctx.arrowOp()!;
+      if (arrowOp.mult().length > 0 || arrowOp.SET_TOK().length > 0) {
+        return {
+          kind: "ill-typed",
+          reason:
+            `multiplicity annotations in '${arrowOp.text}' are declaration and ` +
+            "constraint syntax, not part of an expression",
+        };
+      }
       // Cartesian product: if either side is empty, the product is empty.
       const l = this.visit(ctx.expr12()!);
       const r = this.visit(ctx.expr13()!);
       const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
       if (bail) return bail;
       if (l.kind === "empty" || r.kind === "empty") return { kind: "empty" };
-      // Propagate combined arity / column types.
+      // Propagate combined arity / column types. The product of two exact sets
+      // is exact -- `Pawn -> Knight` is the whole of Pawn × Knight.
       if (l.kind === "typed" && r.kind === "typed") {
         const cols =
           l.columnTypes && r.columnTypes
             ? [...l.columnTypes, ...r.columnTypes]
             : undefined;
-        return { kind: "typed", arity: l.arity + r.arity, columnTypes: cols };
+        return {
+          kind: "typed",
+          arity: l.arity + r.arity,
+          columnTypes: cols,
+          exact: l.exact === true && r.exact === true,
+        };
       }
       const la = ForgeExprStaticAnalyzer.arityOf(l);
       const ra = ForgeExprStaticAnalyzer.arityOf(r);
       if (la > 0 && ra > 0) return { kind: "typed", arity: la + ra };
+      return UNKNOWN;
+    }
+    return this.visitChildren(ctx);
+  }
+
+  // Restriction: `S <: r` keeps r's tuples that start in S, `r :> S` the ones
+  // that end in S. The set is always on the side the colon faces. Either way the
+  // result is a subset of r and keeps whole tuples, so r's arity survives.
+  visitExpr13(ctx: Expr13Context): Abstract {
+    const restrictsDomain = ctx.SUBT_TOK() !== undefined;
+    if (restrictsDomain || ctx.SUPT_TOK()) {
+      const l = this.visit(ctx.expr13()!);
+      const r = this.visit(ctx.expr14()!);
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
+      if (bail) return bail;
+      const [restrictor, relation] = restrictsDomain ? [l, r] : [r, l];
+
+      // The evaluator validates the restrictor before it looks at the relation,
+      // so a non-unary restrictor is an error even when the relation is empty.
+      // `empty` and `unknown` report arity -1, so this fires only on a known one.
+      const restrictorArity = ForgeExprStaticAnalyzer.arityOf(restrictor);
+      if (restrictorArity > 1) {
+        return {
+          kind: "ill-typed",
+          reason:
+            `the '${restrictsDomain ? "<:" : ":>"}' operator restricts by a set of arity 1, ` +
+            `but its ${restrictsDomain ? "left" : "right"} operand has arity ${restrictorArity}`,
+        };
+      }
+
+      // An empty restrictor has no tuple that could fail that check, so the
+      // evaluator is guaranteed to reach the filter and produce nothing.
+      if (restrictor.kind === "empty") return { kind: "empty" };
+
+      // Past this point the restrictor is non-empty, so the evaluator's check
+      // is live. Without a known arity of exactly 1 we cannot tell whether it
+      // passes -- and "provably empty" would be the wrong answer for an
+      // expression that raises instead of evaluating.
+      if (restrictorArity !== 1) return UNKNOWN;
+
+      if (relation.kind === "empty") return { kind: "empty" };
+
+      // Arity only, deliberately not column types: the result is a SUBSET of
+      // the relation, and `in`-folding treats matching columns as containment.
+      const relationArity = ForgeExprStaticAnalyzer.arityOf(relation);
+      if (relationArity > 0) return { kind: "typed", arity: relationArity };
       return UNKNOWN;
     }
     return this.visitChildren(ctx);
@@ -832,17 +942,35 @@ export class ForgeExprStaticAnalyzer
   visitExpr14(ctx: Expr14Context): Abstract {
     if (ctx.LEFT_SQUARE_TOK()) {
       // Box join f[a, b, ...]  ≡  ...b.a.f
-      const fn = this.visit(ctx.expr14()!);
+      const headCtx = ctx.expr14()!;
+      const fn = this.visit(headCtx);
       if (fn.kind === "ill-typed") return fn;
-      if (fn.kind === "empty") return { kind: "empty" };
-      // walk the comma-separated argument list
+
+      // Walk the comma-separated argument list. Every argument is visited even
+      // once the verdict is settled, so the names they mention still get
+      // recorded as unresolved.
+      const args: Abstract[] = [];
       let list = ctx.exprList();
       while (list) {
-        const arg = this.visit(list.expr());
-        if (arg.kind === "ill-typed") return arg;
-        if (arg.kind === "empty") return { kind: "empty" };
+        args.push(this.visit(list.expr()));
         list = list.exprList();
       }
+      const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(...args);
+      if (bail) return bail;
+
+      // A builtin only borrows the box-join syntax. It returns a NUMBER, so the
+      // relational "empty in, empty out" rule below does not describe it: `sum`
+      // of the empty set is 0, and min/max of it are errors rather than sets.
+      if (SUPPORTED_BUILTINS.includes(headCtx.text)) {
+        if (headCtx.text === "sum" && args.length === 1 && args[0].kind === "empty") {
+          return { kind: "num", value: 0 };
+        }
+        return UNKNOWN;
+      }
+
+      // Joining with nothing yields nothing.
+      if (fn.kind === "empty") return { kind: "empty" };
+      if (args.some((a) => a.kind === "empty")) return { kind: "empty" };
       return UNKNOWN;
     }
     return this.visitChildren(ctx);
@@ -992,7 +1120,8 @@ export class ForgeExprStaticAnalyzer
     if (id === "false") return { kind: "bool", value: false };
     if (this.schema) {
       const t = this.schema.getType(id);
-      if (t) return { kind: "typed", arity: 1, columnTypes: [t.id] };
+      // A bare sig name denotes the WHOLE of its type -- the one exact case.
+      if (t) return { kind: "typed", arity: 1, columnTypes: [t.id], exact: true };
       const rels = this.schema.getRelations(id);
       if (rels.length === 1) {
         const cols = rels[0].types;

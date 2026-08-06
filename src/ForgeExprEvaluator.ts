@@ -30,6 +30,7 @@ import {
   QuantDeclListContext,
   NameListContext,
   QuantDeclContext,
+  CompareOpContext,
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
 import { IAtom, IDataInstance, ITuple, IRelation } from "./types";
@@ -68,6 +69,12 @@ function isSingleValue(value: EvalResult): value is SingleValue {
 
 function isTupleArray(value: EvalResult): value is Tuple[] {
   return Array.isArray(value);
+}
+
+// In Alloy/Forge a scalar is a singleton set, so every relational operator
+// takes one after this lifting.
+function asTupleArray(value: EvalResult): Tuple[] {
+  return isSingleValue(value) ? [[value]] : value;
 }
 
 function isBoolean(value: EvalResult): value is boolean {
@@ -311,12 +318,36 @@ function bitwidthWraparound(value: number, bitwidth: number): number {
 
 const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder"];
 const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign", "floor", "ceil"];
-const SUPPORTED_SET_BUILTINS: string[] = ["min", "max"];
+const SUPPORTED_SET_BUILTINS: string[] = ["min", "max", "sum"];
 
 export const SUPPORTED_BUILTINS = SUPPORTED_BINARY_BUILTINS.concat(
   SUPPORTED_UNARY_BUILTINS,
   SUPPORTED_SET_BUILTINS
 );
+
+/**
+ * The canonical spelling of a comparison operator.
+ *
+ * Some operators have two spellings that the lexer folds into a single token —
+ * `<=` and `=<` are both `LEQ_TOK`. Reading `compareOp().text` gives back
+ * whichever one the author typed, so any dispatch on that text has to enumerate
+ * both, and every new dispatch site has to rediscover the fact. Every OTHER
+ * multi-spelling operator in the grammar (`||`/`or`, `!`/`not`, `=>`/`implies`)
+ * is dispatched on token presence and so never had the problem; this brings
+ * `compareOp` in line, and makes the alias unrepresentable rather than merely
+ * handled.
+ */
+export function compareOpKind(op: CompareOpContext): string {
+  if (op.IN_TOK()) return "in";
+  if (op.NI_TOK()) return "ni";
+  if (op.EQ_TOK()) return "=";
+  if (op.LT_TOK()) return "<";
+  if (op.GT_TOK()) return ">";
+  if (op.LEQ_TOK()) return "<=";
+  if (op.GEQ_TOK()) return ">=";
+  if (op.IS_TOK()) return "is";
+  return op.text;
+}
 
 /**
  * A non-fatal condition noticed while evaluating an expression.
@@ -521,17 +552,9 @@ export class ForgeExprEvaluator
     const relations = this.instanceData.getRelations();
 
     for (const relation of relations) {
-      // Convert numeric and boolean strings to their actual types, in a
-      // single pass (one fresh tuple array per tuple, not one per coercion).
-      // Numeric-vs-boolean order matches the old two-pass behavior: the two
-      // predicates are disjoint (Number("true") is NaN), so checking numeric
-      // first is equivalent.
+      // One fresh tuple array per tuple, not one per coercion.
       const relationAtoms: Tuple[] = relation.tuples.map((tuple: ITuple) =>
-        tuple.atoms.map((value) => {
-          if (this.isConvertibleToNumber(value)) return Number(value);
-          if (this.isConvertibleToBoolean(value)) return this.convertToBoolean(value);
-          return value;
-        })
+        tuple.atoms.map((value) => this.atomValue(value))
       );
 
       // Relation NAMES are not unique — only the qualified id (`Sig<:label`) is.
@@ -708,10 +731,23 @@ export class ForgeExprEvaluator
     throw new Error(`Cannot convert ${value} to boolean`);
   }
 
+  // The value an atom denotes. Ids are strings, but an atom whose id spells a
+  // number or a boolean IS that number or boolean -- otherwise `1` and `true`
+  // would come back as "1" and "true" and compare against nothing.
+  private atomValue(id: SingleValue): SingleValue {
+    if (this.isConvertibleToNumber(id)) {
+      return Number(id);
+    }
+    if (this.isConvertibleToBoolean(id)) {
+      return this.convertToBoolean(id);
+    }
+    return id;
+  }
+
   // Optimized dotJoin that can use pre-built relation indexes
   private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
-    const leftExpr = isSingleValue(left) ? [[left]] : left;
-    const rightExpr = isSingleValue(right) ? [[right]] : right;
+    const leftExpr = asTupleArray(left);
+    const rightExpr = asTupleArray(right);
 
     // Try to use pre-built index if available
     let rightIndex: Map<SingleValue, Tuple[]> | undefined;
@@ -788,17 +824,8 @@ export class ForgeExprEvaluator
           return;
         }
         seenAtomIds.add(atom.id);
-        
-        let value: SingleValue = atom.id;
-        // do some type conversions so we don't return a string if the value
-        // is a number or boolean
-        if (!isNaN(Number(value))) { // check if it's a number
-          value = Number(value);
-        } else if (value == "true" || value === "#t") {
-          value = true;
-        } else if (value == "false" || value === "#f") {
-          value = false;
-        }
+
+        const value = this.atomValue(atom.id);
         result.push([value, value]);
       });
     }
@@ -1493,7 +1520,8 @@ export class ForgeExprEvaluator
       let leftNum = extractNumber(leftChildValue);
       let rightNum = extractNumber(rightChildValue);
 
-      switch (ctx.compareOp()?.text) {
+      const compareOp = compareOpKind(ctx.compareOp()!);
+      switch (compareOp) {
         case "=":
           if (isSingleValue(leftChildValue) && isSingleValue(rightChildValue)) {
             results = leftChildValue === rightChildValue;
@@ -1564,21 +1592,19 @@ export class ForgeExprEvaluator
           //   {..} in b  (set ⊆ {b})  -> subset of a singleton
           // isTupleArraySubset already returns true for equal sets and for an
           // empty left-hand set, so a single subset check covers every case.
-          const leftSet: Tuple[] = isSingleValue(leftChildValue)
-            ? [[leftChildValue]]
-            : leftChildValue;
-          const rightSet: Tuple[] = isSingleValue(rightChildValue)
-            ? [[rightChildValue]]
-            : rightChildValue;
-          const membershipResult = isTupleArraySubset(leftSet, rightSet);
-          results = ctx.compareOp()?.text === "ni" ? !membershipResult : membershipResult;
+          const leftSet = asTupleArray(leftChildValue);
+          const rightSet = asTupleArray(rightChildValue);
+          // `a ni b` is reverse containment -- it means `b in a`, NOT `a not in b`.
+          const [subset, superset] =
+            compareOp === "ni" ? [rightSet, leftSet] : [leftSet, rightSet];
+          results = isTupleArraySubset(subset, superset);
           break;
         }
         case "is":
           throw new Error("**NOT IMPLEMENTING FOR NOW** Type Check (`is`)");
         default:
           throw new Error(
-            `Unexpected compare operator provided: ${ctx.compareOp()?.text}`
+            `Unexpected compare operator provided: ${compareOp}`
           );
       }
     }
@@ -1774,15 +1800,29 @@ export class ForgeExprEvaluator
 
   visitExpr10(ctx: Expr10Context): EvalResult {
     //console.log('visiting expr10:', ctx.text);
-    let results: EvalResult = [];
-
     if (ctx.PPLUS_TOK()) {
       if (ctx.expr10() === undefined || ctx.expr11() === undefined) {
         throw new Error("Expected the pplus operator to have 2 operands of the right type!");
       }
-      const leftChildValue = this.visit(ctx.expr10()!);
-      const rightChildValue = this.visit(ctx.expr11()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** pplus (`++`)");
+      const original = asTupleArray(this.visit(ctx.expr10()!));
+      const replacement = asTupleArray(this.visit(ctx.expr11()!));
+
+      // should only work if arities are the same
+      if (
+        original.length > 0 &&
+        replacement.length > 0 &&
+        original[0].length !== replacement[0].length
+      ) {
+        throw new Error("arity mismatch in relational override!");
+      }
+
+      // `p ++ q` overrides by first atom: wherever q has a tuple, every tuple
+      // of p starting at the same atom goes, rather than the two merging.
+      const overridden = new Set(replacement.map((tuple) => tuple[0]));
+      return deduplicateConcat([
+        original.filter((tuple) => !overridden.has(tuple[0])),
+        replacement,
+      ]);
     }
 
     return this.visitChildren(ctx);
@@ -1858,16 +1898,22 @@ export class ForgeExprEvaluator
       if (ctx.expr12() === undefined || ctx.expr13() === undefined) {
         throw new Error("Expected the arrow operator to have 2 operands of the right type!");
       }
+      // `A one -> lone B` constrains a field declaration; as an expression it
+      // denotes nothing beyond the cross product, so evaluating it as one would
+      // silently discard what the author wrote.
+      const arrowOp = ctx.arrowOp()!;
+      if (arrowOp.mult().length > 0 || arrowOp.SET_TOK().length > 0) {
+        throw new Error(
+          `Cannot evaluate the multiplicity annotations in '${arrowOp.text}': ` +
+          "they are declaration and constraint syntax, not part of an expression. " +
+          "Write a plain '->' for the cross product."
+        );
+      }
       const leftChildValue = this.visit(ctx.expr12()!);
       const rightChildValue = this.visit(ctx.expr13()!);
 
-      // Ensure both values are tuple arrays
-      const leftTuples = isSingleValue(leftChildValue) ? [[leftChildValue]] : leftChildValue;
-      const rightTuples = isSingleValue(rightChildValue) ? [[rightChildValue]] : rightChildValue;
-
-      if (!isTupleArray(leftTuples) || !isTupleArray(rightTuples)) {
-        throw new Error("Arrow operator operands must be tuple arrays or single values");
-      }
+      const leftTuples = asTupleArray(leftChildValue);
+      const rightTuples = asTupleArray(rightChildValue);
 
       // Compute the Cartesian product
       const result: Tuple[] = [];
@@ -1886,27 +1932,36 @@ export class ForgeExprEvaluator
 
   visitExpr13(ctx: Expr13Context): EvalResult {
     //console.log('visiting expr13:', ctx.text);
-    let results: EvalResult = [];
 
-    if (ctx.SUPT_TOK()) {
+    // Domain restriction `S <: r` keeps the tuples of r that start in S; range
+    // restriction `r :> S` keeps the ones that end in S. The set is always on
+    // the side the colon faces.
+    const restrictsDomain = ctx.SUBT_TOK() !== undefined;
+    if (restrictsDomain || ctx.SUPT_TOK()) {
       if (ctx.expr13() === undefined || ctx.expr14() === undefined) {
         throw new Error(
-          "Expected the supertype operator to have 2 operands of the right type!"
+          "Expected the restriction operator to have 2 operands of the right type!"
         );
       }
       const leftChildValue = this.visit(ctx.expr13()!);
       const rightChildValue = this.visit(ctx.expr14()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Supertype Operator (`:>`)");
-    }
-    if (ctx.SUBT_TOK()) {
-      if (ctx.expr13() === undefined || ctx.expr14() === undefined) {
+      const [restrictor, relation] = restrictsDomain
+        ? [leftChildValue, rightChildValue]
+        : [rightChildValue, leftChildValue];
+
+      const restrictorTuples = asTupleArray(restrictor);
+      const wrongArity = restrictorTuples.find((tuple) => tuple.length !== 1);
+      if (wrongArity !== undefined) {
         throw new Error(
-          "Expected the subtype operator to have 2 operands of the right type!"
+          `The ${restrictsDomain ? "<:" : ":>"} operator restricts by a set of arity 1, ` +
+          `but its ${restrictsDomain ? "left" : "right"} operand has arity ${wrongArity.length}`
         );
       }
-      const leftChildValue = this.visit(ctx.expr13()!);
-      const rightChildValue = this.visit(ctx.expr14()!);
-      throw new Error("**NOT IMPLEMENTING FOR NOW** Subtype Operator (`<:`)");
+
+      const restrictTo = new Set(restrictorTuples.map((tuple) => tuple[0]));
+      return asTupleArray(relation).filter((tuple) =>
+        restrictTo.has(restrictsDomain ? tuple[0] : tuple[tuple.length - 1])
+      );
     }
 
     return this.visitChildren(ctx);
@@ -2145,8 +2200,6 @@ export class ForgeExprEvaluator
 
   visitExpr18(ctx: Expr18Context): EvalResult {
     // console.log('visiting expr18:', ctx.text);
-    let results: EvalResult = [];
-
     if (ctx.const()) {
       const constant = ctx.const()!;
       if (constant.number() !== undefined) {
@@ -2174,18 +2227,12 @@ export class ForgeExprEvaluator
         // The identity relation contains tuples (x, x) for every atom x in the universe
         const atoms = this.instanceData.getAtoms();
         const idenRelation: Tuple[] = [];
-        
+
         for (const atom of atoms) {
-          let atomValue: SingleValue = atom.id;
-          // Convert numeric and boolean strings to their actual types
-          if (this.isConvertibleToNumber(atomValue)) {
-            atomValue = Number(atomValue);
-          } else if (this.isConvertibleToBoolean(atomValue)) {
-            atomValue = this.convertToBoolean(atomValue);
-          }
-          idenRelation.push([atomValue, atomValue]);
+          const value = this.atomValue(atom.id);
+          idenRelation.push([value, value]);
         }
-        
+
         return idenRelation;
       }
       // Handle univ (universal relation - all atoms)
@@ -2193,18 +2240,11 @@ export class ForgeExprEvaluator
         // The universal relation contains all atoms as unary tuples
         const atoms = this.instanceData.getAtoms();
         const univRelation: Tuple[] = [];
-        
+
         for (const atom of atoms) {
-          let atomValue: SingleValue = atom.id;
-          // Convert numeric and boolean strings to their actual types
-          if (this.isConvertibleToNumber(atomValue)) {
-            atomValue = Number(atomValue);
-          } else if (this.isConvertibleToBoolean(atomValue)) {
-            atomValue = this.convertToBoolean(atomValue);
-          }
-          univRelation.push([atomValue]);
+          univRelation.push([this.atomValue(atom.id)]);
         }
-        
+
         return univRelation;
       }
       // A double-quoted string literal. This is the ONLY way to write a string,
@@ -2229,11 +2269,15 @@ export class ForgeExprEvaluator
       throw new Error("`@` operator is Alloy specific; it is not supported by Forge!");
     }
     if (ctx.BACKQUOTE_TOK()) {
-      const name = this.visitChildren(ctx);
-      results.push(["**UNIMPLEMENTED** Backquoted Name (`` `x` ``)"]);
-
-      // TODO: implement this using name and then return the result
-      return results;
+      // An atom literal: `` `Board0 `` is that one atom of the instance, never
+      // the type or relation that happens to share the name.
+      const atomName = getIdentifierName(ctx.name()!);
+      const atom = this.instanceData.getAtoms().find((a) => a.id === atomName);
+      if (atom === undefined) {
+        this.reportUnresolvedName(atomName);
+        return [];
+      }
+      return [[this.atomValue(atom.id)]];
     }
     if (ctx.THIS_TOK()) {
       throw new Error("`this` is Alloy specific; it is not supported by Forge!");
@@ -2487,15 +2531,7 @@ export class ForgeExprEvaluator
     }
 
     if (result !== undefined) {
-      result = result.map((tuple) =>
-        tuple.map((value) =>
-          this.isConvertibleToNumber(value) ? Number(value) : value
-        )
-      );
-      result = result.map((tuple) =>
-        tuple.map((value) => this.isConvertibleToBoolean(value) ? this.convertToBoolean(value) : value)
-      );
-      return result;
+      return result.map((tuple) => tuple.map((value) => this.atomValue(value)));
     }
 
     // return identifier;
@@ -2518,6 +2554,13 @@ export class ForgeExprEvaluator
     // NOTE: this currently only supports Int; doesn't support other branches
     // of the qualName nonterminal
     //console.log('visiting qualName:', ctx.text);
+
+    // `sum` has its own token, so unlike the other builtins it never reaches
+    // visitName -- without this, `sum[e]` box-joins a relation named `sum`,
+    // which no instance has, and quietly yields the empty set.
+    if (ctx.SUM_TOK()) {
+      return "sum";
+    }
 
 
     //// SP: Commented out this optimization for now///
@@ -2649,41 +2692,57 @@ export class ForgeExprEvaluator
     }
   }
 
+  // Resolve one element of a set-builtin argument to a number. An integer can
+  // reach here as a string -- atom ids are strings, and `@:` projects a label,
+  // so `@:(x.value)` yields "12" rather than 12 -- so a string that names a
+  // number is one, following the same convention as the `univ` branch.
+  private setOperandAsNumber(
+    operation: typeof SUPPORTED_SET_BUILTINS[number],
+    value: SingleValue
+  ): number {
+    // `isConvertibleToNumber` already covers both: it is true for a number, and
+    // for a string that names one, and false for a boolean.
+    if (this.isConvertibleToNumber(value)) {
+      return Number(value);
+    }
+    throw new Error(
+      `${operation} expects all elements to be numbers, got: ${JSON.stringify(value)}`
+    );
+  }
+
   private evaluateSetOperation(
     operation: typeof SUPPORTED_SET_BUILTINS[number],
     args: EvalResult
   ): number {
-    // min and max operate on a set of integers and return the min/max value
+    // min, max and sum operate on a set of integers and return a single value.
     // The argument should be a set (tuple array of arity 1) of numbers
-    
+
     let numbers: number[] = [];
-    
+
     if (isSingleValue(args)) {
-      if (isNumber(args)) {
-        numbers = [args];
-      } else {
-        throw new Error(`Expected a set of numbers for ${operation}`);
-      }
+      numbers = [this.setOperandAsNumber(operation, args)];
     } else if (isTupleArray(args)) {
       // Extract numbers from the tuple array
       for (const tuple of args) {
         if (tuple.length !== 1) {
           throw new Error(`${operation} expects a set of arity 1 (single column)`);
         }
-        const value = tuple[0];
-        if (!isNumber(value)) {
-          throw new Error(`${operation} expects all elements to be numbers, got: ${typeof value}`);
-        }
-        numbers.push(value);
+        numbers.push(this.setOperandAsNumber(operation, tuple[0]));
       }
     } else {
       throw new Error(`Expected a set of numbers for ${operation}`);
     }
-    
+
+    // The empty sum is 0. min and max of an empty set have no value at all,
+    // so they still refuse it.
+    if (operation === "sum") {
+      return numbers.reduce((total, value) => total + value, 0);
+    }
+
     if (numbers.length === 0) {
       throw new Error(`${operation} requires a non-empty set`);
     }
-    
+
     if (operation === "min") {
       return Math.min(...numbers);
     } else if (operation === "max") {
