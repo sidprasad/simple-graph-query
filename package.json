@@ -11,6 +11,7 @@
     "dist/*.d.ts",
     "dist/forge-antlr/*.d.ts",
     "README.md",
+    "LANGUAGE.md",
     "LICENSE"
   ],
   "keywords": [
@@ -33,6 +34,7 @@
     "prepublishOnly": "npm run build:full",
     "serve": "python3 -m http.server 8080",
     "test": "jest",
+    "docs:lang": "node scripts/generate-lang-ref.mjs",
     "antlr4ts": "cd src/forge-antlr && antlr4ts -visitor ForgeLexer.g4 Forge.g4 && cd ../..",
     "release:tag": "git diff-index --quiet HEAD -- || (echo 'Working tree is dirty, commit first' && exit 1) && git tag v$npm_package_version && git push origin v$npm_package_version"
   },
