@@ -7,7 +7,6 @@ import {
   Expr2Context,
   Expr3Context,
   Expr4Context,
-  Expr4_5Context,
   Expr5Context,
   Expr6Context,
   Expr7Context,
@@ -19,7 +18,6 @@ import {
   Expr13Context,
   Expr14Context,
   Expr15Context,
-  Expr16Context,
   Expr17Context,
   Expr18Context,
   ExprListContext,
@@ -1348,7 +1346,7 @@ export class ForgeExprEvaluator
     //console.log('visiting expr4:', ctx.text);
 
     if (ctx.AND_TOK()) {
-      if (ctx.expr4() === undefined || ctx.expr4_5() === undefined) {
+      if (ctx.expr4() === undefined || ctx.expr5() === undefined) {
         throw new Error(
           "Expected the AND operator to have 2 operands of the right type!"
         );
@@ -1361,7 +1359,7 @@ export class ForgeExprEvaluator
         return leftChildValue; // short circuit if the first operand is false
       }
 
-      const rightChildValue = this.visit(ctx.expr4_5()!);
+      const rightChildValue = this.visit(ctx.expr5()!);
       if (!isBoolean(rightChildValue)) {
         throw new Error("AND operator expected 2 boolean operands!");
       }
@@ -1374,70 +1372,14 @@ export class ForgeExprEvaluator
     return childrenResults;
   }
 
-  visitExpr4_5(ctx: Expr4_5Context): EvalResult {
-    //console.log('visiting expr4_5:', ctx.text);
-    let results: EvalResult = [];
-
-    if (ctx.UNTIL_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`until`)"]);
-      // results = results.concat(this.visit(ctx.expr5()[0]));
-      // TODO: get left child value (as per the line commented out line above)
-      //       then get right child value by calling ctx.expr5()[1]
-      //       then apply the UNTIL implementation
-
-      // TODO: returning for now without going to children since this is just
-      // unimplemented
-      return results;
-    }
-    if (ctx.RELEASE_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`release`)"]);
-      // results = results.concat(this.visit(ctx.expr5()[0]));
-      // TODO: get left child value (as per the line commented out line above)
-      //       then get right child value by calling ctx.expr5()[1]
-      //       then apply the RELEASE implementation
-
-      // TODO: returning for now without going to children since this is just
-      // unimplemented
-      return results;
-    }
-    if (ctx.SINCE_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`since`)"]);
-      // results = results.concat(this.visit(ctx.expr5()[0]));
-      // TODO: get left child value (as per the line commented out line above)
-      //       then get right child value by calling ctx.expr5()[1]
-      //       then apply the SINCE implementation
-
-      // TODO: returning for now without going to children since this is just
-      // unimplemented
-      return results;
-    }
-    if (ctx.TRIGGERED_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`triggered`)"]);
-      // results = results.concat(this.visit(ctx.expr5()[0]));
-      // TODO: get left child value (as per the line commented out line above)
-      //       then get right child value by calling ctx.expr5()[1]
-      //       then apply the TRIGGERED implementation
-
-      // TODO: returning for now without going to children since this is just
-      // unimplemented
-      return results;
-    }
-
-    const childrenResults = this.visitChildren(ctx);
-    //console.log('childrenResults in expr4_5:', childrenResults);
-    return childrenResults;
-  }
-
   visitExpr5(ctx: Expr5Context): EvalResult {
     //console.log('visiting expr5:', ctx.text);
-    let results: EvalResult = [];
-
     if (ctx.expr6()) {
       return this.visit(ctx.expr6()!);
     }
 
     if (ctx.expr5() === undefined) {
-      throw new Error("Expected the temporal operator to have 1 operand!");
+      throw new Error("Expected the negation operator to have 1 operand!");
     }
     const childrenResults = this.visit(ctx.expr5()!);
     //console.log('childrenResults in expr5:', childrenResults);
@@ -1449,48 +1391,6 @@ export class ForgeExprEvaluator
         );
       }
       return !childrenResults;
-    }
-    if (ctx.ALWAYS_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`always`)"]);
-      // TODO: implement the ALWAYS operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
-    }
-    if (ctx.EVENTUALLY_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`eventually`)"]);
-      // TODO: implement the EVENTUALLY operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
-    }
-    if (ctx.AFTER_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`after`)"]);
-      // TODO: implement the AFTER operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
-    }
-    if (ctx.BEFORE_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`before`)"]);
-      // TODO: implement the BEFORE operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
-    }
-    if (ctx.ONCE_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`once`)"]);
-      // TODO: implement the ONCE operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
-    }
-    if (ctx.HISTORICALLY_TOK()) {
-      results.push(["**UNIMPLEMENTED** Temporal Operator (`historically`)"]);
-      // TODO: implement the HISTORICALLY operation on the value in childrenResults
-      //       and then return the result
-      //       just returning results as is right now
-      return results;
     }
 
     //console.log('returning from the bottom:', childrenResults);
@@ -2003,12 +1903,12 @@ export class ForgeExprEvaluator
     let results: EvalResult = [];
 
     if (ctx.DOT_TOK()) {
-      if (ctx.expr15() === undefined || ctx.expr16() === undefined) {
+      if (ctx.expr15() === undefined || ctx.expr17() === undefined) {
         throw new Error("Expected the dot operator to have 2 operands of the right type!");
       }
-      
+
       const beforeDotExpr = this.visit(ctx.expr15()!);
-      const afterDotExpr = this.visit(ctx.expr16()!);
+      const afterDotExpr = this.visit(ctx.expr17()!);
       
       // Try to extract the relation name if the right side is a simple identifier/relation name
       let rightRelationName: string | undefined;
@@ -2038,22 +1938,6 @@ export class ForgeExprEvaluator
       return results;
     }
     // return results.concat(this.visitChildren(ctx));
-    return this.visitChildren(ctx);
-  }
-
-  visitExpr16(ctx: Expr16Context): EvalResult {
-    //console.log('visiting expr16:', ctx.text);
-    let results: EvalResult = [];
-
-    if (ctx.PRIME_TOK()) {
-      const leftChildValue = this.visit(ctx.expr16()!);
-      results.push(["**UNIMPLEMENTED** Primed Expression _'"]);
-
-      // TODO: we need to implement PRIME (') using leftChildValue and then return the result
-      //       just returning results here for now
-      return results;
-    }
-
     return this.visitChildren(ctx);
   }
 

@@ -17,6 +17,12 @@ export type EvaluationResult = EvalResult | ErrorResult;
 function createForgeParser(input: string): ForgeParser {
   const inputStream = CharStreams.fromString(input);
   const lexer = new ForgeLexer(inputStream);
+  // Without a throwing listener on the LEXER, an unlexable character (e.g. a
+  // stray `'`, which is no longer a token now that primes are gone) is
+  // reported to the console and silently skipped, and the query evaluates as
+  // if it were never there. Reject it like any other syntax error instead.
+  lexer.removeErrorListeners();
+  lexer.addErrorListener(new ParseErrorListener());
   const tokenStream = new CommonTokenStream(lexer);
   const parser = new ForgeParser(tokenStream);
   parser.buildParseTree = true;

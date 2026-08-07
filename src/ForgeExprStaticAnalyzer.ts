@@ -517,7 +517,7 @@ export class ForgeExprStaticAnalyzer
   visitExpr4(ctx: Expr4Context): Abstract {
     if (ctx.AND_TOK()) {
       const leftCtx = ctx.expr4()!;
-      const rightCtx = ctx.expr4_5()!;
+      const rightCtx = ctx.expr5()!;
       const l = this.visit(leftCtx);
       const r = this.visit(rightCtx);
       const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
@@ -544,17 +544,6 @@ export class ForgeExprStaticAnalyzer
       const inner = this.visit(ctx.expr5()!);
       if (inner.kind === "ill-typed") return inner;
       if (inner.kind === "bool") return { kind: "bool", value: !inner.value };
-      return UNKNOWN;
-    }
-    // Temporal operators are not implemented; bail out conservatively.
-    if (
-      ctx.ALWAYS_TOK() ||
-      ctx.EVENTUALLY_TOK() ||
-      ctx.AFTER_TOK() ||
-      ctx.BEFORE_TOK() ||
-      ctx.ONCE_TOK() ||
-      ctx.HISTORICALLY_TOK()
-    ) {
       return UNKNOWN;
     }
     return this.visitChildren(ctx);
@@ -979,7 +968,7 @@ export class ForgeExprStaticAnalyzer
   visitExpr15(ctx: Expr15Context): Abstract {
     if (ctx.DOT_TOK()) {
       const l = this.visit(ctx.expr15()!);
-      const r = this.visit(ctx.expr16()!);
+      const r = this.visit(ctx.expr17()!);
       const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(l, r);
       if (bail) return bail;
       if (l.kind === "empty" || r.kind === "empty") return { kind: "empty" };

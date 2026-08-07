@@ -138,8 +138,8 @@ These Forge/Alloy features are **not available**:
 | Feature | Syntax | Reason |
 |---------|--------|--------|
 | Let bindings | `let x = e \| body` | Not implemented |
-| Temporal operators | `always`, `eventually`, `after`, `until`, etc. | Requires trace semantics |
-| Primed expressions | `expr'` | Requires state model |
+| Temporal operators | `always`, `eventually`, `after`, `until`, etc. | **Removed from the grammar** — the syntax is a parse error. The former keywords are ordinary identifiers now (a data instance may name things `after`, `once`, ...). |
+| Primed expressions | `expr'` | **Removed from the grammar** — `'` is not a token; it is rejected as a syntax error. |
 | Arrow multiplicities | `A one -> lone B` | Declaration/constraint syntax, no value as an expression |
 
 ## Code Examples

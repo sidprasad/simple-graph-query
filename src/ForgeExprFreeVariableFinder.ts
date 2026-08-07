@@ -10,7 +10,6 @@ import {
   Expr13Context,
   Expr14Context,
   Expr15Context,
-  Expr16Context,
   Expr17Context,
   Expr18Context,
   Expr1Context,
@@ -18,7 +17,6 @@ import {
   Expr2Context,
   Expr3Context,
   Expr4Context,
-  Expr4_5Context,
   Expr5Context,
   Expr6Context,
   Expr7Context,
@@ -264,11 +262,6 @@ export class ForgeExprFreeVariableFinder
     return this.addCtxToFreeVariableMap(ctx, childrenResults);
   }
 
-  visitExpr4_5(ctx: Expr4_5Context): FreeVariables {
-    const childrenResults = this.visitChildren(ctx);
-    return this.addCtxToFreeVariableMap(ctx, childrenResults);
-  }
-
   visitExpr5(ctx: Expr5Context): FreeVariables {
     const childrenResults = this.visitChildren(ctx);
     return this.addCtxToFreeVariableMap(ctx, childrenResults);
@@ -323,11 +316,6 @@ export class ForgeExprFreeVariableFinder
     const childrenResults = this.visitChildren(ctx); // presumably this will include the
     // result from visitName as well (NameContext should be visited in the
     // recursive descent if there is a NameContext in the expr)
-    return this.addCtxToFreeVariableMap(ctx, childrenResults);
-  }
-
-  visitExpr16(ctx: Expr16Context): FreeVariables {
-    const childrenResults = this.visitChildren(ctx);
     return this.addCtxToFreeVariableMap(ctx, childrenResults);
   }
 

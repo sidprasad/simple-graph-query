@@ -56,7 +56,6 @@ import { Expr1_5Context } from "./ForgeParser";
 import { Expr2Context } from "./ForgeParser";
 import { Expr3Context } from "./ForgeParser";
 import { Expr4Context } from "./ForgeParser";
-import { Expr4_5Context } from "./ForgeParser";
 import { Expr5Context } from "./ForgeParser";
 import { Expr6Context } from "./ForgeParser";
 import { Expr7Context } from "./ForgeParser";
@@ -68,7 +67,6 @@ import { Expr12Context } from "./ForgeParser";
 import { Expr13Context } from "./ForgeParser";
 import { Expr14Context } from "./ForgeParser";
 import { Expr15Context } from "./ForgeParser";
-import { Expr16Context } from "./ForgeParser";
 import { Expr17Context } from "./ForgeParser";
 import { Expr18Context } from "./ForgeParser";
 import { ArrowExprContext } from "./ForgeParser";
@@ -470,13 +468,6 @@ export interface ForgeVisitor<Result> extends ParseTreeVisitor<Result> {
 	visitExpr4?: (ctx: Expr4Context) => Result;
 
 	/**
-	 * Visit a parse tree produced by `ForgeParser.expr4_5`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitExpr4_5?: (ctx: Expr4_5Context) => Result;
-
-	/**
 	 * Visit a parse tree produced by `ForgeParser.expr5`.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -552,13 +543,6 @@ export interface ForgeVisitor<Result> extends ParseTreeVisitor<Result> {
 	 * @return the visitor result
 	 */
 	visitExpr15?: (ctx: Expr15Context) => Result;
-
-	/**
-	 * Visit a parse tree produced by `ForgeParser.expr16`.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	visitExpr16?: (ctx: Expr16Context) => Result;
 
 	/**
 	 * Visit a parse tree produced by `ForgeParser.expr17`.
