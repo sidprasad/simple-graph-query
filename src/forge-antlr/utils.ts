@@ -61,7 +61,6 @@ export const FORGE_RESERVED_KEYWORDS = new Set([
   'forge_error', 'checked', 'test', 'expect', 'suite', 'all',
   'sufficient', 'necessary', 'consistent', 'inconsistent', 'with',
   'let', 'bind', 'or', 'xor', 'iff', 'implies', 'else', 'and',
-  'until', 'release', 'since', 'triggered', 'not', 'always',
-  'eventually', 'after', 'before', 'once', 'historically', 'this',
+  'not', 'this',
   'sexpr', 'inst', 'eval', 'example', 'ni', 'no', 'sum', 'Int', 'option'
 ]);

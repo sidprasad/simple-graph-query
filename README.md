@@ -2,6 +2,13 @@
 
 A TypeScript library for evaluating relational + some more expressions with a browser-compatible UMD bundle.
 
+The full language — operators, precedence, reserved words, builtins, and the
+grammar itself — is documented in [LANGUAGE.md](LANGUAGE.md), which is
+**generated from the ANTLR grammars** (`npm run docs:lang`) and kept fresh by
+a test. Note that the language has no temporal fragment: the temporal
+operators (`always`, `until`, ...) and primed expressions (`e'`) were removed
+from the grammar, and their former keywords are ordinary identifiers.
+
 ## License
 
 MIT

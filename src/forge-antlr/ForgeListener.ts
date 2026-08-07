@@ -56,7 +56,6 @@ import { Expr1_5Context } from "./ForgeParser";
 import { Expr2Context } from "./ForgeParser";
 import { Expr3Context } from "./ForgeParser";
 import { Expr4Context } from "./ForgeParser";
-import { Expr4_5Context } from "./ForgeParser";
 import { Expr5Context } from "./ForgeParser";
 import { Expr6Context } from "./ForgeParser";
 import { Expr7Context } from "./ForgeParser";
@@ -68,7 +67,6 @@ import { Expr12Context } from "./ForgeParser";
 import { Expr13Context } from "./ForgeParser";
 import { Expr14Context } from "./ForgeParser";
 import { Expr15Context } from "./ForgeParser";
-import { Expr16Context } from "./ForgeParser";
 import { Expr17Context } from "./ForgeParser";
 import { Expr18Context } from "./ForgeParser";
 import { ArrowExprContext } from "./ForgeParser";
@@ -679,17 +677,6 @@ export interface ForgeListener extends ParseTreeListener {
 	exitExpr4?: (ctx: Expr4Context) => void;
 
 	/**
-	 * Enter a parse tree produced by `ForgeParser.expr4_5`.
-	 * @param ctx the parse tree
-	 */
-	enterExpr4_5?: (ctx: Expr4_5Context) => void;
-	/**
-	 * Exit a parse tree produced by `ForgeParser.expr4_5`.
-	 * @param ctx the parse tree
-	 */
-	exitExpr4_5?: (ctx: Expr4_5Context) => void;
-
-	/**
 	 * Enter a parse tree produced by `ForgeParser.expr5`.
 	 * @param ctx the parse tree
 	 */
@@ -809,17 +796,6 @@ export interface ForgeListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	exitExpr15?: (ctx: Expr15Context) => void;
-
-	/**
-	 * Enter a parse tree produced by `ForgeParser.expr16`.
-	 * @param ctx the parse tree
-	 */
-	enterExpr16?: (ctx: Expr16Context) => void;
-	/**
-	 * Exit a parse tree produced by `ForgeParser.expr16`.
-	 * @param ctx the parse tree
-	 */
-	exitExpr16?: (ctx: Expr16Context) => void;
 
 	/**
 	 * Enter a parse tree produced by `ForgeParser.expr17`.

@@ -284,19 +284,19 @@ describe("ForgeExprStaticAnalyzer — disjoint intersections", () => {
 describe("ForgeExprStaticAnalyzer — block conjunction", () => {
   it("folds a block with any false conjunct to unsat", () => {
     expectUnsat("{ 1 = 2 }");
-    expectUnsat("{ true; false }");
-    expectUnsat("{ 1 = 1; 1 = 2 }");
-    expectUnsat("{ some Thing; 1 < 1 }");
+    expectUnsat("{ true false }");
+    expectUnsat("{ 1 = 1 1 = 2 }");
+    expectUnsat("{ some Thing 1 < 1 }");
   });
 
   it("folds a block of all literal-trues to tautology", () => {
     expectTaut("{ true }");
-    expectTaut("{ 1 = 1; true }");
-    expectTaut("{ 1 < 2; 2 < 3; true }");
+    expectTaut("{ 1 = 1 true }");
+    expectTaut("{ 1 < 2 2 < 3 true }");
   });
 
   it("returns unknown when no conjunct is statically decidable", () => {
-    expectUnknown("{ some Thing; some Other }");
+    expectUnknown("{ some Thing some Other }");
   });
 });
 
@@ -626,7 +626,7 @@ describe("ForgeExprStaticAnalyzer — ill-typed propagates through short-circuit
   });
 
   it("blocks surface ill-typed from any conjunct", () => {
-    expect(withSchema("{ true ; (Player = parent) ; true }").status).toBe("ill-typed");
+    expect(withSchema("{ true (Player = parent) true }").status).toBe("ill-typed");
   });
 });
 

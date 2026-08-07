@@ -114,8 +114,9 @@ describe("grammar.STRING_TOK.lexer-interaction", () => {
       expect(ev.evaluateExpression('"a */ b"')).toBe("a */ b");
     });
 
-    it("keeps an apostrophe as data rather than starting a prime", () => {
-      // `'` is PRIME_TOK outside a literal.
+    it("keeps an apostrophe as data", () => {
+      // `'` is not a token at all (primes left the language); outside a
+      // string literal it is a lexer error, inside one it is just a character.
       expect(ev.evaluateExpression("\"it's\"")).toBe("it's");
       expect(ev.evaluateExpression("\"x'\"")).toBe("x'");
     });
