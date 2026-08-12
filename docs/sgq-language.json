@@ -839,7 +839,7 @@
       "associativity": null,
       "operators": [
         {
-          "id": "empty",
+          "id": "emptySet",
           "spellings": [
             "none"
           ]

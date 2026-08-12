@@ -280,7 +280,7 @@ export const SEMANTICS = new Map(Object.entries({
     name: "constant", example: "none", status: "yes",
     meaning: "`none` (empty set), `univ` (all atoms), `iden` (identity relation), integer literals (incl. negative), and `\"...\"` string literals.",
     id: "constant", fixity: "atom",
-    means: { NONE_TOK: "empty", UNIV_TOK: "universe", IDEN_TOK: "identity" },
+    means: { NONE_TOK: "emptySet", UNIV_TOK: "universe", IDEN_TOK: "identity" },
     parts: { MINUS_TOK: "negation" },
   },
   "qualName": {
@@ -374,7 +374,12 @@ export function walkCascade() {
   return out;
 }
 
-/** The cascade as data: one record per construct, loosest first. */
+/**
+ * The cascade as data: one record per construct, loosest first.
+ *
+ * Operator ids are unique across the whole table, so a consumer can name one
+ * without also naming its construct.
+ */
 export function constructRecords() {
   // Several tokens can fill one role -- an arrow's multiplicity is any of
   // `lone`/`some`/`one`/`two`/`set` -- so a role collects all their spellings.
@@ -385,6 +390,18 @@ export function constructRecords() {
     }
     return roles;
   };
+
+  const claimed = new Map();
+  for (const { entry } of walkCascade()) {
+    for (const id of Object.values(entry.means)) {
+      if (claimed.has(id)) {
+        throw new Error(
+          `Operator id '${id}' is claimed by both '${claimed.get(id)}' and '${entry.id}'. ` +
+          `Ids are the manifest's public names, so they must be unique.`);
+      }
+      claimed.set(id, entry.id);
+    }
+  }
 
   return walkCascade().map(({ level, alt, entry }) => {
     const operands = operandLevels(alt);
