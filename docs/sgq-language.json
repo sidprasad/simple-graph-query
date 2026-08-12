@@ -131,5 +131,891 @@
       "r": "\r"
     },
     "minLength": 0
-  }
+  },
+  "number": {
+    "digits": {
+      "ranges": [
+        [
+          "0",
+          "9"
+        ]
+      ],
+      "chars": []
+    },
+    "decimalPoint": "."
+  },
+  "builtins": {
+    "binary": [
+      "add",
+      "subtract",
+      "multiply",
+      "divide",
+      "remainder"
+    ],
+    "unary": [
+      "abs",
+      "sign",
+      "floor",
+      "ceil"
+    ],
+    "set": [
+      "min",
+      "max",
+      "sum"
+    ]
+  },
+  "constructs": [
+    {
+      "id": "let",
+      "precedence": 0,
+      "fixity": "binder",
+      "evaluates": false,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "let",
+          "spellings": [
+            "let"
+          ]
+        }
+      ],
+      "parts": {
+        "bind": [
+          "="
+        ],
+        "separator": [
+          ","
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "bind",
+      "precedence": 0,
+      "fixity": "binder",
+      "evaluates": false,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "bind",
+          "spellings": [
+            "bind"
+          ]
+        }
+      ],
+      "parts": {
+        "bind": [
+          "="
+        ],
+        "separator": [
+          ","
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "quantifier",
+      "precedence": 0,
+      "fixity": "quantifier",
+      "evaluates": true,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "all",
+          "spellings": [
+            "all"
+          ]
+        },
+        {
+          "id": "no",
+          "spellings": [
+            "no"
+          ]
+        },
+        {
+          "id": "sum",
+          "spellings": [
+            "sum"
+          ]
+        },
+        {
+          "id": "lone",
+          "spellings": [
+            "lone"
+          ]
+        },
+        {
+          "id": "some",
+          "spellings": [
+            "some"
+          ]
+        },
+        {
+          "id": "one",
+          "spellings": [
+            "one"
+          ]
+        },
+        {
+          "id": "two",
+          "spellings": [
+            "two"
+          ]
+        }
+      ],
+      "parts": {
+        "disjoint": [
+          "disj"
+        ],
+        "colon": [
+          ":"
+        ],
+        "separator": [
+          ","
+        ],
+        "domainMultiplicity": [
+          "set"
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "or",
+      "precedence": 1,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        1,
+        2
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "or",
+          "spellings": [
+            "||",
+            "or"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "xor",
+      "precedence": 2,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        2,
+        3
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "xor",
+          "spellings": [
+            "xor"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "iff",
+      "precedence": 3,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        3,
+        4
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "iff",
+          "spellings": [
+            "<=>",
+            "iff"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "implies",
+      "precedence": 4,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        5,
+        4,
+        4
+      ],
+      "inner": null,
+      "associativity": "right",
+      "operators": [
+        {
+          "id": "implies",
+          "spellings": [
+            "implies",
+            "=>"
+          ]
+        }
+      ],
+      "parts": {
+        "else": [
+          "else"
+        ]
+      }
+    },
+    {
+      "id": "and",
+      "precedence": 5,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        5,
+        6
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "and",
+          "spellings": [
+            "&&",
+            "and"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "not",
+      "precedence": 6,
+      "fixity": "prefix",
+      "evaluates": true,
+      "operands": [
+        6
+      ],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "not",
+          "spellings": [
+            "!",
+            "not"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "comparison",
+      "precedence": 7,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        7,
+        8
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "subset",
+          "spellings": [
+            "in"
+          ]
+        },
+        {
+          "id": "equal",
+          "spellings": [
+            "="
+          ]
+        },
+        {
+          "id": "lessThan",
+          "spellings": [
+            "<"
+          ]
+        },
+        {
+          "id": "greaterThan",
+          "spellings": [
+            ">"
+          ]
+        },
+        {
+          "id": "atMost",
+          "spellings": [
+            "<=",
+            "=<"
+          ]
+        },
+        {
+          "id": "atLeast",
+          "spellings": [
+            ">="
+          ]
+        },
+        {
+          "id": "contains",
+          "spellings": [
+            "ni"
+          ]
+        },
+        {
+          "id": "is",
+          "spellings": [
+            "is"
+          ]
+        }
+      ],
+      "parts": {
+        "negation": [
+          "!",
+          "not"
+        ]
+      }
+    },
+    {
+      "id": "multiplicityTest",
+      "precedence": 8,
+      "fixity": "prefix",
+      "evaluates": true,
+      "operands": [
+        9
+      ],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "empty",
+          "spellings": [
+            "no"
+          ]
+        },
+        {
+          "id": "nonEmpty",
+          "spellings": [
+            "some"
+          ]
+        },
+        {
+          "id": "atMostOne",
+          "spellings": [
+            "lone"
+          ]
+        },
+        {
+          "id": "exactlyOne",
+          "spellings": [
+            "one"
+          ]
+        },
+        {
+          "id": "exactlyTwo",
+          "spellings": [
+            "two"
+          ]
+        },
+        {
+          "id": "any",
+          "spellings": [
+            "set"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "unionDifference",
+      "precedence": 9,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        9,
+        11
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "union",
+          "spellings": [
+            "+"
+          ]
+        },
+        {
+          "id": "difference",
+          "spellings": [
+            "-"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "cardinality",
+      "precedence": 10,
+      "fixity": "prefix",
+      "evaluates": true,
+      "operands": [
+        10
+      ],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "cardinality",
+          "spellings": [
+            "#"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "override",
+      "precedence": 11,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        11,
+        12
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "override",
+          "spellings": [
+            "++"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "intersection",
+      "precedence": 12,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        12,
+        13
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "intersection",
+          "spellings": [
+            "&"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "product",
+      "precedence": 13,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        13,
+        14
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "product",
+          "spellings": [
+            "->"
+          ]
+        }
+      ],
+      "parts": {
+        "multiplicity": [
+          "lone",
+          "some",
+          "one",
+          "two",
+          "set"
+        ]
+      }
+    },
+    {
+      "id": "restriction",
+      "precedence": 14,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        14,
+        15
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "domainRestriction",
+          "spellings": [
+            "<:"
+          ]
+        },
+        {
+          "id": "rangeRestriction",
+          "spellings": [
+            ":>"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "application",
+      "precedence": 15,
+      "fixity": "bracket",
+      "evaluates": true,
+      "operands": [
+        15
+      ],
+      "inner": 0,
+      "associativity": null,
+      "operators": [],
+      "parts": {
+        "open": [
+          "["
+        ],
+        "close": [
+          "]"
+        ],
+        "separator": [
+          ","
+        ]
+      }
+    },
+    {
+      "id": "join",
+      "precedence": 16,
+      "fixity": "infix",
+      "evaluates": true,
+      "operands": [
+        16,
+        17
+      ],
+      "inner": null,
+      "associativity": "left",
+      "operators": [
+        {
+          "id": "join",
+          "spellings": [
+            "."
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "appliedName",
+      "precedence": 16,
+      "fixity": "bracket",
+      "evaluates": false,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [],
+      "parts": {
+        "open": [
+          "["
+        ],
+        "close": [
+          "]"
+        ],
+        "separator": [
+          ","
+        ]
+      }
+    },
+    {
+      "id": "unaryPrefix",
+      "precedence": 17,
+      "fixity": "prefix",
+      "evaluates": true,
+      "operands": [
+        17
+      ],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "transpose",
+          "spellings": [
+            "~"
+          ]
+        },
+        {
+          "id": "transitiveClosure",
+          "spellings": [
+            "^"
+          ]
+        },
+        {
+          "id": "reflexiveTransitiveClosure",
+          "spellings": [
+            "*"
+          ]
+        },
+        {
+          "id": "label",
+          "spellings": [
+            "@:"
+          ]
+        },
+        {
+          "id": "labelString",
+          "spellings": [
+            "@str:"
+          ]
+        },
+        {
+          "id": "labelBoolean",
+          "spellings": [
+            "@bool:"
+          ]
+        },
+        {
+          "id": "labelNumber",
+          "spellings": [
+            "@num:"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "constant",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": true,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "empty",
+          "spellings": [
+            "none"
+          ]
+        },
+        {
+          "id": "universe",
+          "spellings": [
+            "univ"
+          ]
+        },
+        {
+          "id": "identity",
+          "spellings": [
+            "iden"
+          ]
+        }
+      ],
+      "parts": {
+        "negation": [
+          "-"
+        ]
+      }
+    },
+    {
+      "id": "name",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": true,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [],
+      "parts": {}
+    },
+    {
+      "id": "atName",
+      "precedence": 18,
+      "fixity": "prefix",
+      "evaluates": false,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "atName",
+          "spellings": [
+            "@"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "atomLiteral",
+      "precedence": 18,
+      "fixity": "prefix",
+      "evaluates": true,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "atomLiteral",
+          "spellings": [
+            "`"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "this",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": false,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "this",
+          "spellings": [
+            "this"
+          ]
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "comprehension",
+      "precedence": 18,
+      "fixity": "comprehension",
+      "evaluates": true,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [],
+      "parts": {
+        "open": [
+          "{"
+        ],
+        "close": [
+          "}"
+        ],
+        "bar": [
+          "|"
+        ],
+        "colon": [
+          ":"
+        ],
+        "separator": [
+          ","
+        ],
+        "disjoint": [
+          "disj"
+        ],
+        "domainMultiplicity": [
+          "set"
+        ]
+      }
+    },
+    {
+      "id": "grouping",
+      "precedence": 18,
+      "fixity": "bracket",
+      "evaluates": true,
+      "operands": [
+        0
+      ],
+      "inner": null,
+      "associativity": null,
+      "operators": [],
+      "parts": {
+        "open": [
+          "("
+        ],
+        "close": [
+          ")"
+        ]
+      }
+    },
+    {
+      "id": "block",
+      "precedence": 18,
+      "fixity": "bracket",
+      "evaluates": true,
+      "operands": [],
+      "inner": 0,
+      "associativity": null,
+      "operators": [],
+      "parts": {
+        "open": [
+          "{"
+        ],
+        "close": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "sexpr",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": false,
+      "operands": [],
+      "inner": null,
+      "associativity": null,
+      "operators": [
+        {
+          "id": "sexpr",
+          "spellings": [
+            "sexpr"
+          ]
+        }
+      ],
+      "parts": {}
+    }
+  ]
 }

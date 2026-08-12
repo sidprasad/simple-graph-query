@@ -10,12 +10,14 @@ operators (`always`, `until`, ...) and primed expressions (`e'`) were removed
 from the grammar, and their former keywords are ordinary identifiers.
 
 Tools that *generate* expressions should read
-[`docs/sgq-language.json`](docs/sgq-language.json) instead of copying the
-lexical rules. It is generated from the same grammar, ships in the package,
-and states the bare-identifier character classes, the reserved spellings, and
-the escape tables for both quoting forms. `test/lexical-manifest.test.ts`
-checks it by encoding names and strings from the manifest alone and running
-them through the lexer.
+[`docs/sgq-language.json`](docs/sgq-language.json) instead of copying the rules
+into their own source. It is generated from the same grammar, ships in the
+package, and states the bare-identifier character classes, the reserved
+spellings, the escape tables for both quoting forms, the builtins, and the
+precedence cascade — each construct with its operator spellings and the level
+each operand descends to, which is what decides parentheses.
+`test/language-manifest.test.ts` checks it by building expressions from the
+manifest alone and running them through the lexer and parser.
 
 ## License
 

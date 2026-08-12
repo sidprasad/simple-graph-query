@@ -43,12 +43,18 @@ reachable by backquoting: `` `set` `` names the *atom* with id `set`.
 
 ### Machine-readable form
 
-Code that *generates* expressions needs the quoting and escaping rules as data
-rather than prose. [`docs/sgq-language.json`](docs/sgq-language.json) carries
-them — the bare-identifier character classes, both quoting forms with their
-escape tables, and every spelling a bare identifier cannot carry. It is
-generated from this same grammar, ships in the npm package, and is checked
-against the real lexer by a test.
+Code that *generates* expressions needs this page's content as data rather than
+as prose. [`docs/sgq-language.json`](docs/sgq-language.json) carries it: the
+bare-identifier character classes, both quoting forms with their escape tables,
+every spelling a bare identifier cannot carry, and the whole cascade below —
+each construct with its spellings, its precedence, and the level each of its
+operands descends to. It is generated from this same grammar, ships in the npm
+package, and is checked against the real lexer and parser by a test.
+
+The parenthesisation rule is the one thing worth restating: a subexpression
+needs parentheses exactly when its own `precedence` is below the level of the
+slot it fills. Those levels are not always the neighbouring one — `+` takes
+its right operand two levels in, so `a + #b` is a parse error.
 
 ## Operators and precedence
 

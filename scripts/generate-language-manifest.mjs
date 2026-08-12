@@ -1,22 +1,24 @@
 #!/usr/bin/env node
-// Generates docs/sgq-language.json — the lexical rules as data — from the
-// ANTLR grammar and the two functions that decode what it lexes.
+// Generates docs/sgq-language.json — the language as data — from the ANTLR
+// grammars and the functions that decode what they lex.
 //
-//   node scripts/generate-lexical-manifest.mjs           # (re)write it
-//   node scripts/generate-lexical-manifest.mjs --check   # exit 1 if stale
+//   node scripts/generate-language-manifest.mjs           # (re)write it
+//   node scripts/generate-language-manifest.mjs --check   # exit 1 if stale
 //
-// LANGUAGE.md tells a *reader* how to spell a name. This tells a *program*:
-// downstream tools that emit expressions (spytial-core, spytial-lean) otherwise
-// hand-copy the character classes, the keyword list, and the escape tables into
-// their own source, where nothing catches the copy going stale.
+// LANGUAGE.md tells a *reader* how to spell an expression. This tells a
+// *program*: downstream tools that emit expressions (spytial-core,
+// spytial-lean) otherwise hand-copy the character classes, the keyword list,
+// the escape tables, and the whole precedence cascade into their own source,
+// where nothing catches the copy going stale.
 //
 // Every field is derived, never transcribed. When a shape below stops matching
 // the grammar, generation fails rather than emitting a plausible manifest.
 
-import { read, TOKENS, bareIdentifier, reservedKeywords, parseCharSet, checkOrWrite }
+import { read, TOKENS, bareIdentifier, reservedKeywords, parseCharSet, builtins, checkOrWrite }
   from "./grammar.mjs";
+import { constructRecords } from "./constructs.mjs";
 
-const fail = (msg) => { throw new Error(`${msg}\nEdit scripts/generate-lexical-manifest.mjs to match.`); };
+const fail = (msg) => { throw new Error(`${msg}\nEdit scripts/generate-language-manifest.mjs to match.`); };
 
 const bodyOf = (name) => TOKENS.get(name)?.body ?? fail(`No token ${name} in the lexer grammar`);
 
@@ -87,6 +89,13 @@ const reserved = [...reservedKeywords()].sort();
 
 // --------------------------------------------------------------------------
 
+// Numbers: `[digits]+ ('.' [digits]+)?`. The leading `-` is not part of the
+// token -- it is the `constant` construct's `negation` part.
+const numberMatch = bodyOf("NUM_CONST_TOK")
+  .match(/^\[((?:[^\]\\]|\\.)*)\]\+ \('(.)' \[((?:[^\]\\]|\\.)*)\]\+\)\?$/);
+if (!numberMatch) fail(`NUM_CONST_TOK is no longer 'digits+ (point digits+)?': ${bodyOf("NUM_CONST_TOK")}`);
+if (numberMatch[1] !== numberMatch[3]) fail("NUM_CONST_TOK uses different digits either side of the point");
+
 const manifest = {
   sgqVersion: JSON.parse(read("package.json")).version,
   identifier: {
@@ -95,6 +104,9 @@ const manifest = {
     reserved,
   },
   string: quotedForm("STRING_TOK", stringDecodes),
+  number: { digits: parseCharSet(numberMatch[1]), decimalPoint: numberMatch[2] },
+  builtins: builtins(),
+  constructs: constructRecords(),
 };
 
 checkOrWrite("docs/sgq-language.json", JSON.stringify(manifest, null, 2) + "\n");

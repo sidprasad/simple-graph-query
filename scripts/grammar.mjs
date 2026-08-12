@@ -123,6 +123,21 @@ export function reservedKeywords() {
   return words;
 }
 
+/** The builtin function names, read from the evaluator's own tables. */
+export function builtins() {
+  const src = read("src/ForgeExprEvaluator.ts");
+  const table = (varName) => {
+    const m = src.match(new RegExp(`${varName}[^=]*= \\[(.*?)\\]`));
+    if (!m) throw new Error(`Could not find ${varName} in ForgeExprEvaluator.ts`);
+    return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
+  };
+  return {
+    binary: table("SUPPORTED_BINARY_BUILTINS"),
+    unary: table("SUPPORTED_UNARY_BUILTINS"),
+    set: table("SUPPORTED_SET_BUILTINS"),
+  };
+}
+
 /**
  * Parse an ANTLR character set body (the text between `[` and `]`) into
  * ranges and single characters, keeping source order.
