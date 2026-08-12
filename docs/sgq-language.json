@@ -1,0 +1,135 @@
+{
+  "sgqVersion": "3.1.0",
+  "identifier": {
+    "bare": {
+      "head": {
+        "ranges": [
+          [
+            "a",
+            "z"
+          ],
+          [
+            "A",
+            "Z"
+          ]
+        ],
+        "chars": [
+          "_",
+          "$",
+          "/"
+        ]
+      },
+      "rest": {
+        "ranges": [
+          [
+            "a",
+            "z"
+          ],
+          [
+            "A",
+            "Z"
+          ],
+          [
+            "0",
+            "9"
+          ]
+        ],
+        "chars": [
+          "_",
+          "$",
+          "/"
+        ]
+      },
+      "minLength": 1
+    },
+    "quoted": {
+      "delimiter": "`",
+      "escape": "\\",
+      "mustEscape": [
+        "`",
+        "\\"
+      ],
+      "escapeDecodes": {},
+      "minLength": 1
+    },
+    "reserved": [
+      "/",
+      "Int",
+      "abstract",
+      "all",
+      "and",
+      "as",
+      "assert",
+      "bind",
+      "but",
+      "check",
+      "checked",
+      "consistent",
+      "disj",
+      "else",
+      "eval",
+      "exactly",
+      "example",
+      "expect",
+      "extends",
+      "for",
+      "forge_error",
+      "fun",
+      "func",
+      "iden",
+      "iff",
+      "implies",
+      "in",
+      "inconsistent",
+      "inst",
+      "is",
+      "let",
+      "lone",
+      "necessary",
+      "ni",
+      "no",
+      "none",
+      "not",
+      "one",
+      "open",
+      "option",
+      "or",
+      "pfunc",
+      "pred",
+      "run",
+      "sat",
+      "set",
+      "sexpr",
+      "sig",
+      "some",
+      "sufficient",
+      "suite",
+      "sum",
+      "test",
+      "theorem",
+      "this",
+      "two",
+      "univ",
+      "unsat",
+      "var",
+      "wheat",
+      "with",
+      "xor"
+    ]
+  },
+  "string": {
+    "delimiter": "\"",
+    "escape": "\\",
+    "mustEscape": [
+      "\"",
+      "\\"
+    ],
+    "escapeDecodes": {
+      "0": "\u0000",
+      "n": "\n",
+      "t": "\t",
+      "r": "\r"
+    },
+    "minLength": 0
+  }
+}

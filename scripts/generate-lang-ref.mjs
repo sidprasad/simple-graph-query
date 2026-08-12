@@ -351,6 +351,15 @@ reachable by backquoting: \`\` \`set\` \`\` names the *atom* with id \`set\`.
 
 ${backquoteOnlyList}
 
+### Machine-readable form
+
+Code that *generates* expressions needs the quoting and escaping rules as data
+rather than prose. [\`docs/sgq-language.json\`](docs/sgq-language.json) carries
+them — the bare-identifier character classes, both quoting forms with their
+escape tables, and every spelling a bare identifier cannot carry. It is
+generated from this same grammar, ships in the npm package, and is checked
+against the real lexer by a test.
+
 ## Operators and precedence
 
 Constructs are listed loosest-binding first; higher numbers bind tighter.
