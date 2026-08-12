@@ -12,80 +12,10 @@
 // documenting it here makes generation FAIL — that is deliberate; it is the
 // same keep-in-sync convention the static analyzer follows for the evaluator.
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { TOKENS, RULES, read, reservedKeywords, checkOrWrite } from "./grammar.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "LANGUAGE.md");
-
-const lexerSrc = readFileSync(join(ROOT, "src/forge-antlr/ForgeLexer.g4"), "utf8");
-const parserSrc = readFileSync(join(ROOT, "src/forge-antlr/Forge.g4"), "utf8");
-const evaluatorSrc = readFileSync(join(ROOT, "src/ForgeExprEvaluator.ts"), "utf8");
-const utilsSrc = readFileSync(join(ROOT, "src/forge-antlr/utils.ts"), "utf8");
-
-// --------------------------------------------------------------------------
-// Grammar parsing
-// --------------------------------------------------------------------------
-
-/** Split on `|` at paren depth 0, outside single-quoted literals. */
-function splitAlternatives(body) {
-  const alts = [];
-  let depth = 0, inQuote = false, cur = "";
-  for (let i = 0; i < body.length; i++) {
-    const c = body[i];
-    if (inQuote) {
-      cur += c;
-      if (c === "\\") { cur += body[++i] ?? ""; continue; }
-      if (c === "'") inQuote = false;
-      continue;
-    }
-    if (c === "'") { inQuote = true; cur += c; continue; }
-    if (c === "(") depth++;
-    if (c === ")") depth--;
-    if (c === "|" && depth === 0) { alts.push(cur.trim()); cur = ""; continue; }
-    cur += c;
-  }
-  if (cur.trim()) alts.push(cur.trim());
-  return alts;
-}
-
-/** ForgeLexer.g4 -> Map(tokenName -> {literals: string[] | null, hidden}). */
-function parseLexerGrammar(src) {
-  const tokens = new Map();
-  for (const line of src.split("\n")) {
-    const m = line.match(/^([A-Z][A-Z_0-9]*)\s*:\s*(.*?);\s*(\/\/.*)?$/);
-    if (!m) continue;
-    const [, name, rawBody] = m;
-    const hidden = /->\s*(skip|channel)/.test(rawBody);
-    const body = rawBody.replace(/->\s*(skip|channel\(\w+\))\s*$/, "").trim();
-    const parts = splitAlternatives(body);
-    const literals = [];
-    let pure = parts.length > 0;
-    for (const p of parts) {
-      const lm = p.match(/^'((?:[^'\\]|\\.)*)'$/);
-      if (lm) literals.push(lm[1].replace(/\\(.)/g, "$1"));
-      else pure = false;
-    }
-    tokens.set(name, { literals: pure ? literals : null, hidden, body, index: tokens.size });
-  }
-  return tokens;
-}
-
-/** Forge.g4 -> Map(ruleName -> alternatives[]), in file order. */
-function parseParserGrammar(src) {
-  const stripped = src.replace(/\/\/[^\n]*/g, "");
-  const rules = new Map();
-  for (const m of stripped.matchAll(/([a-zA-Z_]\w*)\s*:\s*([^;]+);/g)) {
-    const [, name, body] = m;
-    if (name === "grammar" || name === "options") continue;
-    rules.set(name, splitAlternatives(body.replace(/\s+/g, " ").trim()));
-  }
-  return rules;
-}
-
-const TOKENS = parseLexerGrammar(lexerSrc);
-const RULES = parseParserGrammar(parserSrc);
+const evaluatorSrc = read("src/ForgeExprEvaluator.ts");
+const utilsSrc = read("src/forge-antlr/utils.ts");
 
 /** Surface spelling(s) of a token, e.g. AND_TOK -> `&&` / `and`. */
 function lexemes(tokName) {
@@ -249,23 +179,7 @@ for (const rule of cascade) {
 }
 
 // 2. Reserved words derived from the lexer must match FORGE_RESERVED_KEYWORDS.
-//
-// A spelling is unavailable to a bare name when another token claims it. ANTLR
-// takes the longest match and breaks a tie in favour of the rule declared
-// first, so a literal that matches the identifier pattern is claimed by its own
-// token exactly when that token is declared earlier. Hence `/` is reserved
-// (SLASH_TOK precedes IDENTIFIER_TOK) and `//` is not (CCOMMENT follows it).
-const identifierTok = TOKENS.get("IDENTIFIER_TOK");
-const idShape = identifierTok.body.match(/^\[((?:[^\]\\]|\\.)*)\] \[((?:[^\]\\]|\\.)*)\]\*$/);
-if (!idShape) throw new Error(`IDENTIFIER_TOK is no longer 'head rest*': ${identifierTok.body}`);
-const bareName = new RegExp(`^[${idShape[1]}][${idShape[2]}]*$`);
-const reservedFromLexer = new Set();
-for (const { literals, hidden, index } of TOKENS.values()) {
-  if (hidden || !literals || index >= identifierTok.index) continue;
-  for (const lit of literals) {
-    if (bareName.test(lit)) reservedFromLexer.add(lit);
-  }
-}
+const reservedFromLexer = reservedKeywords();
 const utilsMatch = utilsSrc.match(/FORGE_RESERVED_KEYWORDS = new Set\(\[([\s\S]*?)\]\)/);
 if (!utilsMatch) throw new Error("Could not find FORGE_RESERVED_KEYWORDS in utils.ts");
 const reservedFromUtils = new Set([...utilsMatch[1].matchAll(/'([^']+)'/g)].map((m) => m[1]));
@@ -469,20 +383,4 @@ ${grammarAppendix}
 
 // --------------------------------------------------------------------------
 
-const check = process.argv.includes("--check");
-if (check) {
-  let existing = null;
-  try {
-    existing = readFileSync(OUT, "utf8");
-  } catch {
-    // fall through: missing file is stale
-  }
-  if (existing !== doc) {
-    console.error("LANGUAGE.md is stale. Regenerate with: npm run docs:lang");
-    process.exit(1);
-  }
-  console.log("LANGUAGE.md is up to date.");
-} else {
-  writeFileSync(OUT, doc);
-  console.log(`Wrote ${OUT}`);
-}
+checkOrWrite("LANGUAGE.md", doc);
