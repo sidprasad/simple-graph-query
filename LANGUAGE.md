@@ -32,12 +32,14 @@ and `*/`. A `#lang` line is ignored.
 
 ### Reserved words
 
-`/`, `Int`, `abstract`, `all`, `and`, `as`, `assert`, `bind`, `but`, `check`, `checked`, `consistent`, `disj`, `else`, `eval`, `exactly`, `example`, `expect`, `extends`, `for`, `forge_error`, `fun`, `func`, `iden`, `iff`, `implies`, `in`, `inconsistent`, `inst`, `is`, `let`, `lone`, `necessary`, `ni`, `no`, `none`, `not`, `one`, `open`, `option`, `or`, `pfunc`, `pred`, `run`, `sat`, `set`, `sexpr`, `sig`, `some`, `sufficient`, `suite`, `sum`, `test`, `theorem`, `this`, `two`, `univ`, `unsat`, `var`, `wheat`, `with`, `xor`
+`Int`, `abstract`, `all`, `and`, `as`, `assert`, `bind`, `but`, `check`, `checked`, `consistent`, `disj`, `else`, `eval`, `exactly`, `example`, `expect`, `extends`, `for`, `forge_error`, `fun`, `func`, `iden`, `iff`, `implies`, `in`, `inconsistent`, `inst`, `is`, `let`, `lone`, `necessary`, `ni`, `no`, `none`, `not`, `one`, `open`, `option`, `or`, `pfunc`, `pred`, `run`, `sat`, `set`, `sexpr`, `sig`, `some`, `sufficient`, `suite`, `sum`, `test`, `theorem`, `this`, `two`, `univ`, `unsat`, `var`, `wheat`, `with`, `xor`
 
 A data-instance entity whose name collides with a reserved word is still
 reachable by backquoting: `` `set` `` names the *atom* with id `set`.
-Backquoting is also the only way to write `/`, which matches the identifier
-pattern but lexes as the qualified-name separator.
+
+### Names that must be backquoted
+
+`/` matches the identifier pattern but lexes as the qualified-name separator. A name that is exactly `/` can only be written backquoted (`` `/` ``); a name that merely contains it, like `foo/bar`, is an ordinary identifier and needs no quoting.
 
 ## Operators and precedence
 

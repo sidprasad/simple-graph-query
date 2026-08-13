@@ -363,7 +363,22 @@ const grammarAppendix = reachable
   .map((r) => `${r}\n    : ${renderBody(RULES.get(r))}\n    ;`)
   .join("\n\n");
 
-const reservedList = [...reservedFromLexer].sort().map((w) => `\`${w}\``).join(", ");
+// Keywords and other claimed spellings read differently: a skimmer takes a
+// "Reserved words" list as "these strings are special everywhere", which for
+// `/` would wrongly outlaw slashed names like `foo/bar`. So the list holds only
+// word-shaped keywords, and non-word spellings get their own note.
+const wordShaped = /^[A-Za-z_][A-Za-z_0-9]*$/;
+const reservedList = [...reservedFromLexer].filter((w) => wordShaped.test(w))
+  .sort().map((w) => `\`${w}\``).join(", ");
+const backquoteOnlyDescriptions = {
+  "/": "matches the identifier pattern but lexes as the qualified-name separator",
+};
+const backquoteOnlyList = [...reservedFromLexer].filter((w) => !wordShaped.test(w))
+  .sort().map((w) => {
+    const why = backquoteOnlyDescriptions[w];
+    if (!why) throw new Error(`Backquote-only spelling ${w} has no description`);
+    return `\`${w}\` ${why}. A name that is exactly \`${w}\` can only be written backquoted (\`\` \`${w}\` \`\`); a name that merely contains it, like \`foo/bar\`, is an ordinary identifier and needs no quoting.`;
+  }).join("\n\n");
 
 const patternTokenDescriptions = {
   STRING_TOK: 'A double-quoted string literal: `"dark blue"`. Escapes: `\\"`, `\\\\`, `\\n`, `\\t`, `\\r`, `\\0`; any other escaped character stands for itself.',
@@ -417,8 +432,10 @@ ${reservedList}
 
 A data-instance entity whose name collides with a reserved word is still
 reachable by backquoting: \`\` \`set\` \`\` names the *atom* with id \`set\`.
-Backquoting is also the only way to write \`/\`, which matches the identifier
-pattern but lexes as the qualified-name separator.
+
+### Names that must be backquoted
+
+${backquoteOnlyList}
 
 ## Operators and precedence
 
