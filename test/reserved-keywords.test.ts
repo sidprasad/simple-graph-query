@@ -186,6 +186,25 @@ describe("Reserved keyword identifier support", () => {
       const customKeywords = new Set(["my`name"]);
       expect(quoteIfReserved("my`name", customKeywords)).toBe("`my\\`name`");
     });
+
+    it("should quote `/`, which matches the identifier pattern but lexes as SLASH_TOK", () => {
+      expect(quoteIfReserved("/", FORGE_RESERVED_KEYWORDS)).toBe("`/`");
+    });
+
+    it("should leave `//` bare, which ties with CCOMMENT and wins", () => {
+      expect(quoteIfReserved("//", FORGE_RESERVED_KEYWORDS)).toBe("//");
+      const nameCtx = createParser("//").name();
+      expect(nameCtx.exception).toBeUndefined();
+      expect(getIdentifierName(nameCtx)).toBe("//");
+    });
+
+    it("should produce a spelling that parses back to the same name", () => {
+      for (const word of FORGE_RESERVED_KEYWORDS) {
+        const nameCtx = createParser(quoteIfReserved(word, FORGE_RESERVED_KEYWORDS)).name();
+        expect(nameCtx.exception).toBeUndefined();
+        expect(getIdentifierName(nameCtx)).toBe(word);
+      }
+    });
   });
 
   describe("Expression evaluation with reserved keyword types", () => {

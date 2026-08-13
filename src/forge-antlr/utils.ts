@@ -50,10 +50,12 @@ export function quoteIfReserved(identifier: string, reservedKeywords: Set<string
 }
 
 /**
- * Set of all reserved keywords in Forge.
+ * Every spelling a bare name cannot carry: the keywords, and `/`, which matches
+ * the identifier pattern but is claimed by SLASH_TOK.
  * Use with quoteIfReserved() when generating Forge expressions.
  */
 export const FORGE_RESERVED_KEYWORDS = new Set([
+  '/',
   'open', 'as', 'var', 'abstract', 'sig', 'extends', 'in',
   'lone', 'some', 'one', 'two', 'set', 'func', 'pfunc', 'disj',
   'wheat', 'pred', 'fun', 'assert', 'run', 'check', 'for', 'but',
