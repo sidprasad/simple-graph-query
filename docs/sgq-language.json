@@ -173,10 +173,29 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "binders",
+          "style": "bound",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -189,6 +208,11 @@
             "yields": null,
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -218,10 +242,29 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "binders",
+          "style": "bound",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -234,6 +277,11 @@
             "yields": null,
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -263,10 +311,34 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "part",
+          "role": "disjoint",
+          "optional": true
+        },
+        {
+          "item": "binders",
+          "style": "typed",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [],
         "inner": "boolean"
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -279,6 +351,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -291,6 +368,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -303,6 +385,11 @@
             "yields": "number",
             "operands": [],
             "inner": "number"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -315,6 +402,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -327,6 +419,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -339,6 +436,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -351,6 +453,11 @@
             "yields": "boolean",
             "operands": [],
             "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -389,6 +496,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 1
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 2
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -396,6 +516,14 @@
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -412,6 +540,14 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -428,6 +564,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 2
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 3
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -435,6 +584,14 @@
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -450,6 +607,14 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -466,6 +631,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 3
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 4
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -473,6 +651,14 @@
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -489,6 +675,14 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -506,6 +700,33 @@
       ],
       "inner": null,
       "associativity": "right",
+      "template": [
+        {
+          "item": "operand",
+          "level": 5
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 4
+        },
+        {
+          "item": "optional",
+          "items": [
+            {
+              "item": "part",
+              "role": "else",
+              "optional": false
+            },
+            {
+              "item": "operand",
+              "level": 4
+            }
+          ]
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -514,6 +735,15 @@
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -531,6 +761,15 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -551,6 +790,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 5
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 6
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -558,6 +810,14 @@
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -574,6 +834,14 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -589,12 +857,28 @@
       ],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 6
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
           "boolean"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -610,6 +894,13 @@
               "boolean"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -626,6 +917,24 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 7
+        },
+        {
+          "item": "part",
+          "role": "negation",
+          "optional": true
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 8
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
@@ -633,6 +942,14 @@
           "any"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
       },
       "operators": [
         {
@@ -648,6 +965,14 @@
               "any"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -663,6 +988,14 @@
               "any"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -678,6 +1011,14 @@
               "number"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -693,6 +1034,14 @@
               "number"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -709,6 +1058,14 @@
               "number"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -724,6 +1081,14 @@
               "number"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -739,6 +1104,14 @@
               "any"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -754,6 +1127,14 @@
               "any"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         }
       ],
@@ -774,12 +1155,28 @@
       ],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 9
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -794,6 +1191,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -808,6 +1212,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -822,6 +1233,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -836,6 +1254,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -850,6 +1275,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -864,6 +1296,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -880,6 +1319,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 9
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 11
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -887,6 +1339,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "slot0",
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
       },
       "operators": [
         {
@@ -902,6 +1362,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         },
         {
@@ -917,6 +1385,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         }
       ],
@@ -932,12 +1408,28 @@
       ],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 10
+        }
+      ],
       "kinds": {
         "yields": "number",
         "operands": [
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -952,6 +1444,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -968,6 +1467,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 11
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 12
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -975,6 +1487,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "slot0",
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
       },
       "operators": [
         {
@@ -990,6 +1510,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         }
       ],
@@ -1006,6 +1534,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 12
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 13
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -1013,6 +1554,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "slot0",
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
       },
       "operators": [
         {
@@ -1028,6 +1577,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
           }
         }
       ],
@@ -1044,6 +1601,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 13
+        },
+        {
+          "item": "part",
+          "role": "multiplicity",
+          "optional": true
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "part",
+          "role": "multiplicity",
+          "optional": true
+        },
+        {
+          "item": "operand",
+          "level": 14
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -1051,6 +1631,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "sum",
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -1066,6 +1654,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "sum",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -1090,6 +1686,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 14
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 15
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -1097,6 +1706,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -1112,6 +1729,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot1",
+            "slots": [
+              1,
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -1127,6 +1752,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "slot0",
+            "slots": [
+              null,
+              1
+            ],
+            "requires": null
           }
         }
       ],
@@ -1142,12 +1775,40 @@
       ],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "operand",
+          "level": 15
+        },
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "list",
+          "level": 0,
+          "role": "separator"
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [
           null
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "boxJoin",
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [],
       "parts": {
@@ -1173,6 +1834,19 @@
       ],
       "inner": null,
       "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 16
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 17
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
@@ -1180,6 +1854,14 @@
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "join",
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -1195,6 +1877,14 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": "join",
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -1208,10 +1898,36 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "name",
+          "qualified": false
+        },
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "list",
+          "level": 0,
+          "role": "separator"
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [],
       "parts": {
@@ -1236,12 +1952,28 @@
       ],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 17
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [
           "relation"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [
         {
@@ -1256,6 +1988,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": 2,
+            "slots": [
+              2
+            ],
+            "requires": null
           }
         },
         {
@@ -1270,6 +2009,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": 2,
+            "slots": [
+              2
+            ],
+            "requires": null
           }
         },
         {
@@ -1284,6 +2030,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": 2,
+            "slots": [
+              2
+            ],
+            "requires": null
           }
         },
         {
@@ -1298,6 +2051,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -1312,6 +2072,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -1326,6 +2093,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         },
         {
@@ -1340,6 +2114,13 @@
               "relation"
             ],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
           }
         }
       ],
@@ -1353,10 +2134,20 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "constant"
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -1369,6 +2160,11 @@
             "yields": "relation",
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": 1,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -1381,6 +2177,11 @@
             "yields": "relation",
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": 1,
+            "slots": [],
+            "requires": null
           }
         },
         {
@@ -1393,6 +2194,11 @@
             "yields": "relation",
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": 2,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -1410,10 +2216,21 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "name",
+          "qualified": true
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [],
       "parts": {}
@@ -1426,10 +2243,24 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "name",
+          "qualified": false
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -1442,6 +2273,11 @@
             "yields": null,
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -1455,10 +2291,24 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "name",
+          "qualified": false
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": 1,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -1471,6 +2321,11 @@
             "yields": "relation",
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": 1,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -1484,10 +2339,20 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -1500,6 +2365,11 @@
             "yields": null,
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
@@ -1513,10 +2383,36 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "binders",
+          "style": "typed",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
       "kinds": {
         "yields": "relation",
         "operands": [],
         "inner": "boolean"
+      },
+      "arity": {
+        "yields": "binders",
+        "slots": [],
+        "requires": null
       },
       "operators": [],
       "parts": {
@@ -1553,12 +2449,35 @@
       ],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "operand",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
       "kinds": {
         "yields": "operand",
         "operands": [
           "operand"
         ],
         "inner": null
+      },
+      "arity": {
+        "yields": "slot0",
+        "slots": [
+          null
+        ],
+        "requires": null
       },
       "operators": [],
       "parts": {
@@ -1578,10 +2497,31 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "repeat",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
       "kinds": {
         "yields": "boolean",
         "operands": [],
         "inner": "boolean"
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [],
       "parts": {
@@ -1601,10 +2541,20 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        }
+      ],
       "kinds": {
         "yields": null,
         "operands": [],
         "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
       },
       "operators": [
         {
@@ -1617,6 +2567,11 @@
             "yields": null,
             "operands": [],
             "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
           }
         }
       ],
