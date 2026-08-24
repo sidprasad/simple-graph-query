@@ -173,12 +173,23 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "let",
           "spellings": [
             "let"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -207,12 +218,23 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "bind",
           "spellings": [
             "bind"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -241,48 +263,95 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": "boolean",
+        "operands": [],
+        "inner": "boolean"
+      },
       "operators": [
         {
           "id": "all",
           "spellings": [
             "all"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         },
         {
           "id": "no",
           "spellings": [
             "no"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         },
         {
           "id": "sum",
           "spellings": [
             "sum"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [],
+            "inner": "number"
+          }
         },
         {
           "id": "lone",
           "spellings": [
             "lone"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         },
         {
           "id": "some",
           "spellings": [
             "some"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         },
         {
           "id": "one",
           "spellings": [
             "one"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         },
         {
           "id": "two",
           "spellings": [
             "two"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          }
         }
       ],
       "parts": {
@@ -320,13 +389,30 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "or",
           "spellings": [
             "||",
             "or"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -342,12 +428,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "xor",
           "spellings": [
             "xor"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -363,13 +466,30 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "iff",
           "spellings": [
             "<=>",
             "iff"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -386,13 +506,32 @@
       ],
       "inner": null,
       "associativity": "right",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "implies",
           "spellings": [
             "implies",
             "=>"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -412,13 +551,30 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "and",
           "spellings": [
             "&&",
             "and"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -433,13 +589,28 @@
       ],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "not",
           "spellings": [
             "!",
             "not"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -455,55 +626,135 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "any",
+          "any"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "subset",
           "spellings": [
             "in"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "equal",
           "spellings": [
             "="
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "lessThan",
           "spellings": [
             "<"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "greaterThan",
           "spellings": [
             ">"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "atMost",
           "spellings": [
             "<=",
             "=<"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "atLeast",
           "spellings": [
             ">="
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "contains",
           "spellings": [
             "ni"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "is",
           "spellings": [
             "is"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -523,42 +774,97 @@
       ],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "empty",
           "spellings": [
             "no"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "nonEmpty",
           "spellings": [
             "some"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "atMostOne",
           "spellings": [
             "lone"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "exactlyOne",
           "spellings": [
             "one"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "exactlyTwo",
           "spellings": [
             "two"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "any",
           "spellings": [
             "set"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "operand",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -574,18 +880,44 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "union",
           "spellings": [
             "+"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "difference",
           "spellings": [
             "-"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -600,12 +932,27 @@
       ],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "number",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "cardinality",
           "spellings": [
             "#"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -621,12 +968,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "override",
           "spellings": [
             "++"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -642,12 +1006,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "intersection",
           "spellings": [
             "&"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -663,12 +1044,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "product",
           "spellings": [
             "->"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -692,18 +1090,44 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "domainRestriction",
           "spellings": [
             "<:"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "rangeRestriction",
           "spellings": [
             ":>"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -718,6 +1142,13 @@
       ],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [
+          null
+        ],
+        "inner": null
+      },
       "operators": [],
       "parts": {
         "open": [
@@ -742,12 +1173,29 @@
       ],
       "inner": null,
       "associativity": "left",
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "join",
           "spellings": [
             "."
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -760,6 +1208,11 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [],
       "parts": {
         "open": [
@@ -783,48 +1236,111 @@
       ],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
       "operators": [
         {
           "id": "transpose",
           "spellings": [
             "~"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "transitiveClosure",
           "spellings": [
             "^"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "reflexiveTransitiveClosure",
           "spellings": [
             "*"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "label",
           "spellings": [
             "@:"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "string",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "labelString",
           "spellings": [
             "@str:"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "string",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "labelBoolean",
           "spellings": [
             "@bool:"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         },
         {
           "id": "labelNumber",
           "spellings": [
             "@num:"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -837,24 +1353,47 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "emptySet",
           "spellings": [
             "none"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          }
         },
         {
           "id": "universe",
           "spellings": [
             "univ"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          }
         },
         {
           "id": "identity",
           "spellings": [
             "iden"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {
@@ -871,6 +1410,11 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": null
+      },
       "operators": [],
       "parts": {}
     },
@@ -882,12 +1426,23 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "atName",
           "spellings": [
             "@"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -900,12 +1455,23 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "atomLiteral",
           "spellings": [
             "`"
-          ]
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -918,12 +1484,23 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "this",
           "spellings": [
             "this"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {}
@@ -936,6 +1513,11 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": "boolean"
+      },
       "operators": [],
       "parts": {
         "open": [
@@ -971,6 +1553,13 @@
       ],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": "operand",
+        "operands": [
+          "operand"
+        ],
+        "inner": null
+      },
       "operators": [],
       "parts": {
         "open": [
@@ -989,6 +1578,11 @@
       "operands": [],
       "inner": 0,
       "associativity": null,
+      "kinds": {
+        "yields": "boolean",
+        "operands": [],
+        "inner": "boolean"
+      },
       "operators": [],
       "parts": {
         "open": [
@@ -1007,12 +1601,23 @@
       "operands": [],
       "inner": null,
       "associativity": null,
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
       "operators": [
         {
           "id": "sexpr",
           "spellings": [
             "sexpr"
-          ]
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          }
         }
       ],
       "parts": {}

@@ -73,9 +73,18 @@ function mdCode(s) {
   return `\`${s}\``;
 }
 
+/** What the construct is: a set, a number, a truth value, a label. */
+function yieldsColumn(e) {
+  const over = Object.entries(e.opKinds ?? {})
+    .filter(([, k]) => k.yields !== undefined && k.yields !== e.kinds.yields)
+    .map(([tok, k]) => `${lexemes(tok)} ${k.yields}`);
+  const base = e.kinds.yields ?? "—";
+  return over.length ? `${base} (${over.join(", ")})` : base;
+}
+
 const precedenceTable = [
-  "| # | Construct | Example | Operators | Evaluates | Meaning |",
-  "|---|-----------|---------|-----------|:---------:|---------|",
+  "| # | Construct | Example | Operators | Yields | Evaluates | Meaning |",
+  "|---|-----------|---------|-----------|--------|:---------:|---------|",
   ...rows.flatMap(({ entries }, i) =>
     entries.map((e) =>
       [
@@ -84,6 +93,7 @@ const precedenceTable = [
         mdCell(e.name),
         mdCell(mdCode(e.example)),
         mdCell(opsColumn(e)),
+        mdCell(yieldsColumn(e)),
         statusMark(e.status),
         mdCell(e.meaning),
         "",

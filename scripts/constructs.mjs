@@ -106,6 +106,15 @@ function associativityOf(level, operands) {
 // Key = normalized signature (see signatureOf). Missing key => build error.
 //
 // status: "yes" (evaluates), "no" (parses but evaluation is rejected/fails).
+// opStatus: per-operator override of `status`, for a construct the engine runs
+//         except for one spelling -- `a is b` parses and is then rejected while
+//         every other comparison evaluates.
+// kinds:  what the construct yields and what each slot accepts. See KINDS.
+// opKinds: overrides for constructs whose operators differ -- `sum` yields a
+//         number where the other quantifiers yield a boolean, `@bool:` a
+//         boolean where `~` yields a relation. Keyed by token, merged over
+//         `kinds`. test/language-kinds.test.ts checks every `yields` against
+//         what the evaluator actually returns.
 // ops:    token names for the reference's "Operators" column.
 // id:     stable name for the construct, for consumers that generate syntax.
 // fixity: how the construct is written.
@@ -118,12 +127,30 @@ function associativityOf(level, operands) {
 // contain, so a new token in an existing construct fails generation too.
 // --------------------------------------------------------------------------
 
+/**
+ * What an expression is. The evaluator's `EvalResult` is a union that does not
+ * say which arm a construct produces, and nothing in the grammar says it
+ * either, so it is stated here and checked by execution.
+ *
+ *   relation  a set of tuples (a scalar is a singleton)
+ *   number    an integer
+ *   boolean   a formula's truth value
+ *   string    an atom label or a string literal
+ *   operand   whatever the operand is (grouping)
+ *   any       any of the above is accepted here
+ *   null      the construct does not determine it: read its operators, or it
+ *             depends on something the grammar cannot see
+ */
+export const KINDS = ["relation", "number", "boolean", "string", "operand", "any", null];
+
+const K = (yields, operands = [], inner = null) => ({ yields, operands, inner });
+
 export const SEMANTICS = new Map(Object.entries({
   // ---- binders (the `expr` level) ----
   "LET_TOK letDeclList blockOrBar": {
     name: "let binding", example: "let x = e | body", status: "no",
     meaning: "Bind names to expression values inside a body. Parses, but evaluation is not implemented and fails.",
-    id: "let", fixity: "binder",
+    id: "let", fixity: "binder", kinds: K(null, [], null),
     means: { LET_TOK: "let" },
     parts: {
       EQ_TOK: "bind", COMMA_TOK: "separator", BAR_TOK: "bar",
@@ -133,7 +160,7 @@ export const SEMANTICS = new Map(Object.entries({
   "BIND_TOK letDeclList blockOrBar": {
     name: "bind", example: "bind x = e | body", status: "no",
     meaning: "Alloy `bind`. Parses, but evaluation is rejected.",
-    id: "bind", fixity: "binder",
+    id: "bind", fixity: "binder", kinds: K(null, [], null),
     means: { BIND_TOK: "bind" },
     parts: {
       EQ_TOK: "bind", COMMA_TOK: "separator", BAR_TOK: "bar",
@@ -145,6 +172,8 @@ export const SEMANTICS = new Map(Object.entries({
     meaning: "Quantifiers `all`, `no`, `some`, `lone`, `one`, `two`, and the aggregator `sum x: S | intExpr`. " +
       "`disj` requires the bound variables to take pairwise-distinct values. The body must use the bar form (`| expr`).",
     id: "quantifier", fixity: "quantifier",
+    kinds: K("boolean", [], "boolean"),
+    opKinds: { SUM_TOK: { yields: "number", inner: "number" } },
     means: {
       ALL_TOK: "all", NO_TOK: "no", SUM_TOK: "sum",
       LONE_TOK: "lone", SOME_TOK: "some", ONE_TOK: "one", TWO_TOK: "two",
@@ -158,29 +187,35 @@ export const SEMANTICS = new Map(Object.entries({
   // ---- boolean connectives ----
   "_ OR_TOK _": {
     name: "disjunction", example: "a or b", ops: ["OR_TOK"], status: "yes", meaning: "Logical or (short-circuits).",
-    id: "or", fixity: "infix", means: { OR_TOK: "or" }, parts: {},
+    id: "or", fixity: "infix", kinds: K("boolean", ["boolean", "boolean"]),
+    means: { OR_TOK: "or" }, parts: {},
   },
   "_ XOR_TOK _": {
     name: "exclusive or", example: "a xor b", ops: ["XOR_TOK"], status: "yes", meaning: "Logical exclusive or.",
-    id: "xor", fixity: "infix", means: { XOR_TOK: "xor" }, parts: {},
+    id: "xor", fixity: "infix", kinds: K("boolean", ["boolean", "boolean"]),
+    means: { XOR_TOK: "xor" }, parts: {},
   },
   "_ IFF_TOK _": {
     name: "biconditional", example: "a iff b", ops: ["IFF_TOK"], status: "yes", meaning: "Logical if-and-only-if.",
-    id: "iff", fixity: "infix", means: { IFF_TOK: "iff" }, parts: {},
+    id: "iff", fixity: "infix", kinds: K("boolean", ["boolean", "boolean"]),
+    means: { IFF_TOK: "iff" }, parts: {},
   },
   "_ IMP_TOK _ ( ELSE_TOK _ ) ?": {
     name: "implication", example: "a implies b else c", ops: ["IMP_TOK", "ELSE_TOK"], status: "yes",
     meaning: "Implication, with an optional else branch (`a => b else c` means `(a and b) or ((not a) and c)`).",
     id: "implies", fixity: "infix",
+    kinds: K("boolean", ["boolean", "boolean", "boolean"]),
     means: { IMP_TOK: "implies" }, parts: { ELSE_TOK: "else" },
   },
   "_ AND_TOK _": {
     name: "conjunction", example: "a and b", ops: ["AND_TOK"], status: "yes", meaning: "Logical and (short-circuits).",
-    id: "and", fixity: "infix", means: { AND_TOK: "and" }, parts: {},
+    id: "and", fixity: "infix", kinds: K("boolean", ["boolean", "boolean"]),
+    means: { AND_TOK: "and" }, parts: {},
   },
   "NEG_TOK _": {
     name: "negation", example: "not a", ops: ["NEG_TOK"], status: "yes", meaning: "Logical negation of a boolean formula.",
-    id: "not", fixity: "prefix", means: { NEG_TOK: "not" }, parts: {},
+    id: "not", fixity: "prefix", kinds: K("boolean", ["boolean"]),
+    means: { NEG_TOK: "not" }, parts: {},
   },
   // ---- comparisons ----
   "_ NEG_TOK ? compareOp _": {
@@ -189,6 +224,15 @@ export const SEMANTICS = new Map(Object.entries({
       "A scalar is a singleton set, so `in` doubles as membership. A leading `!`/`not` negates the comparison. " +
       "`is` parses but its evaluation is rejected.",
     id: "comparison", fixity: "infix",
+    // `=`, `in` and `ni` compare anything against anything -- a scalar is a
+    // singleton set, so `1 = 1` and `Board = Board` are both fine. The ordered
+    // comparisons want numbers: `Board < Board` is an evaluation error.
+    kinds: K("boolean", ["any", "any"]),
+    opStatus: { IS_TOK: "no" },
+    opKinds: {
+      LT_TOK: { operands: ["number", "number"] }, GT_TOK: { operands: ["number", "number"] },
+      LEQ_TOK: { operands: ["number", "number"] }, GEQ_TOK: { operands: ["number", "number"] },
+    },
     means: {
       IN_TOK: "subset", EQ_TOK: "equal", LT_TOK: "lessThan", GT_TOK: "greaterThan",
       LEQ_TOK: "atMost", GEQ_TOK: "atLeast", NI_TOK: "contains", IS_TOK: "is",
@@ -200,6 +244,10 @@ export const SEMANTICS = new Map(Object.entries({
     name: "multiplicity test", example: "some e", ops: ["NO_TOK", "SOME_TOK", "LONE_TOK", "ONE_TOK", "TWO_TOK", "SET_TOK"], status: "yes",
     meaning: "Cardinality predicates over a set: `no` (empty), `some` (non-empty), `lone` (at most one), `one` (exactly one), `two` (exactly two). `set e` is the identity.",
     id: "multiplicityTest", fixity: "prefix",
+    // `set e` is the identity, so it hands back the operand rather than a
+    // truth value -- the one spelling here that is not a predicate.
+    kinds: K("boolean", ["relation"]),
+    opKinds: { SET_TOK: { yields: "operand" } },
     means: {
       NO_TOK: "empty", SOME_TOK: "nonEmpty", LONE_TOK: "atMostOne",
       ONE_TOK: "exactlyOne", TWO_TOK: "exactlyTwo", SET_TOK: "any",
@@ -211,25 +259,30 @@ export const SEMANTICS = new Map(Object.entries({
     name: "union / difference", example: "a + b", ops: ["PLUS_TOK", "MINUS_TOK"], status: "yes",
     meaning: "Set union and set difference. (For integer arithmetic use the `add[...]`/`subtract[...]` builtins; `1 + 2` is the two-element set.)",
     id: "unionDifference", fixity: "infix",
+    kinds: K("relation", ["relation", "relation"]),
     means: { PLUS_TOK: "union", MINUS_TOK: "difference" }, parts: {},
   },
   "CARD_TOK _": {
     name: "cardinality", example: "#e", ops: ["CARD_TOK"], status: "yes", meaning: "Number of tuples in the set.",
-    id: "cardinality", fixity: "prefix", means: { CARD_TOK: "cardinality" }, parts: {},
+    id: "cardinality", fixity: "prefix", kinds: K("number", ["relation"]),
+    means: { CARD_TOK: "cardinality" }, parts: {},
   },
   "_ PPLUS_TOK _": {
     name: "override", example: "a ++ b", ops: ["PPLUS_TOK"], status: "yes",
     meaning: "Relational override: tuples of `b`, plus the tuples of `a` whose first atom is not a first atom of `b`.",
-    id: "override", fixity: "infix", means: { PPLUS_TOK: "override" }, parts: {},
+    id: "override", fixity: "infix", kinds: K("relation", ["relation", "relation"]),
+    means: { PPLUS_TOK: "override" }, parts: {},
   },
   "_ AMP_TOK _": {
     name: "intersection", example: "a & b", ops: ["AMP_TOK"], status: "yes", meaning: "Set intersection.",
-    id: "intersection", fixity: "infix", means: { AMP_TOK: "intersection" }, parts: {},
+    id: "intersection", fixity: "infix", kinds: K("relation", ["relation", "relation"]),
+    means: { AMP_TOK: "intersection" }, parts: {},
   },
   "_ arrowOp _": {
     name: "product", example: "a -> b", ops: ["ARROW_TOK"], status: "yes",
     meaning: "Cartesian product. Multiplicity annotations (`a one -> lone b`) are declaration syntax and are rejected in expressions.",
     id: "product", fixity: "infix",
+    kinds: K("relation", ["relation", "relation"]),
     means: { ARROW_TOK: "product" },
     parts: {
       LONE_TOK: "multiplicity", SOME_TOK: "multiplicity", ONE_TOK: "multiplicity",
@@ -240,24 +293,30 @@ export const SEMANTICS = new Map(Object.entries({
     name: "restriction", example: "S <: r", ops: ["SUBT_TOK", "SUPT_TOK"], status: "yes",
     meaning: "Domain restriction (`S <: r`: tuples of `r` starting in `S`) and range restriction (`r :> S`: tuples ending in `S`).",
     id: "restriction", fixity: "infix",
+    kinds: K("relation", ["relation", "relation"]),
     means: { SUBT_TOK: "domainRestriction", SUPT_TOK: "rangeRestriction" }, parts: {},
   },
   "_ LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK": {
     name: "box join / builtin call", example: "f[a, b]", ops: ["LEFT_SQUARE_TOK", "RIGHT_SQUARE_TOK"], status: "yes",
     meaning: "`a[b]` is the box join `b.a`. When the callee names a builtin (see the builtin table) it is a function call instead: `add[1, 2]`.",
     id: "application", fixity: "bracket",
+    // Undetermined by the construct: `f[a]` is a join and yields a relation,
+    // `add[1,2]` is a call and yields a number, and which it is depends on
+    // whether the callee names a builtin.
+    kinds: K(null, [null], null),
     means: {},
     parts: { LEFT_SQUARE_TOK: "open", RIGHT_SQUARE_TOK: "close", COMMA_TOK: "separator" },
   },
   "_ DOT_TOK _": {
     name: "join", example: "a.f", ops: ["DOT_TOK"], status: "yes",
     meaning: "Relational join: match the last column of the left operand against the first column of the right.",
-    id: "join", fixity: "infix", means: { DOT_TOK: "join" }, parts: {},
+    id: "join", fixity: "infix", kinds: K("relation", ["relation", "relation"]),
+    means: { DOT_TOK: "join" }, parts: {},
   },
   "name LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK": {
     name: "applied name (grammar corner)", example: "x.f[a]", status: "no",
     meaning: "A bracket application whose callee is parsed as a bare name inside a dot-chain. Redundant with box join; evaluation is not implemented.",
-    id: "appliedName", fixity: "bracket",
+    id: "appliedName", fixity: "bracket", kinds: K(null, [], null),
     means: {},
     parts: { LEFT_SQUARE_TOK: "open", RIGHT_SQUARE_TOK: "close", COMMA_TOK: "separator" },
   },
@@ -268,6 +327,11 @@ export const SEMANTICS = new Map(Object.entries({
     meaning: "`~r` transpose, `^r` transitive closure, `*r` reflexive-transitive closure. " +
       "`@:`/`@str:` label of an atom as a string, `@bool:`/`@num:` label converted to boolean/number (extensions; not Forge).",
     id: "unaryPrefix", fixity: "prefix",
+    kinds: K("relation", ["relation"]),
+    opKinds: {
+      GET_LABEL_TOK: { yields: "string" }, GET_LABEL_STR_TOK: { yields: "string" },
+      GET_LABEL_BOOL_TOK: { yields: "boolean" }, GET_LABEL_NUM_TOK: { yields: "number" },
+    },
     means: {
       TILDE_TOK: "transpose", EXP_TOK: "transitiveClosure", STAR_TOK: "reflexiveTransitiveClosure",
       GET_LABEL_TOK: "label", GET_LABEL_STR_TOK: "labelString",
@@ -280,31 +344,39 @@ export const SEMANTICS = new Map(Object.entries({
     name: "constant", example: "none", status: "yes",
     meaning: "`none` (empty set), `univ` (all atoms), `iden` (identity relation), integer literals (incl. negative), and `\"...\"` string literals.",
     id: "constant", fixity: "atom",
+    // The three named constants are relations; the same alternative also spells
+    // a numeric or string literal, whose kind the lexical sections carry.
+    kinds: K(null), opKinds: {
+      NONE_TOK: { yields: "relation" }, UNIV_TOK: { yields: "relation" },
+      IDEN_TOK: { yields: "relation" },
+    },
     means: { NONE_TOK: "emptySet", UNIV_TOK: "universe", IDEN_TOK: "identity" },
     parts: { MINUS_TOK: "negation" },
   },
   "qualName": {
     name: "name", example: "Person", status: "yes",
     meaning: "A type, relation, atom, or bound variable. An unresolved name evaluates to the empty set and raises an `unresolved-name` diagnostic.",
-    id: "name", fixity: "atom", means: {}, parts: {},
+    id: "name", fixity: "atom", kinds: K("relation"), means: {}, parts: {},
   },
   "AT_TOK name": {
     name: "@name", example: "@x", status: "no", meaning: "Alloy-specific; evaluation is rejected.",
-    id: "atName", fixity: "prefix", means: { AT_TOK: "atName" }, parts: {},
+    id: "atName", fixity: "prefix", kinds: K(null), means: { AT_TOK: "atName" }, parts: {},
   },
   "BACKQUOTE_TOK name": {
     name: "atom literal", example: "`n0", status: "yes",
     meaning: "The atom with exactly this id, bypassing type/relation/variable lookup.",
-    id: "atomLiteral", fixity: "prefix", means: { BACKQUOTE_TOK: "atomLiteral" }, parts: {},
+    id: "atomLiteral", fixity: "prefix", kinds: K("relation"),
+    means: { BACKQUOTE_TOK: "atomLiteral" }, parts: {},
   },
   "THIS_TOK": {
     name: "this", example: "this", status: "no", meaning: "Alloy-specific; evaluation is rejected.",
-    id: "this", fixity: "atom", means: { THIS_TOK: "this" }, parts: {},
+    id: "this", fixity: "atom", kinds: K(null), means: { THIS_TOK: "this" }, parts: {},
   },
   "LEFT_CURLY_TOK quantDeclList blockOrBar RIGHT_CURLY_TOK": {
     name: "set comprehension", example: "{x: S | body}", status: "yes",
     meaning: "The set of bindings satisfying the body. Multiple binders build a relation: `{x: A, y: B | body}` is a set of pairs.",
     id: "comprehension", fixity: "comprehension",
+    kinds: K("relation", [], "boolean"),
     means: {},
     parts: {
       LEFT_CURLY_TOK: "open", RIGHT_CURLY_TOK: "close", BAR_TOK: "bar",
@@ -314,22 +386,59 @@ export const SEMANTICS = new Map(Object.entries({
   },
   "LEFT_PAREN_TOK _ RIGHT_PAREN_TOK": {
     name: "parentheses", example: "(e)", status: "yes", meaning: "Grouping.",
-    id: "grouping", fixity: "bracket",
+    id: "grouping", fixity: "bracket", kinds: K("operand", ["operand"]),
     means: {}, parts: { LEFT_PAREN_TOK: "open", RIGHT_PAREN_TOK: "close" },
   },
   "block": {
     name: "block", example: "{ e1 e2 }", status: "yes",
     meaning: "A conjunction of boolean expressions, separated by whitespace (there is no `;` in the language).",
-    id: "block", fixity: "bracket",
+    id: "block", fixity: "bracket", kinds: K("boolean", [], "boolean"),
     means: {}, parts: { LEFT_CURLY_TOK: "open", RIGHT_CURLY_TOK: "close" },
   },
   "sexpr": {
     name: "s-expression", example: "sexpr", status: "no", meaning: "Reserved for internal use; evaluation is rejected.",
-    id: "sexpr", fixity: "atom", means: { SEXPR_TOK: "sexpr" }, parts: {},
+    id: "sexpr", fixity: "atom", kinds: K(null), means: { SEXPR_TOK: "sexpr" }, parts: {},
   },
 }));
 
 // --------------------------------------------------------------------------
+
+/**
+ * The kinds an entry declares have to line up with the shape the grammar gives
+ * it: one per operand slot, and an inner kind exactly where there is an inner
+ * position. An override may only name a token the construct actually spells.
+ */
+function checkKinds(entry, alt) {
+  const where = `SEMANTICS entry '${entry.id}'`;
+  const k = entry.kinds ?? (() => { throw new Error(`${where} declares no kinds`); })();
+  const bad = (kind) => !KINDS.includes(kind ?? null);
+  const slots = operandLevels(alt).length;
+  const inner = innerLevel(alt);
+  const check = (kinds, what) => {
+    if (bad(kinds.yields)) throw new Error(`${where}${what}: unknown kind ${JSON.stringify(kinds.yields)}`);
+    if (kinds.operands.length !== slots) {
+      throw new Error(`${where}${what}: ${kinds.operands.length} operand kinds for ${slots} operand slots`);
+    }
+    for (const o of kinds.operands) {
+      if (bad(o)) throw new Error(`${where}${what}: unknown operand kind ${JSON.stringify(o)}`);
+    }
+    if (bad(kinds.inner)) throw new Error(`${where}${what}: unknown inner kind ${JSON.stringify(kinds.inner)}`);
+    if (inner === null && kinds.inner !== null) {
+      throw new Error(`${where}${what}: declares an inner kind, but the alternative has no inner position`);
+    }
+  };
+  check(k, "");
+  for (const [table, name] of [[entry.opKinds, "opKinds"], [entry.opStatus, "opStatus"]]) {
+    for (const token of Object.keys(table ?? {})) {
+      if (!(token in entry.means)) {
+        throw new Error(`${where}: ${name} names ${token}, which is not one of its operators`);
+      }
+    }
+  }
+  for (const [token, over] of Object.entries(entry.opKinds ?? {})) {
+    check({ ...k, ...over }, `.${entry.means[token]}`);
+  }
+}
 
 const spellingsOf = (token) => {
   const t = TOKENS.get(token);
@@ -368,6 +477,7 @@ export function walkCascade() {
         );
       }
       for (const t of described) spellingsOf(t);
+      checkKinds(entry, alt);
       out.push({ rule, level, alt, sig, entry });
     }
   });
@@ -413,8 +523,14 @@ export function constructRecords() {
       operands,
       inner: innerLevel(alt),
       associativity: associativityOf(level, operands),
-      operators: Object.entries(entry.means)
-        .map(([token, id]) => ({ id, spellings: spellingsOf(token) })),
+      kinds: entry.kinds,
+      operators: Object.entries(entry.means).map(([token, id]) => ({
+        id,
+        spellings: spellingsOf(token),
+        evaluates: (entry.opStatus?.[token] ?? entry.status) === "yes",
+        // merged, so a consumer reads one place rather than two
+        kinds: { ...entry.kinds, ...(entry.opKinds?.[token] ?? {}) },
+      })),
       parts: byRole(entry.parts),
     };
   });
