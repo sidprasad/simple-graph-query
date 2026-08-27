@@ -212,10 +212,13 @@ function templateOf(alt, entry) {
   if (levels.join() !== expected.join()) {
     throw new Error(`${where}: template operands [${levels}] do not match the alternative's [${expected}]`);
   }
-  const innerItems = template.flatMap((i) => ("level" in i && i.item !== "operand" ? [i.level] : []));
+  const innerItems = (items) => items.flatMap((i) =>
+    i.item === "optional" ? innerItems(i.items)
+    : "level" in i && i.item !== "operand" ? [i.level] : []);
+  const found = innerItems(template);
   const inner = innerLevel(alt);
-  if (innerItems.some((l) => l !== inner)) {
-    throw new Error(`${where}: template inner levels [${innerItems}] do not match the alternative's ${inner}`);
+  if (found.some((l) => l !== inner)) {
+    throw new Error(`${where}: template inner levels [${found}] do not match the alternative's ${inner}`);
   }
   return template;
 }
@@ -281,15 +284,25 @@ const K = (yields, operands = [], inner = null) => ({ yields, operands, inner })
  * needs it. The vocabulary below is closed; test/language-arity.test.ts runs a
  * witness per rule and measures the tuples that come back.
  *
- *   slot0/slot1  the result is as wide as that operand
- *   sum          the two operands' widths added (`->`)
- *   join         `a + b - 2`, and an error when that is below 1 (`.`)
- *   boxJoin      join folded over the argument list (`f[a, b]`)
- *   binders      one column per binder (`{x, y: S | ...}`)
- *   <number>     a fixed width
- *   null         the construct does not produce a relation
+ * Each rule is tagged and carries its own parameters, the same shape as a
+ * template item, so a consumer switches on `rule` and never parses a spelling.
+ * `null` means the construct does not produce a relation.
+ *
+ *   slot     as wide as operand `index`
+ *   fixed    a fixed `width`
+ *   sum      the two operands' widths added (`->`)
+ *   join     `a + b - 2`, and an error when that is below 1 (`.`)
+ *   boxJoin  join folded over the argument list (`f[a, b]`)
+ *   binders  one column per binder (`{x, y: S | ...}`)
  */
-export const ARITY_YIELDS = ["slot0", "slot1", "sum", "join", "boxJoin", "binders", null];
+export const Y = {
+  slot: (index) => ({ rule: "slot", index }),
+  fixed: (width) => ({ rule: "fixed", width }),
+  sum: { rule: "sum" },
+  join: { rule: "join" },
+  boxJoin: { rule: "boxJoin" },
+  binders: { rule: "binders" },
+};
 
 /**
  * `slots` is the width each operand must have (null = any), which the
@@ -404,7 +417,7 @@ export const SEMANTICS = new Map(Object.entries({
     // truth value -- the one spelling here that is not a predicate.
     kinds: K("boolean", ["relation"]), arity: A(),
     opKinds: { SET_TOK: { yields: "operand" } },
-    opArity: { SET_TOK: { yields: "slot0" } },
+    opArity: { SET_TOK: { yields: Y.slot(0) } },
     means: {
       NO_TOK: "empty", SOME_TOK: "nonEmpty", LONE_TOK: "atMostOne",
       ONE_TOK: "exactlyOne", TWO_TOK: "exactlyTwo", SET_TOK: "any",
@@ -416,7 +429,7 @@ export const SEMANTICS = new Map(Object.entries({
     name: "union / difference", example: "a + b", ops: ["PLUS_TOK", "MINUS_TOK"], status: "yes",
     meaning: "Set union and set difference. (For integer arithmetic use the `add[...]`/`subtract[...]` builtins; `1 + 2` is the two-element set.)",
     id: "unionDifference", fixity: "infix",
-    kinds: K("relation", ["relation", "relation"]), arity: A("slot0", null, "equal"),
+    kinds: K("relation", ["relation", "relation"]), arity: A(Y.slot(0), null, "equal"),
     means: { PLUS_TOK: "union", MINUS_TOK: "difference" }, parts: {},
   },
   "CARD_TOK _": {
@@ -428,20 +441,20 @@ export const SEMANTICS = new Map(Object.entries({
     name: "override", example: "a ++ b", ops: ["PPLUS_TOK"], status: "yes",
     meaning: "Relational override: tuples of `b`, plus the tuples of `a` whose first atom is not a first atom of `b`.",
     id: "override", fixity: "infix", kinds: K("relation", ["relation", "relation"]),
-    arity: A("slot0", null, "equal"),
+    arity: A(Y.slot(0), null, "equal"),
     means: { PPLUS_TOK: "override" }, parts: {},
   },
   "_ AMP_TOK _": {
     name: "intersection", example: "a & b", ops: ["AMP_TOK"], status: "yes", meaning: "Set intersection.",
     id: "intersection", fixity: "infix", kinds: K("relation", ["relation", "relation"]),
-    arity: A("slot0", null, "equal"),
+    arity: A(Y.slot(0), null, "equal"),
     means: { AMP_TOK: "intersection" }, parts: {},
   },
   "_ arrowOp _": {
     name: "product", example: "a -> b", ops: ["ARROW_TOK"], status: "yes",
     meaning: "Cartesian product. Multiplicity annotations (`a one -> lone b`) are declaration syntax and are rejected in expressions.",
     id: "product", fixity: "infix",
-    kinds: K("relation", ["relation", "relation"]), arity: A("sum"),
+    kinds: K("relation", ["relation", "relation"]), arity: A(Y.sum),
     means: { ARROW_TOK: "product" },
     parts: {
       LONE_TOK: "multiplicity", SOME_TOK: "multiplicity", ONE_TOK: "multiplicity",
@@ -455,8 +468,8 @@ export const SEMANTICS = new Map(Object.entries({
     kinds: K("relation", ["relation", "relation"]), arity: A(),
     // The restrictor is a set, and the restricted side survives whole.
     opArity: {
-      SUBT_TOK: { slots: [1, null], yields: "slot1" },
-      SUPT_TOK: { slots: [null, 1], yields: "slot0" },
+      SUBT_TOK: { slots: [1, null], yields: Y.slot(1) },
+      SUPT_TOK: { slots: [null, 1], yields: Y.slot(0) },
     },
     means: { SUBT_TOK: "domainRestriction", SUPT_TOK: "rangeRestriction" }, parts: {},
   },
@@ -467,14 +480,14 @@ export const SEMANTICS = new Map(Object.entries({
     // Undetermined by the construct: `f[a]` is a join and yields a relation,
     // `add[1,2]` is a call and yields a number, and which it is depends on
     // whether the callee names a builtin.
-    kinds: K(null, [null], null), arity: A("boxJoin"),
+    kinds: K(null, [null], null), arity: A(Y.boxJoin),
     means: {},
     parts: { LEFT_SQUARE_TOK: "open", RIGHT_SQUARE_TOK: "close", COMMA_TOK: "separator" },
   },
   "_ DOT_TOK _": {
     name: "join", example: "a.f", ops: ["DOT_TOK"], status: "yes",
     meaning: "Relational join: match the last column of the left operand against the first column of the right.",
-    id: "join", fixity: "infix", kinds: K("relation", ["relation", "relation"]), arity: A("join"),
+    id: "join", fixity: "infix", kinds: K("relation", ["relation", "relation"]), arity: A(Y.join),
     means: { DOT_TOK: "join" }, parts: {},
   },
   "name LEFT_SQUARE_TOK exprList RIGHT_SQUARE_TOK": {
@@ -495,8 +508,8 @@ export const SEMANTICS = new Map(Object.entries({
     // The three relational prefixes are binary-only; a label projection maps
     // over whatever it is given, so it constrains nothing.
     opArity: {
-      TILDE_TOK: { slots: [2], yields: 2 }, EXP_TOK: { slots: [2], yields: 2 },
-      STAR_TOK: { slots: [2], yields: 2 },
+      TILDE_TOK: { slots: [2], yields: Y.fixed(2) }, EXP_TOK: { slots: [2], yields: Y.fixed(2) },
+      STAR_TOK: { slots: [2], yields: Y.fixed(2) },
     },
     opKinds: {
       GET_LABEL_TOK: { yields: "string" }, GET_LABEL_STR_TOK: { yields: "string" },
@@ -522,7 +535,8 @@ export const SEMANTICS = new Map(Object.entries({
       IDEN_TOK: { yields: "relation" },
     },
     opArity: {
-      NONE_TOK: { yields: 1 }, UNIV_TOK: { yields: 1 }, IDEN_TOK: { yields: 2 },
+      NONE_TOK: { yields: Y.fixed(1) }, UNIV_TOK: { yields: Y.fixed(1) },
+      IDEN_TOK: { yields: Y.fixed(2) },
     },
     means: { NONE_TOK: "emptySet", UNIV_TOK: "universe", IDEN_TOK: "identity" },
     parts: { MINUS_TOK: "negation" },
@@ -541,7 +555,7 @@ export const SEMANTICS = new Map(Object.entries({
   "BACKQUOTE_TOK name": {
     name: "atom literal", example: "`n0", status: "yes",
     meaning: "The atom with exactly this id, bypassing type/relation/variable lookup.",
-    id: "atomLiteral", fixity: "prefix", kinds: K("relation"), arity: A(1),
+    id: "atomLiteral", fixity: "prefix", kinds: K("relation"), arity: A(Y.fixed(1)),
     means: { BACKQUOTE_TOK: "atomLiteral" }, parts: {},
   },
   "THIS_TOK": {
@@ -553,7 +567,7 @@ export const SEMANTICS = new Map(Object.entries({
     name: "set comprehension", example: "{x: S | body}", status: "yes",
     meaning: "The set of bindings satisfying the body. Multiple binders build a relation: `{x: A, y: B | body}` is a set of pairs.",
     id: "comprehension", fixity: "comprehension",
-    kinds: K("relation", [], "boolean"), arity: A("binders"),
+    kinds: K("relation", [], "boolean"), arity: A(Y.binders),
     means: {},
     parts: {
       LEFT_CURLY_TOK: "open", RIGHT_CURLY_TOK: "close", BAR_TOK: "bar",
@@ -563,7 +577,7 @@ export const SEMANTICS = new Map(Object.entries({
   },
   "LEFT_PAREN_TOK _ RIGHT_PAREN_TOK": {
     name: "parentheses", example: "(e)", status: "yes", meaning: "Grouping.",
-    id: "grouping", fixity: "bracket", kinds: K("operand", ["operand"]), arity: A("slot0"),
+    id: "grouping", fixity: "bracket", kinds: K("operand", ["operand"]), arity: A(Y.slot(0)),
     means: {}, parts: { LEFT_PAREN_TOK: "open", RIGHT_PAREN_TOK: "close" },
   },
   "block": {
@@ -642,18 +656,27 @@ function checkArity(entry, alt) {
       }
     }
     const y = a.yields;
-    if (Number.isInteger(y)) {
-      if (y < 1) throw new Error(`${where}${what}: yields arity ${y}`);
-    } else if (!ARITY_YIELDS.includes(y ?? null)) {
-      throw new Error(`${where}${what}: unknown arity rule ${JSON.stringify(y)}`);
-    } else if (typeof y === "string" && y.startsWith("slot")) {
-      if (Number(y.slice(4)) >= slots) throw new Error(`${where}${what}: ${y} but there are ${slots} operand slots`);
-    } else if ((y === "sum" || y === "join") && slots !== 2) {
-      throw new Error(`${where}${what}: '${y}' needs two operands, this has ${slots}`);
-    } else if (y === "binders" && !has("binders")) {
-      throw new Error(`${where}${what}: 'binders' but the construct has no binder list`);
-    } else if (y === "boxJoin" && !has("list")) {
-      throw new Error(`${where}${what}: 'boxJoin' but the construct has no argument list`);
+    if (y !== null) {
+      const bad = (msg) => { throw new Error(`${where}${what}: ${msg}`); };
+      // This table is the closed vocabulary: a rule with no entry is unknown,
+      // so adding one to Y without a check here fails rather than passes.
+      const checks = {
+        slot: () => {
+          if (!(Number.isInteger(y.index) && y.index >= 0 && y.index < slots))
+            bad(`slot ${JSON.stringify(y.index)} but there are ${slots} operand slots`);
+        },
+        fixed: () => {
+          if (!(Number.isInteger(y.width) && y.width > 0))
+            bad(`fixed width ${JSON.stringify(y.width)}`);
+        },
+        sum: () => { if (slots !== 2) bad(`'sum' needs two operands, this has ${slots}`); },
+        join: () => { if (slots !== 2) bad(`'join' needs two operands, this has ${slots}`); },
+        binders: () => { if (!has("binders")) bad("'binders' but the construct has no binder list"); },
+        boxJoin: () => { if (!has("list")) bad("'boxJoin' but the construct has no argument list"); },
+      };
+      const check = checks[y?.rule];
+      if (!check) bad(`unknown arity rule ${JSON.stringify(y)}`);
+      check();
     }
     if (a.requires !== null && a.requires !== "equal") {
       throw new Error(`${where}${what}: unknown arity constraint ${JSON.stringify(a.requires)}`);
@@ -760,8 +783,6 @@ export function constructRecords() {
       precedence: level,
       fixity: entry.fixity,
       evaluates: entry.status === "yes",
-      operands,
-      inner: innerLevel(alt),
       associativity: associativityOf(level, operands),
       template: templateOf(alt, entry),
       kinds: entry.kinds,

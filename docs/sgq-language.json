@@ -4,14 +4,14 @@
     "bare": {
       "head": {
         "ranges": [
-          [
-            "a",
-            "z"
-          ],
-          [
-            "A",
-            "Z"
-          ]
+          {
+            "from": "a",
+            "to": "z"
+          },
+          {
+            "from": "A",
+            "to": "Z"
+          }
         ],
         "chars": [
           "_",
@@ -21,18 +21,18 @@
       },
       "rest": {
         "ranges": [
-          [
-            "a",
-            "z"
-          ],
-          [
-            "A",
-            "Z"
-          ],
-          [
-            "0",
-            "9"
-          ]
+          {
+            "from": "a",
+            "to": "z"
+          },
+          {
+            "from": "A",
+            "to": "Z"
+          },
+          {
+            "from": "0",
+            "to": "9"
+          }
         ],
         "chars": [
           "_",
@@ -135,10 +135,10 @@
   "number": {
     "digits": {
       "ranges": [
-        [
-          "0",
-          "9"
-        ]
+        {
+          "from": "0",
+          "to": "9"
+        }
       ],
       "chars": []
     },
@@ -170,8 +170,6 @@
       "precedence": 0,
       "fixity": "binder",
       "evaluates": false,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -239,8 +237,6 @@
       "precedence": 0,
       "fixity": "binder",
       "evaluates": false,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -308,8 +304,6 @@
       "precedence": 0,
       "fixity": "quantifier",
       "evaluates": true,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -490,11 +484,6 @@
       "precedence": 1,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        1,
-        2
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -558,11 +547,6 @@
       "precedence": 2,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        2,
-        3
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -625,11 +609,6 @@
       "precedence": 3,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        3,
-        4
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -693,12 +672,6 @@
       "precedence": 4,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        5,
-        4,
-        4
-      ],
-      "inner": null,
       "associativity": "right",
       "template": [
         {
@@ -784,11 +757,6 @@
       "precedence": 5,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        5,
-        6
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -852,10 +820,6 @@
       "precedence": 6,
       "fixity": "prefix",
       "evaluates": true,
-      "operands": [
-        6
-      ],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -911,11 +875,6 @@
       "precedence": 7,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        7,
-        8
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1150,10 +1109,6 @@
       "precedence": 8,
       "fixity": "prefix",
       "evaluates": true,
-      "operands": [
-        9
-      ],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -1298,7 +1253,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null
             ],
@@ -1313,11 +1271,6 @@
       "precedence": 9,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        9,
-        11
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1341,7 +1294,10 @@
         "inner": null
       },
       "arity": {
-        "yields": "slot0",
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
         "slots": [
           null,
           null
@@ -1364,7 +1320,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null,
               null
@@ -1387,7 +1346,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null,
               null
@@ -1403,10 +1365,6 @@
       "precedence": 10,
       "fixity": "prefix",
       "evaluates": true,
-      "operands": [
-        10
-      ],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -1461,11 +1419,6 @@
       "precedence": 11,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        11,
-        12
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1489,7 +1442,10 @@
         "inner": null
       },
       "arity": {
-        "yields": "slot0",
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
         "slots": [
           null,
           null
@@ -1512,7 +1468,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null,
               null
@@ -1528,11 +1487,6 @@
       "precedence": 12,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        12,
-        13
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1556,7 +1510,10 @@
         "inner": null
       },
       "arity": {
-        "yields": "slot0",
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
         "slots": [
           null,
           null
@@ -1579,7 +1536,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null,
               null
@@ -1595,11 +1555,6 @@
       "precedence": 13,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        13,
-        14
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1633,7 +1588,9 @@
         "inner": null
       },
       "arity": {
-        "yields": "sum",
+        "yields": {
+          "rule": "sum"
+        },
         "slots": [
           null,
           null
@@ -1656,7 +1613,9 @@
             "inner": null
           },
           "arity": {
-            "yields": "sum",
+            "yields": {
+              "rule": "sum"
+            },
             "slots": [
               null,
               null
@@ -1680,11 +1639,6 @@
       "precedence": 14,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        14,
-        15
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1731,7 +1685,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot1",
+            "yields": {
+              "rule": "slot",
+              "index": 1
+            },
             "slots": [
               1,
               null
@@ -1754,7 +1711,10 @@
             "inner": null
           },
           "arity": {
-            "yields": "slot0",
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
             "slots": [
               null,
               1
@@ -1770,10 +1730,6 @@
       "precedence": 15,
       "fixity": "bracket",
       "evaluates": true,
-      "operands": [
-        15
-      ],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -1804,7 +1760,9 @@
         "inner": null
       },
       "arity": {
-        "yields": "boxJoin",
+        "yields": {
+          "rule": "boxJoin"
+        },
         "slots": [
           null
         ],
@@ -1828,11 +1786,6 @@
       "precedence": 16,
       "fixity": "infix",
       "evaluates": true,
-      "operands": [
-        16,
-        17
-      ],
-      "inner": null,
       "associativity": "left",
       "template": [
         {
@@ -1856,7 +1809,9 @@
         "inner": null
       },
       "arity": {
-        "yields": "join",
+        "yields": {
+          "rule": "join"
+        },
         "slots": [
           null,
           null
@@ -1879,7 +1834,9 @@
             "inner": null
           },
           "arity": {
-            "yields": "join",
+            "yields": {
+              "rule": "join"
+            },
             "slots": [
               null,
               null
@@ -1895,8 +1852,6 @@
       "precedence": 16,
       "fixity": "bracket",
       "evaluates": false,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -1947,10 +1902,6 @@
       "precedence": 17,
       "fixity": "prefix",
       "evaluates": true,
-      "operands": [
-        17
-      ],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -1990,7 +1941,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 2,
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
             "slots": [
               2
             ],
@@ -2011,7 +1965,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 2,
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
             "slots": [
               2
             ],
@@ -2032,7 +1989,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 2,
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
             "slots": [
               2
             ],
@@ -2131,8 +2091,6 @@
       "precedence": 18,
       "fixity": "atom",
       "evaluates": true,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2162,7 +2120,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 1,
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
             "slots": [],
             "requires": null
           }
@@ -2179,7 +2140,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 1,
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
             "slots": [],
             "requires": null
           }
@@ -2196,7 +2160,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 2,
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
             "slots": [],
             "requires": null
           }
@@ -2213,8 +2180,6 @@
       "precedence": 18,
       "fixity": "atom",
       "evaluates": true,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2240,8 +2205,6 @@
       "precedence": 18,
       "fixity": "prefix",
       "evaluates": false,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2288,8 +2251,6 @@
       "precedence": 18,
       "fixity": "prefix",
       "evaluates": true,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2306,7 +2267,10 @@
         "inner": null
       },
       "arity": {
-        "yields": 1,
+        "yields": {
+          "rule": "fixed",
+          "width": 1
+        },
         "slots": [],
         "requires": null
       },
@@ -2323,7 +2287,10 @@
             "inner": null
           },
           "arity": {
-            "yields": 1,
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
             "slots": [],
             "requires": null
           }
@@ -2336,8 +2303,6 @@
       "precedence": 18,
       "fixity": "atom",
       "evaluates": false,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2380,8 +2345,6 @@
       "precedence": 18,
       "fixity": "comprehension",
       "evaluates": true,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -2410,7 +2373,9 @@
         "inner": "boolean"
       },
       "arity": {
-        "yields": "binders",
+        "yields": {
+          "rule": "binders"
+        },
         "slots": [],
         "requires": null
       },
@@ -2444,10 +2409,6 @@
       "precedence": 18,
       "fixity": "bracket",
       "evaluates": true,
-      "operands": [
-        0
-      ],
-      "inner": null,
       "associativity": null,
       "template": [
         {
@@ -2473,7 +2434,10 @@
         "inner": null
       },
       "arity": {
-        "yields": "slot0",
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
         "slots": [
           null
         ],
@@ -2494,8 +2458,6 @@
       "precedence": 18,
       "fixity": "bracket",
       "evaluates": true,
-      "operands": [],
-      "inner": 0,
       "associativity": null,
       "template": [
         {
@@ -2538,8 +2500,6 @@
       "precedence": 18,
       "fixity": "atom",
       "evaluates": false,
-      "operands": [],
-      "inner": null,
       "associativity": null,
       "template": [
         {

@@ -15,7 +15,7 @@ import { ParseErrorListener } from "../src/errorListener";
 
 const ROOT = join(__dirname, "..");
 
-type CharClass = { ranges: [string, string][]; chars: string[] };
+type CharClass = { ranges: { from: string; to: string }[]; chars: string[] };
 type Quoted = {
   delimiter: string;
   escape: string;
@@ -23,13 +23,18 @@ type Quoted = {
   escapeDecodes: Record<string, string>;
   minLength: number;
 };
+type TemplateItem =
+  | { item: "operand"; level: number }
+  | { item: "optional"; items: TemplateItem[] }
+  | { item: "repeat" | "list" | "body" | "binders"; level: number }
+  | { item: "name" | "constant" | "operator" | "part" };
 type Construct = {
   id: string;
   precedence: number;
   fixity: string;
   evaluates: boolean;
-  operands: number[];
-  inner: number | null;
+  template: TemplateItem[];
+  arity: { slots: (number | null)[] };
   associativity: "left" | "right" | null;
   operators: { id: string; spellings: string[] }[];
   parts: Record<string, string[]>;
@@ -52,7 +57,25 @@ const manifest: {
 // --------------------------------------------------------------------------
 
 const inClass = (cc: CharClass, c: string) =>
-  cc.chars.includes(c) || cc.ranges.some(([lo, hi]) => c >= lo && c <= hi);
+  cc.chars.includes(c) || cc.ranges.some(({ from, to }) => c >= from && c <= to);
+
+/** The level each operand slot descends to, in source order. `implies` puts its
+    third operand inside an `optional`, so this has to descend. */
+const operandsOf = (items: TemplateItem[]): number[] => items.flatMap((i) =>
+  i.item === "operand" ? [i.level]
+  : i.item === "optional" ? operandsOf(i.items)
+  : []);
+
+/** The level accepted inside the construct's delimiters, if it has any. */
+const innerOf = (items: TemplateItem[]): number | null => {
+  for (const i of items) {
+    if (i.item === "optional") {
+      const nested = innerOf(i.items);
+      if (nested !== null) return nested;
+    } else if (i.item !== "operand" && "level" in i) return i.level;
+  }
+  return null;
+};
 
 function isBare(name: string): boolean {
   const { head, rest, minLength } = manifest.identifier.bare;
@@ -112,9 +135,9 @@ function readName(src: string): string {
 }
 
 const expand = (cc: CharClass) => [
-  ...cc.ranges.flatMap(([lo, hi]) =>
-    Array.from({ length: hi.charCodeAt(0) - lo.charCodeAt(0) + 1 }, (_, i) =>
-      String.fromCharCode(lo.charCodeAt(0) + i))),
+  ...cc.ranges.flatMap(({ from, to }) =>
+    Array.from({ length: to.charCodeAt(0) - from.charCodeAt(0) + 1 }, (_, i) =>
+      String.fromCharCode(from.charCodeAt(0) + i))),
   ...cc.chars,
 ];
 
@@ -157,8 +180,9 @@ const parses = (src: string) => shape(src) !== null;
 function template(c: Construct): string | null {
   const op = c.operators[0]?.spellings[0];
   if (!op) return null;
-  if (c.fixity === "infix" && c.operands.length === 2) return `a ${op} b`;
-  if (c.fixity === "prefix" && c.operands.length === 1) return `${op} a`;
+  const operands = operandsOf(c.template);
+  if (c.fixity === "infix" && operands.length === 2) return `a ${op} b`;
+  if (c.fixity === "prefix" && operands.length === 1) return `${op} a`;
   return null;
 }
 
@@ -287,16 +311,27 @@ describe("the construct table", () => {
     }
   });
 
+  it("recovers every operand slot the arity table declares", () => {
+    // Two routes to the same fact: this walks the template, the arity table
+    // counts the alternative's cascade words. `implies` is the case that bites
+    // -- its else-branch operand sits inside an `optional`.
+    for (const c of constructs) {
+      expect({ [c.id]: operandsOf(c.template).length })
+        .toEqual({ [c.id]: c.arity.slots.length });
+    }
+  });
+
   it("predicts exactly which operands need parentheses", () => {
-    // `operands` gives the level each slot descends to, so a subexpression fits
-    // without parentheses iff its own precedence is at least that level.
+    // The template gives the level each slot descends to, so a subexpression
+    // fits without parentheses iff its own precedence is at least that level.
     const disagreements: string[] = [];
     for (const outer of constructs) {
-      if (outer.fixity !== "infix" || outer.operands.length !== 2) continue;
+      const operands = operandsOf(outer.template);
+      if (outer.fixity !== "infix" || operands.length !== 2) continue;
       const op = outer.operators[0].spellings[0];
       for (const inner of operandBearing) {
         const sub = template(inner)!;
-        for (const [slot, level] of outer.operands.entries()) {
+        for (const [slot, level] of operands.entries()) {
           const bare = slot === 0 ? `${sub} ${op} b` : `a ${op} ${sub}`;
           const parenthesized = slot === 0 ? `(${sub}) ${op} b` : `a ${op} (${sub})`;
           const fits = inner.precedence >= level;
@@ -317,10 +352,11 @@ describe("the construct table", () => {
   it("records the cardinality level that `+` skips", () => {
     // The one place a flat precedence number would mislead: expr8 takes its
     // right operand at expr10, so `a + #b` is a parse error while `#a + b` is
-    // not. A regression here means `operands` has collapsed to neighbours.
+    // not. A regression here means the template's levels have collapsed to
+    // neighbours.
     const union = constructs.find((c) => c.id === "unionDifference")!;
     const card = constructs.find((c) => c.id === "cardinality")!;
-    expect(union.operands[1]).toBeGreaterThan(card.precedence);
+    expect(operandsOf(union.template)[1]).toBeGreaterThan(card.precedence);
     expect(parses("a + #b")).toBe(false);
     expect(parses("a + (#b)")).toBe(true);
     expect(parses("#a + b")).toBe(true);
@@ -333,7 +369,8 @@ describe("the construct table", () => {
     const delimited = constructs.filter((c) => c.parts.open && c.parts.close);
     expect(delimited.length).toBeGreaterThan(3);
     for (const c of delimited) {
-      const level = c.inner ?? c.operands[c.operands.length - 1];
+      const operands = operandsOf(c.template);
+      const level = innerOf(c.template) ?? operands[operands.length - 1];
       expect({ [c.id]: level }).toEqual({ [c.id]: 0 });
       const [open, close] = [c.parts.open[0], c.parts.close[0]];
       // Some brackets follow a receiver (`r[...]`) and some do not; the
@@ -355,9 +392,7 @@ describe("the construct table", () => {
   });
 
   it("writes numbers the way the grammar reads them", () => {
-    const digits = manifest.number.digits.ranges.flatMap(([lo, hi]) =>
-      Array.from({ length: hi.charCodeAt(0) - lo.charCodeAt(0) + 1 }, (_, i) =>
-        String.fromCharCode(lo.charCodeAt(0) + i)));
+    const digits = expand(manifest.number.digits);
     expect(digits).toContain("7");
     const negation = constructs.find((c) => c.id === "constant")!.parts.negation[0];
     for (const d of digits) {

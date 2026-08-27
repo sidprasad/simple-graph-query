@@ -102,7 +102,7 @@ export function bareIdentifier() {
 export function matchesBareIdentifier(s) {
   const { head, rest, minLength } = bareIdentifier();
   const inClass = ({ ranges, chars }, c) =>
-    chars.includes(c) || ranges.some(([lo, hi]) => c >= lo && c <= hi);
+    chars.includes(c) || ranges.some(({ from, to }) => c >= from && c <= to);
   return s.length >= minLength &&
     inClass(head, s[0]) &&
     [...s.slice(1)].every((c) => inClass(rest, c));
@@ -150,7 +150,7 @@ export function parseCharSet(body) {
     const [c, after] = next(i);
     if (body[after] === "-" && after + 1 < body.length) {
       const [hi, end] = next(after + 1);
-      ranges.push([c, hi]);
+      ranges.push({ from: c, to: hi });
       i = end;
     } else {
       chars.push(c);

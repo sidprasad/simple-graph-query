@@ -58,15 +58,28 @@ const VIOLATION: Record<string, string> = {
   reflexiveTransitiveClosure: "*next",
 };
 
-function widthFor(rule: unknown, w: Witness): number {
+type ArityRule =
+  | { rule: "slot"; index: number }
+  | { rule: "fixed"; width: number }
+  | { rule: "sum" }
+  | { rule: "join" }
+  | { rule: "boxJoin" }
+  | { rule: "binders" };
+
+function widthFor(rule: ArityRule, w: Witness): number {
   const slots = w.slots ?? [];
-  if (typeof rule === "number") return rule;
-  if (rule === "sum") return slots[0] + slots[1];
-  if (rule === "join") return slots[0] + slots[1] - 2;
-  if (rule === "boxJoin") return slots.reduce((acc, s) => acc + s - 2);
-  if (rule === "binders") return w.binders!;
-  if (typeof rule === "string" && rule.startsWith("slot")) return slots[Number(rule.slice(4))];
-  throw new Error(`no width for arity rule ${JSON.stringify(rule)}`);
+  switch (rule.rule) {
+    case "slot": return slots[rule.index];
+    case "fixed": return rule.width;
+    case "sum": return slots[0] + slots[1];
+    case "join": return slots[0] + slots[1] - 2;
+    case "boxJoin": return slots.reduce((acc, s) => acc + s - 2);
+    case "binders": return w.binders!;
+    default: {
+      const unhandled: never = rule;
+      throw new Error(`no width for arity rule ${JSON.stringify(unhandled)}`);
+    }
+  }
 }
 
 type Measured = { widths: number[] } | { error: string };
@@ -108,7 +121,7 @@ test("every rule that yields a relation yields the width the manifest computes",
     const want = widthFor(arity.yields, w);
     if (m.widths.length !== 1 || m.widths[0] !== want) {
       wrong.push(`${where}: '${w.expr}' gave widths {${m.widths}}, ` +
-        `manifest rule '${arity.yields}' over [${w.slots ?? []}] says ${want}`);
+        `manifest rule ${JSON.stringify(arity.yields)} over [${w.slots ?? []}] says ${want}`);
     }
   }
   expect(wrong).toEqual([]);
