@@ -67,7 +67,7 @@ function parseLexerGrammar(src) {
       if (lm) literals.push(lm[1].replace(/\\(.)/g, "$1"));
       else pure = false;
     }
-    tokens.set(name, { literals: pure ? literals : null, hidden });
+    tokens.set(name, { literals: pure ? literals : null, hidden, body, index: tokens.size });
   }
   return tokens;
 }
@@ -249,11 +249,21 @@ for (const rule of cascade) {
 }
 
 // 2. Reserved words derived from the lexer must match FORGE_RESERVED_KEYWORDS.
+//
+// A spelling is unavailable to a bare name when another token claims it. ANTLR
+// takes the longest match and breaks a tie in favour of the rule declared
+// first, so a literal that matches the identifier pattern is claimed by its own
+// token exactly when that token is declared earlier. Hence `/` is reserved
+// (SLASH_TOK precedes IDENTIFIER_TOK) and `//` is not (CCOMMENT follows it).
+const identifierTok = TOKENS.get("IDENTIFIER_TOK");
+const idShape = identifierTok.body.match(/^\[((?:[^\]\\]|\\.)*)\] \[((?:[^\]\\]|\\.)*)\]\*$/);
+if (!idShape) throw new Error(`IDENTIFIER_TOK is no longer 'head rest*': ${identifierTok.body}`);
+const bareName = new RegExp(`^[${idShape[1]}][${idShape[2]}]*$`);
 const reservedFromLexer = new Set();
-for (const { literals, hidden } of TOKENS.values()) {
-  if (hidden || !literals) continue;
+for (const { literals, hidden, index } of TOKENS.values()) {
+  if (hidden || !literals || index >= identifierTok.index) continue;
   for (const lit of literals) {
-    if (/^[A-Za-z_][A-Za-z_0-9]*$/.test(lit)) reservedFromLexer.add(lit);
+    if (bareName.test(lit)) reservedFromLexer.add(lit);
   }
 }
 const utilsMatch = utilsSrc.match(/FORGE_RESERVED_KEYWORDS = new Set\(\[([\s\S]*?)\]\)/);
@@ -353,7 +363,22 @@ const grammarAppendix = reachable
   .map((r) => `${r}\n    : ${renderBody(RULES.get(r))}\n    ;`)
   .join("\n\n");
 
-const reservedList = [...reservedFromLexer].sort().map((w) => `\`${w}\``).join(", ");
+// Keywords and other claimed spellings read differently: a skimmer takes a
+// "Reserved words" list as "these strings are special everywhere", which for
+// `/` would wrongly outlaw slashed names like `foo/bar`. So the list holds only
+// word-shaped keywords, and non-word spellings get their own note.
+const wordShaped = /^[A-Za-z_][A-Za-z_0-9]*$/;
+const reservedList = [...reservedFromLexer].filter((w) => wordShaped.test(w))
+  .sort().map((w) => `\`${w}\``).join(", ");
+const backquoteOnlyDescriptions = {
+  "/": "matches the identifier pattern but lexes as the qualified-name separator",
+};
+const backquoteOnlyList = [...reservedFromLexer].filter((w) => !wordShaped.test(w))
+  .sort().map((w) => {
+    const why = backquoteOnlyDescriptions[w];
+    if (!why) throw new Error(`Backquote-only spelling ${w} has no description`);
+    return `\`${w}\` ${why}. A name that is exactly \`${w}\` can only be written backquoted (\`\` \`${w}\` \`\`); a name that merely contains it, like \`foo/bar\`, is an ordinary identifier and needs no quoting.`;
+  }).join("\n\n");
 
 const patternTokenDescriptions = {
   STRING_TOK: 'A double-quoted string literal: `"dark blue"`. Escapes: `\\"`, `\\\\`, `\\n`, `\\t`, `\\r`, `\\0`; any other escaped character stands for itself.',
@@ -407,6 +432,10 @@ ${reservedList}
 
 A data-instance entity whose name collides with a reserved word is still
 reachable by backquoting: \`\` \`set\` \`\` names the *atom* with id \`set\`.
+
+### Names that must be backquoted
+
+${backquoteOnlyList}
 
 ## Operators and precedence
 

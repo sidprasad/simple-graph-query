@@ -37,6 +37,10 @@ and `*/`. A `#lang` line is ignored.
 A data-instance entity whose name collides with a reserved word is still
 reachable by backquoting: `` `set` `` names the *atom* with id `set`.
 
+### Names that must be backquoted
+
+`/` matches the identifier pattern but lexes as the qualified-name separator. A name that is exactly `/` can only be written backquoted (`` `/` ``); a name that merely contains it, like `foo/bar`, is an ordinary identifier and needs no quoting.
+
 ## Operators and precedence
 
 Constructs are listed loosest-binding first; higher numbers bind tighter.
