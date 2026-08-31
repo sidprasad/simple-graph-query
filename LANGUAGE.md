@@ -41,43 +41,58 @@ reachable by backquoting: `` `set` `` names the *atom* with id `set`.
 
 `/` matches the identifier pattern but lexes as the qualified-name separator. A name that is exactly `/` can only be written backquoted (`` `/` ``); a name that merely contains it, like `foo/bar`, is an ordinary identifier and needs no quoting.
 
+### Machine-readable form
+
+Code that *generates* expressions needs this page's content as data rather than
+as prose. [`docs/sgq-language.json`](docs/sgq-language.json) carries it: the
+bare-identifier character classes, both quoting forms with their escape tables,
+every spelling a bare identifier cannot carry, and the whole cascade below —
+each construct with its spellings, its precedence, and the level each of its
+operands descends to. It is generated from this same grammar, ships in the npm
+package, and is checked against the real lexer and parser by a test.
+
+The parenthesisation rule is the one thing worth restating: a subexpression
+needs parentheses exactly when its own `precedence` is below the level of the
+slot it fills. Those levels are not always the neighbouring one — `+` takes
+its right operand two levels in, so `a + #b` is a parse error.
+
 ## Operators and precedence
 
 Constructs are listed loosest-binding first; higher numbers bind tighter.
 "Evaluates ✗" marks syntax the grammar accepts but the evaluator rejects.
 
-| # | Construct | Example | Operators | Evaluates | Meaning |
-|---|-----------|---------|-----------|:---------:|---------|
-| 1 | let binding | `let x = e \| body` | — | ✗ | Bind names to expression values inside a body. Parses, but evaluation is not implemented and fails. |
-| 1 | bind | `bind x = e \| body` | — | ✗ | Alloy `bind`. Parses, but evaluation is rejected. |
-| 1 | quantified formula | `all x: S \| body` | — | ✓ | Quantifiers `all`, `no`, `some`, `lone`, `one`, `two`, and the aggregator `sum x: S \| intExpr`. `disj` requires the bound variables to take pairwise-distinct values. The body must use the bar form (`\| expr`). |
-| 2 | disjunction | `a or b` | `\|\|` / `or` | ✓ | Logical or (short-circuits). |
-| 3 | exclusive or | `a xor b` | `xor` | ✓ | Logical exclusive or. |
-| 4 | biconditional | `a iff b` | `<=>` / `iff` | ✓ | Logical if-and-only-if. |
-| 5 | implication | `a implies b else c` | `implies` / `=>`, `else` | ✓ | Implication, with an optional else branch (`a => b else c` means `(a and b) or ((not a) and c)`). |
-| 6 | conjunction | `a and b` | `&&` / `and` | ✓ | Logical and (short-circuits). |
-| 7 | negation | `not a` | `!` / `not` | ✓ | Logical negation of a boolean formula. |
-| 8 | comparison | `a in b` | `in`, `=`, `<`, `>`, `<=` / `=<`, `>=`, `ni`, `is` | ✓ | Subset (`in`), reverse containment (`ni`), set equality (`=`), and numeric comparisons. A scalar is a singleton set, so `in` doubles as membership. A leading `!`/`not` negates the comparison. `is` parses but its evaluation is rejected. |
-| 9 | multiplicity test | `some e` | `no`, `some`, `lone`, `one`, `two`, `set` | ✓ | Cardinality predicates over a set: `no` (empty), `some` (non-empty), `lone` (at most one), `one` (exactly one), `two` (exactly two). `set e` is the identity. |
-| 10 | union / difference | `a + b` | `+`, `-` | ✓ | Set union and set difference. (For integer arithmetic use the `add[...]`/`subtract[...]` builtins; `1 + 2` is the two-element set.) |
-| 11 | cardinality | `#e` | `#` | ✓ | Number of tuples in the set. |
-| 12 | override | `a ++ b` | `++` | ✓ | Relational override: tuples of `b`, plus the tuples of `a` whose first atom is not a first atom of `b`. |
-| 13 | intersection | `a & b` | `&` | ✓ | Set intersection. |
-| 14 | product | `a -> b` | `->` | ✓ | Cartesian product. Multiplicity annotations (`a one -> lone b`) are declaration syntax and are rejected in expressions. |
-| 15 | restriction | `S <: r` | `<:`, `:>` | ✓ | Domain restriction (`S <: r`: tuples of `r` starting in `S`) and range restriction (`r :> S`: tuples ending in `S`). |
-| 16 | box join / builtin call | `f[a, b]` | `[`, `]` | ✓ | `a[b]` is the box join `b.a`. When the callee names a builtin (see the builtin table) it is a function call instead: `add[1, 2]`. |
-| 17 | join | `a.f` | `.` | ✓ | Relational join: match the last column of the left operand against the first column of the right. |
-| 17 | applied name (grammar corner) | `x.f[a]` | — | ✗ | A bracket application whose callee is parsed as a bare name inside a dot-chain. Redundant with box join; evaluation is not implemented. |
-| 18 | unary prefixes | `^r` | `~`, `^`, `*`, `@:`, `@str:`, `@bool:`, `@num:` | ✓ | `~r` transpose, `^r` transitive closure, `*r` reflexive-transitive closure. `@:`/`@str:` label of an atom as a string, `@bool:`/`@num:` label converted to boolean/number (extensions; not Forge). |
-| 19 | constant | `none` | — | ✓ | `none` (empty set), `univ` (all atoms), `iden` (identity relation), integer literals (incl. negative), and `"..."` string literals. |
-| 19 | name | `Person` | — | ✓ | A type, relation, atom, or bound variable. An unresolved name evaluates to the empty set and raises an `unresolved-name` diagnostic. |
-| 19 | @name | `@x` | — | ✗ | Alloy-specific; evaluation is rejected. |
-| 19 | atom literal | <code>&#96;n0</code> | — | ✓ | The atom with exactly this id, bypassing type/relation/variable lookup. |
-| 19 | this | `this` | — | ✗ | Alloy-specific; evaluation is rejected. |
-| 19 | set comprehension | `{x: S \| body}` | — | ✓ | The set of bindings satisfying the body. Multiple binders build a relation: `{x: A, y: B \| body}` is a set of pairs. |
-| 19 | parentheses | `(e)` | — | ✓ | Grouping. |
-| 19 | block | `{ e1 e2 }` | — | ✓ | A conjunction of boolean expressions, separated by whitespace (there is no `;` in the language). |
-| 19 | s-expression | `sexpr` | — | ✗ | Reserved for internal use; evaluation is rejected. |
+| # | Construct | Example | Operators | Yields | Evaluates | Meaning |
+|---|-----------|---------|-----------|--------|:---------:|---------|
+| 1 | let binding | `let x = e \| body` | — | — | ✗ | Bind names to expression values inside a body. Parses, but evaluation is not implemented and fails. |
+| 1 | bind | `bind x = e \| body` | — | — | ✗ | Alloy `bind`. Parses, but evaluation is rejected. |
+| 1 | quantified formula | `all x: S \| body` | — | boolean (`sum` number) | ✓ | Quantifiers `all`, `no`, `some`, `lone`, `one`, `two`, and the aggregator `sum x: S \| intExpr`. `disj` requires the bound variables to take pairwise-distinct values. The body must use the bar form (`\| expr`). |
+| 2 | disjunction | `a or b` | `\|\|` / `or` | boolean | ✓ | Logical or (short-circuits). |
+| 3 | exclusive or | `a xor b` | `xor` | boolean | ✓ | Logical exclusive or. |
+| 4 | biconditional | `a iff b` | `<=>` / `iff` | boolean | ✓ | Logical if-and-only-if. |
+| 5 | implication | `a implies b else c` | `implies` / `=>`, `else` | boolean | ✓ | Implication, with an optional else branch (`a => b else c` means `(a and b) or ((not a) and c)`). |
+| 6 | conjunction | `a and b` | `&&` / `and` | boolean | ✓ | Logical and (short-circuits). |
+| 7 | negation | `not a` | `!` / `not` | boolean | ✓ | Logical negation of a boolean formula. |
+| 8 | comparison | `a in b` | `in`, `=`, `<`, `>`, `<=` / `=<`, `>=`, `ni`, `is` | boolean | ✓ | Subset (`in`), reverse containment (`ni`), set equality (`=`), and numeric comparisons. A scalar is a singleton set, so `in` doubles as membership. A leading `!`/`not` negates the comparison. `is` parses but its evaluation is rejected. |
+| 9 | multiplicity test | `some e` | `no`, `some`, `lone`, `one`, `two`, `set` | boolean (`set` operand) | ✓ | Cardinality predicates over a set: `no` (empty), `some` (non-empty), `lone` (at most one), `one` (exactly one), `two` (exactly two). `set e` is the identity. |
+| 10 | union / difference | `a + b` | `+`, `-` | relation | ✓ | Set union and set difference. (For integer arithmetic use the `add[...]`/`subtract[...]` builtins; `1 + 2` is the two-element set.) |
+| 11 | cardinality | `#e` | `#` | number | ✓ | Number of tuples in the set. |
+| 12 | override | `a ++ b` | `++` | relation | ✓ | Relational override: tuples of `b`, plus the tuples of `a` whose first atom is not a first atom of `b`. |
+| 13 | intersection | `a & b` | `&` | relation | ✓ | Set intersection. |
+| 14 | product | `a -> b` | `->` | relation | ✓ | Cartesian product. Multiplicity annotations (`a one -> lone b`) are declaration syntax and are rejected in expressions. |
+| 15 | restriction | `S <: r` | `<:`, `:>` | relation | ✓ | Domain restriction (`S <: r`: tuples of `r` starting in `S`) and range restriction (`r :> S`: tuples ending in `S`). |
+| 16 | box join / builtin call | `f[a, b]` | `[`, `]` | — | ✓ | `a[b]` is the box join `b.a`. When the callee names a builtin (see the builtin table) it is a function call instead: `add[1, 2]`. |
+| 17 | join | `a.f` | `.` | relation | ✓ | Relational join: match the last column of the left operand against the first column of the right. |
+| 17 | applied name (grammar corner) | `x.f[a]` | — | — | ✗ | A bracket application whose callee is parsed as a bare name inside a dot-chain. Redundant with box join; evaluation is not implemented. |
+| 18 | unary prefixes | `^r` | `~`, `^`, `*`, `@:`, `@str:`, `@bool:`, `@num:` | relation (`@:` string, `@str:` string, `@bool:` boolean, `@num:` number) | ✓ | `~r` transpose, `^r` transitive closure, `*r` reflexive-transitive closure. `@:`/`@str:` label of an atom as a string, `@bool:`/`@num:` label converted to boolean/number (extensions; not Forge). |
+| 19 | constant | `none` | — | — (`none` relation, `univ` relation, `iden` relation) | ✓ | `none` (empty set), `univ` (all atoms), `iden` (identity relation), integer literals (incl. negative), and `"..."` string literals. |
+| 19 | name | `Person` | — | relation | ✓ | A type, relation, atom, or bound variable. An unresolved name evaluates to the empty set and raises an `unresolved-name` diagnostic. |
+| 19 | @name | `@x` | — | — | ✗ | Alloy-specific; evaluation is rejected. |
+| 19 | atom literal | <code>&#96;n0</code> | — | relation | ✓ | The atom with exactly this id, bypassing type/relation/variable lookup. |
+| 19 | this | `this` | — | — | ✗ | Alloy-specific; evaluation is rejected. |
+| 19 | set comprehension | `{x: S \| body}` | — | relation | ✓ | The set of bindings satisfying the body. Multiple binders build a relation: `{x: A, y: B \| body}` is a set of pairs. |
+| 19 | parentheses | `(e)` | — | operand | ✓ | Grouping. |
+| 19 | block | `{ e1 e2 }` | — | boolean | ✓ | A conjunction of boolean expressions, separated by whitespace (there is no `;` in the language). |
+| 19 | s-expression | `sexpr` | — | — | ✗ | Reserved for internal use; evaluation is rejected. |
 
 ## Builtin functions
 

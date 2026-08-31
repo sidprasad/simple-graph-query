@@ -1,0 +1,2541 @@
+{
+  "sgqVersion": "3.1.0",
+  "identifier": {
+    "bare": {
+      "head": {
+        "ranges": [
+          {
+            "from": "a",
+            "to": "z"
+          },
+          {
+            "from": "A",
+            "to": "Z"
+          }
+        ],
+        "chars": [
+          "_",
+          "$",
+          "/"
+        ]
+      },
+      "rest": {
+        "ranges": [
+          {
+            "from": "a",
+            "to": "z"
+          },
+          {
+            "from": "A",
+            "to": "Z"
+          },
+          {
+            "from": "0",
+            "to": "9"
+          }
+        ],
+        "chars": [
+          "_",
+          "$",
+          "/"
+        ]
+      },
+      "minLength": 1
+    },
+    "quoted": {
+      "delimiter": "`",
+      "escape": "\\",
+      "mustEscape": [
+        "`",
+        "\\"
+      ],
+      "escapeDecodes": {},
+      "minLength": 1
+    },
+    "reserved": [
+      "/",
+      "Int",
+      "abstract",
+      "all",
+      "and",
+      "as",
+      "assert",
+      "bind",
+      "but",
+      "check",
+      "checked",
+      "consistent",
+      "disj",
+      "else",
+      "eval",
+      "exactly",
+      "example",
+      "expect",
+      "extends",
+      "for",
+      "forge_error",
+      "fun",
+      "func",
+      "iden",
+      "iff",
+      "implies",
+      "in",
+      "inconsistent",
+      "inst",
+      "is",
+      "let",
+      "lone",
+      "necessary",
+      "ni",
+      "no",
+      "none",
+      "not",
+      "one",
+      "open",
+      "option",
+      "or",
+      "pfunc",
+      "pred",
+      "run",
+      "sat",
+      "set",
+      "sexpr",
+      "sig",
+      "some",
+      "sufficient",
+      "suite",
+      "sum",
+      "test",
+      "theorem",
+      "this",
+      "two",
+      "univ",
+      "unsat",
+      "var",
+      "wheat",
+      "with",
+      "xor"
+    ]
+  },
+  "string": {
+    "delimiter": "\"",
+    "escape": "\\",
+    "mustEscape": [
+      "\"",
+      "\\"
+    ],
+    "escapeDecodes": {
+      "0": "\u0000",
+      "n": "\n",
+      "t": "\t",
+      "r": "\r"
+    },
+    "minLength": 0
+  },
+  "number": {
+    "digits": {
+      "ranges": [
+        {
+          "from": "0",
+          "to": "9"
+        }
+      ],
+      "chars": []
+    },
+    "decimalPoint": "."
+  },
+  "builtins": {
+    "binary": [
+      "add",
+      "subtract",
+      "multiply",
+      "divide",
+      "remainder"
+    ],
+    "unary": [
+      "abs",
+      "sign",
+      "floor",
+      "ceil"
+    ],
+    "set": [
+      "min",
+      "max",
+      "sum"
+    ]
+  },
+  "constructs": [
+    {
+      "id": "let",
+      "precedence": 0,
+      "fixity": "binder",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "binders",
+          "style": "bound",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "let",
+          "spellings": [
+            "let"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "bind": [
+          "="
+        ],
+        "separator": [
+          ","
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "bind",
+      "precedence": 0,
+      "fixity": "binder",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "binders",
+          "style": "bound",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "bind",
+          "spellings": [
+            "bind"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "bind": [
+          "="
+        ],
+        "separator": [
+          ","
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "quantifier",
+      "precedence": 0,
+      "fixity": "quantifier",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "part",
+          "role": "disjoint",
+          "optional": true
+        },
+        {
+          "item": "binders",
+          "style": "typed",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [],
+        "inner": "boolean"
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "all",
+          "spellings": [
+            "all"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "no",
+          "spellings": [
+            "no"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "sum",
+          "spellings": [
+            "sum"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [],
+            "inner": "number"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "lone",
+          "spellings": [
+            "lone"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "some",
+          "spellings": [
+            "some"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "one",
+          "spellings": [
+            "one"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "two",
+          "spellings": [
+            "two"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [],
+            "inner": "boolean"
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "disjoint": [
+          "disj"
+        ],
+        "colon": [
+          ":"
+        ],
+        "separator": [
+          ","
+        ],
+        "domainMultiplicity": [
+          "set"
+        ],
+        "bar": [
+          "|"
+        ],
+        "blockOpen": [
+          "{"
+        ],
+        "blockClose": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "or",
+      "precedence": 1,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 1
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 2
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "or",
+          "spellings": [
+            "||",
+            "or"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "xor",
+      "precedence": 2,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 2
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 3
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "xor",
+          "spellings": [
+            "xor"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "iff",
+      "precedence": 3,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 3
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 4
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "iff",
+          "spellings": [
+            "<=>",
+            "iff"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "implies",
+      "precedence": 4,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "right",
+      "template": [
+        {
+          "item": "operand",
+          "level": 5
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 4
+        },
+        {
+          "item": "optional",
+          "items": [
+            {
+              "item": "part",
+              "role": "else",
+              "optional": false
+            },
+            {
+              "item": "operand",
+              "level": 4
+            }
+          ]
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "implies",
+          "spellings": [
+            "implies",
+            "=>"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "else": [
+          "else"
+        ]
+      }
+    },
+    {
+      "id": "and",
+      "precedence": 5,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 5
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 6
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean",
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "and",
+          "spellings": [
+            "&&",
+            "and"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean",
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "not",
+      "precedence": 6,
+      "fixity": "prefix",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 6
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "boolean"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "not",
+          "spellings": [
+            "!",
+            "not"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "boolean"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "comparison",
+      "precedence": 7,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 7
+        },
+        {
+          "item": "part",
+          "role": "negation",
+          "optional": true
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 8
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "any",
+          "any"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
+      },
+      "operators": [
+        {
+          "id": "subset",
+          "spellings": [
+            "in"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "equal",
+          "spellings": [
+            "="
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "lessThan",
+          "spellings": [
+            "<"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "greaterThan",
+          "spellings": [
+            ">"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "atMost",
+          "spellings": [
+            "<=",
+            "=<"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "atLeast",
+          "spellings": [
+            ">="
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "number",
+              "number"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "contains",
+          "spellings": [
+            "ni"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "is",
+          "spellings": [
+            "is"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "any",
+              "any"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        }
+      ],
+      "parts": {
+        "negation": [
+          "!",
+          "not"
+        ]
+      }
+    },
+    {
+      "id": "multiplicityTest",
+      "precedence": 8,
+      "fixity": "prefix",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 9
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "empty",
+          "spellings": [
+            "no"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "nonEmpty",
+          "spellings": [
+            "some"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "atMostOne",
+          "spellings": [
+            "lone"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "exactlyOne",
+          "spellings": [
+            "one"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "exactlyTwo",
+          "spellings": [
+            "two"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "any",
+          "spellings": [
+            "set"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "operand",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "unionDifference",
+      "precedence": 9,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 9
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 11
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
+      },
+      "operators": [
+        {
+          "id": "union",
+          "spellings": [
+            "+"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        },
+        {
+          "id": "difference",
+          "spellings": [
+            "-"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "cardinality",
+      "precedence": 10,
+      "fixity": "prefix",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 10
+        }
+      ],
+      "kinds": {
+        "yields": "number",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "cardinality",
+          "spellings": [
+            "#"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "override",
+      "precedence": 11,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 11
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 12
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
+      },
+      "operators": [
+        {
+          "id": "override",
+          "spellings": [
+            "++"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "intersection",
+      "precedence": 12,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 12
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 13
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
+        "slots": [
+          null,
+          null
+        ],
+        "requires": "equal"
+      },
+      "operators": [
+        {
+          "id": "intersection",
+          "spellings": [
+            "&"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": "equal"
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "product",
+      "precedence": 13,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 13
+        },
+        {
+          "item": "part",
+          "role": "multiplicity",
+          "optional": true
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "part",
+          "role": "multiplicity",
+          "optional": true
+        },
+        {
+          "item": "operand",
+          "level": 14
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "sum"
+        },
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "product",
+          "spellings": [
+            "->"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "sum"
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "multiplicity": [
+          "lone",
+          "some",
+          "one",
+          "two",
+          "set"
+        ]
+      }
+    },
+    {
+      "id": "restriction",
+      "precedence": 14,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 14
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 15
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "domainRestriction",
+          "spellings": [
+            "<:"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 1
+            },
+            "slots": [
+              1,
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "rangeRestriction",
+          "spellings": [
+            ":>"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "slot",
+              "index": 0
+            },
+            "slots": [
+              null,
+              1
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "application",
+      "precedence": 15,
+      "fixity": "bracket",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operand",
+          "level": 15
+        },
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "list",
+          "level": 0,
+          "role": "separator"
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [
+          null
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "boxJoin"
+        },
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {
+        "open": [
+          "["
+        ],
+        "close": [
+          "]"
+        ],
+        "separator": [
+          ","
+        ]
+      }
+    },
+    {
+      "id": "join",
+      "precedence": 16,
+      "fixity": "infix",
+      "evaluates": true,
+      "associativity": "left",
+      "template": [
+        {
+          "item": "operand",
+          "level": 16
+        },
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 17
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation",
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "join"
+        },
+        "slots": [
+          null,
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "join",
+          "spellings": [
+            "."
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation",
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "join"
+            },
+            "slots": [
+              null,
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "appliedName",
+      "precedence": 16,
+      "fixity": "bracket",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "name",
+          "qualified": false
+        },
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "list",
+          "level": 0,
+          "role": "separator"
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {
+        "open": [
+          "["
+        ],
+        "close": [
+          "]"
+        ],
+        "separator": [
+          ","
+        ]
+      }
+    },
+    {
+      "id": "unaryPrefix",
+      "precedence": 17,
+      "fixity": "prefix",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "operand",
+          "level": 17
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [
+          "relation"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "transpose",
+          "spellings": [
+            "~"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
+            "slots": [
+              2
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "transitiveClosure",
+          "spellings": [
+            "^"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
+            "slots": [
+              2
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "reflexiveTransitiveClosure",
+          "spellings": [
+            "*"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
+            "slots": [
+              2
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "label",
+          "spellings": [
+            "@:"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "string",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "labelString",
+          "spellings": [
+            "@str:"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "string",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "labelBoolean",
+          "spellings": [
+            "@bool:"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "boolean",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        },
+        {
+          "id": "labelNumber",
+          "spellings": [
+            "@num:"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "number",
+            "operands": [
+              "relation"
+            ],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [
+              null
+            ],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "constant",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "constant"
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "emptySet",
+          "spellings": [
+            "none"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "universe",
+          "spellings": [
+            "univ"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
+            "slots": [],
+            "requires": null
+          }
+        },
+        {
+          "id": "identity",
+          "spellings": [
+            "iden"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 2
+            },
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {
+        "negation": [
+          "-"
+        ]
+      }
+    },
+    {
+      "id": "name",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "name",
+          "qualified": true
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {}
+    },
+    {
+      "id": "atName",
+      "precedence": 18,
+      "fixity": "prefix",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "name",
+          "qualified": false
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "atName",
+          "spellings": [
+            "@"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "atomLiteral",
+      "precedence": 18,
+      "fixity": "prefix",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        },
+        {
+          "item": "name",
+          "qualified": false
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "fixed",
+          "width": 1
+        },
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "atomLiteral",
+          "spellings": [
+            "`"
+          ],
+          "evaluates": true,
+          "kinds": {
+            "yields": "relation",
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": {
+              "rule": "fixed",
+              "width": 1
+            },
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "this",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "this",
+          "spellings": [
+            "this"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    },
+    {
+      "id": "comprehension",
+      "precedence": 18,
+      "fixity": "comprehension",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "binders",
+          "style": "typed",
+          "level": 0
+        },
+        {
+          "item": "body",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
+      "kinds": {
+        "yields": "relation",
+        "operands": [],
+        "inner": "boolean"
+      },
+      "arity": {
+        "yields": {
+          "rule": "binders"
+        },
+        "slots": [],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {
+        "open": [
+          "{"
+        ],
+        "close": [
+          "}"
+        ],
+        "bar": [
+          "|"
+        ],
+        "colon": [
+          ":"
+        ],
+        "separator": [
+          ","
+        ],
+        "disjoint": [
+          "disj"
+        ],
+        "domainMultiplicity": [
+          "set"
+        ]
+      }
+    },
+    {
+      "id": "grouping",
+      "precedence": 18,
+      "fixity": "bracket",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "operand",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
+      "kinds": {
+        "yields": "operand",
+        "operands": [
+          "operand"
+        ],
+        "inner": null
+      },
+      "arity": {
+        "yields": {
+          "rule": "slot",
+          "index": 0
+        },
+        "slots": [
+          null
+        ],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {
+        "open": [
+          "("
+        ],
+        "close": [
+          ")"
+        ]
+      }
+    },
+    {
+      "id": "block",
+      "precedence": 18,
+      "fixity": "bracket",
+      "evaluates": true,
+      "associativity": null,
+      "template": [
+        {
+          "item": "part",
+          "role": "open",
+          "optional": false
+        },
+        {
+          "item": "repeat",
+          "level": 0
+        },
+        {
+          "item": "part",
+          "role": "close",
+          "optional": false
+        }
+      ],
+      "kinds": {
+        "yields": "boolean",
+        "operands": [],
+        "inner": "boolean"
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [],
+      "parts": {
+        "open": [
+          "{"
+        ],
+        "close": [
+          "}"
+        ]
+      }
+    },
+    {
+      "id": "sexpr",
+      "precedence": 18,
+      "fixity": "atom",
+      "evaluates": false,
+      "associativity": null,
+      "template": [
+        {
+          "item": "operator"
+        }
+      ],
+      "kinds": {
+        "yields": null,
+        "operands": [],
+        "inner": null
+      },
+      "arity": {
+        "yields": null,
+        "slots": [],
+        "requires": null
+      },
+      "operators": [
+        {
+          "id": "sexpr",
+          "spellings": [
+            "sexpr"
+          ],
+          "evaluates": false,
+          "kinds": {
+            "yields": null,
+            "operands": [],
+            "inner": null
+          },
+          "arity": {
+            "yields": null,
+            "slots": [],
+            "requires": null
+          }
+        }
+      ],
+      "parts": {}
+    }
+  ]
+}
