@@ -28,17 +28,18 @@ import {
   QuantContext,
 } from "./forge-antlr/ForgeParser";
 import { getIdentifierName } from "./forge-antlr/utils";
-import { SUPPORTED_BUILTINS, compareOpKind } from "./ForgeExprEvaluator";
+import { SUPPORTED_BUILTINS, compareOpKind, compareStrings, unquoteStringLiteral } from "./ForgeExprEvaluator";
 import { IForgeSchema, IRelation, IType } from "./types";
 
 // Internal lattice element used during recursion.
-// "bool"/"num" carry the constant they fold to; "empty" means a set/relation
+// "bool"/"num"/"str" carry the constant they fold to; "empty" means a set/relation
 // is provably empty; "typed" means a relation with a known arity and (when
 // derivable) column types; "ill-typed" means the expression is statically
 // malformed (arity mismatch, etc.); "unknown" is the conservative top.
 type Abstract =
   | { kind: "bool"; value: boolean }
   | { kind: "num"; value: number }
+  | { kind: "str"; value: string }
   | { kind: "empty" }
   // `columnTypes` bounds each column: every atom in column i belongs to that
   // type. `exact` additionally says the expression denotes the WHOLE of that
@@ -297,7 +298,7 @@ export class ForgeExprStaticAnalyzer
   // Arity of an Abstract when known; -1 means "not determinable".
   private static arityOf(v: Abstract): number {
     if (v.kind === "typed") return v.arity;
-    if (v.kind === "bool" || v.kind === "num") return 1; // singleton sets
+    if (v.kind === "bool" || v.kind === "num" || v.kind === "str") return 1; // singleton sets
     if (v.kind === "empty") return -1; // empty has no committed arity
     return -1;
   }
@@ -607,8 +608,8 @@ export class ForgeExprStaticAnalyzer
     }
 
     // Empty / singleton comparisons.
-    const lIsKnownSingleton = l.kind === "num" || l.kind === "bool";
-    const rIsKnownSingleton = r.kind === "num" || r.kind === "bool";
+    const lIsKnownSingleton = l.kind === "num" || l.kind === "bool" || l.kind === "str";
+    const rIsKnownSingleton = r.kind === "num" || r.kind === "bool" || r.kind === "str";
     if (opForLogic === "=") {
       if (l.kind === "empty" && r.kind === "empty") return finalize(true);
       if (l.kind === "empty" && rIsKnownSingleton) return finalize(false);
@@ -947,6 +948,38 @@ export class ForgeExprStaticAnalyzer
       const bail = ForgeExprStaticAnalyzer.bailIfIllTyped(...args);
       if (bail) return bail;
 
+      // Peel pass-through layers and parentheses, just as the evaluator does
+      // when resolving the callee. Schema entities and bound variables shadow
+      // builtin names; a string literal callee is already a known string.
+      let callee: ParseTree = headCtx;
+      while (true) {
+        if (callee instanceof Expr18Context && callee.LEFT_PAREN_TOK()) {
+          callee = callee.expr()!;
+        } else if (callee.childCount === 1) {
+          callee = callee.getChild(0);
+        } else break;
+      }
+      const isLexCompare = (fn.kind === "str" && fn.value === "lexCompare") ||
+        (callee.text === "lexCompare" && !this.isBound("lexCompare") &&
+          !this.schema?.getType("lexCompare") && !this.schema?.getRelations("lexCompare").length);
+      if (isLexCompare) {
+        if (args.length !== 2) {
+          return { kind: "ill-typed", reason: "Expected exactly 2 arguments for lexCompare" };
+        }
+        for (let i = 0; i < args.length; i++) {
+          const arg = args[i];
+          if (arg.kind === "num" || arg.kind === "bool" || arg.kind === "empty" ||
+              (arg.kind === "typed" && arg.arity !== 1)) {
+            return { kind: "ill-typed", reason: `Expected argument ${i + 1} of lexCompare to be a string or singleton unary string relation` };
+          }
+        }
+        const [a, b] = args;
+        if (a.kind === "str" && b.kind === "str") {
+          return { kind: "num", value: compareStrings(a.value, b.value) };
+        }
+        return UNKNOWN;
+      }
+
       // A builtin only borrows the box-join syntax. It returns a NUMBER, so the
       // relational "empty in, empty out" rule below does not describe it: `sum`
       // of the empty set is 0, and min/max of it are errors rather than sets.
@@ -1050,6 +1083,9 @@ export class ForgeExprStaticAnalyzer
         const n = Number(c.number()!.text);
         const value = c.MINUS_TOK() ? -n : n;
         return { kind: "num", value };
+      }
+      if (c.STRING_TOK()) {
+        return { kind: "str", value: unquoteStringLiteral(c.STRING_TOK()!.text) };
       }
       // iden, univ are data-dependent
       return UNKNOWN;

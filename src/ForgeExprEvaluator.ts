@@ -103,6 +103,18 @@ function isString(value: EvalResult): value is string {
   return typeof value === "string";
 }
 
+/** JavaScript's case-sensitive, locale-independent UTF-16 string ordering. */
+export function compareStrings(a: string, b: string): -1 | 0 | 1 {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function extractString(value: EvalResult): string | undefined {
+  if (isString(value)) return value;
+  if (isTupleArray(value) && value.length === 1 && value[0].length === 1 &&
+      typeof value[0][0] === "string") return value[0][0];
+  return undefined;
+}
+
 // Helper to create a string key from a tuple for fast lookup.
 //
 // The key is JSON.stringify because it is type-preserving: the atom 1 and the
@@ -314,7 +326,7 @@ function bitwidthWraparound(value: number, bitwidth: number): number {
 // this is a list of forge builtin functions we currently support; add to this
 // list as we support more
 
-const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder"];
+const SUPPORTED_BINARY_BUILTINS = ["add", "subtract", "multiply", "divide", "remainder", "lexCompare"];
 const SUPPORTED_UNARY_BUILTINS: string[] = ["abs", "sign", "floor", "ceil"];
 const SUPPORTED_SET_BUILTINS: string[] = ["min", "max", "sum"];
 
@@ -1873,6 +1885,29 @@ export class ForgeExprEvaluator
 
     if (ctx.LEFT_SQUARE_TOK()) {
       const beforeBracesExpr = this.visit(ctx.expr14()!);
+
+      if (beforeBracesExpr === "lexCompare") {
+        // visitExprList flattens relations, losing argument boundaries. Keep
+        // each operand separate to validate both cardinality and tuple arity.
+        const args: EvalResult[] = [];
+        let list = ctx.exprList();
+        while (list) {
+          args.push(this.visit(list.expr()));
+          list = list.exprList();
+        }
+        if (args.length !== 2) {
+          throw new Error("Expected exactly 2 arguments for lexCompare");
+        }
+        const strings = args.map((arg, i) => {
+          const value = extractString(arg);
+          if (value === undefined) {
+            throw new Error(`Expected argument ${i + 1} of lexCompare to be a string or singleton unary string relation`);
+          }
+          return value;
+        });
+        return compareStrings(strings[0], strings[1]);
+      }
+
       const insideBracesExprs = this.visit(ctx.exprList()!);
       //console.log('beforeBracesExpr:', beforeBracesExpr);
       //console.log('insideBracesExprs:', insideBracesExprs);
