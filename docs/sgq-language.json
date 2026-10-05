@@ -150,7 +150,8 @@
       "subtract",
       "multiply",
       "divide",
-      "remainder"
+      "remainder",
+      "lexCompare"
     ],
     "unary": [
       "abs",

@@ -43,6 +43,23 @@ stands for itself.
 There is no implicit conversion: `"12" = 12` and `"true" = true` are both false.
 Use `@num:` / `@bool:` to convert explicitly.
 
+### Lexicographic comparison
+
+`lexCompare[a, b]` returns `-1`, `0`, or `1` for strings that precede, equal,
+or follow one another, using JavaScript's case-sensitive UTF-16 string ordering
+(`a < b` / `a > b`). It has no locale rules, Unicode normalization, or numeric
+conversion: `"10"` precedes `"2"`, and a proper prefix comes first.
+
+```
+lexCompare["apple", "banana"] < 0
+{a, b: Person | lexCompare[@:a, @:b] < 0}
+```
+
+Each argument must be a string or a singleton unary string relation. Empty or
+multi-value relations, higher-arity tuples, numbers, and booleans are rejected.
+Atom IDs are represented as strings too; use `@:` explicitly to compare labels.
+The infix `<`, `>`, `<=`, and `>=` operators continue to require numbers.
+
 ### Embedding in YAML
 
 `@` is a reserved indicator in YAML, so an expression beginning with `@:` cannot

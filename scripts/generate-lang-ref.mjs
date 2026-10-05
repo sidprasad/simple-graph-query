@@ -178,7 +178,7 @@ const doc = `<!-- GENERATED FILE — DO NOT EDIT.
 This library evaluates a single **expression** (the \`parseExpr\` grammar entry
 point) against a data instance. The language is the expression fragment of
 [Forge](https://forge-fm.org) (itself a dialect of Alloy), with a few
-extensions (string literals, label access) and deliberate omissions.
+extensions (string literals, label access, string comparison) and deliberate omissions.
 
 **Everything is a set of tuples.** A sig name denotes the set of its atoms, a
 relation name the set of its tuples, and a scalar (one atom, one number, one
@@ -236,12 +236,32 @@ Called with square brackets, e.g. \`add[1, 2]\`.
 
 | Builtins | Arity | Notes |
 |----------|-------|-------|
-| ${binaryBuiltins.map((b) => `\`${b}\``).join(", ")} | 2 | Integer/real arithmetic. \`divide\` is real division. |
+| ${binaryBuiltins.filter((b) => b !== "lexCompare").map((b) => `\`${b}\``).join(", ")} | 2 | Integer/real arithmetic. \`divide\` is real division. |
+| \`lexCompare\` | 2 | String comparison (SGQ extension), returning -1, 0, or 1. |
 | ${unaryBuiltins.map((b) => `\`${b}\``).join(", ")} | 1 | |
 | ${setBuiltins.map((b) => `\`${b}\``).join(", ")} | set | Aggregate over a set; numeric strings resolve to numbers. \`sum\` also has a quantifier form \`sum x: S \\| intExpr\`. |
 
 Builtin names are **not** reserved words: a data instance that names an
 entity \`add\` shadows the builtin (see issue #59).
+
+### String comparison
+
+\`lexCompare[a, b]\` returns -1 if \`a\` precedes \`b\`, 0 if they are equal,
+and 1 if \`a\` follows \`b\`. Each argument must be a string or a singleton
+unary string relation; empty relations, multiple values, higher-arity tuples,
+numbers, and booleans are rejected. No implicit conversion or label lookup occurs.
+
+Ordering uses JavaScript's \`<\` and \`>\`: case-sensitive, locale-independent
+lexicographic comparison of UTF-16 code units, with no Unicode normalization.
+A proper prefix comes first (\`""\` precedes \`"a"\`, which precedes \`"aa"\`);
+numeric-looking strings remain strings (\`"10"\` precedes \`"2"\`).
+Use label extraction explicitly when ordering atoms by their displayed labels:
+
+\`{a, b: Person | lexCompare[@:a, @:b] < 0}\`
+
+Atom IDs are also represented as strings, so \`lexCompare[a, b]\` compares IDs
+when given atoms. Distinct atoms with identical labels compare equal after
+label extraction. The infix ordering operators remain numeric.
 
 ## Grammar
 
