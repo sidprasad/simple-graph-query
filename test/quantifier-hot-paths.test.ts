@@ -220,6 +220,16 @@ describe("bound variables that shadow instance names", () => {
     expect(evaluator.evaluateExpression("#Node")).toBe(N);
   });
 
+  it("an operator on a shadowing variable is not reused across outer bindings", () => {
+    // `next` is the 3-cycle N0 -> N1 -> N2 -> N0, so x.next.next is never x.
+    // The inner `edge` is a variable; were `edge.next` taken for a closed
+    // operator on the relation `edge`, its value under the first x would be
+    // reused for the others.
+    const small = new SimpleGraphQueryEvaluator(graph(3, [[0, 1]]));
+    const result = small.evaluateExpression("{x: Node | some edge: x.next | x in edge.next}");
+    expect(tuples(result, [])).toBe(true);
+  });
+
   it("an inner binder shadowing a name leaves closed siblings reusable", () => {
     const result = evaluator.evaluateExpression(
       "{x: Node | (some edge: Node | edge = x) and some x.^edge}"
