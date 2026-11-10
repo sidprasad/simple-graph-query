@@ -348,12 +348,19 @@ export class ForgeExprFreeVariableFinder
           "expected a bar followed by an expr in the set comprehension!"
         );
       }
-      let allFreeVars: FreeVariables;
+      // The domains can mention outer variables too: in
+      // `{x: y.edge | ...}`, y is free in the comprehension. Leaving these out
+      // made the comprehension look closed, so its first value was reused for
+      // every binding of y.
+      const quantDeclListFreeVars = this.visit(ctx.quantDeclList()!);
+
+      let bodyFreeVars: FreeVariables;
       if (blockOrBar.block() !== undefined) {
-        allFreeVars = this.visit(blockOrBar.block()!);
+        bodyFreeVars = this.visit(blockOrBar.block()!);
       } else {
-        allFreeVars = this.visit(blockOrBar.expr()!);
+        bodyFreeVars = this.visit(blockOrBar.expr()!);
       }
+      const allFreeVars = this.aggregateResult(bodyFreeVars, quantDeclListFreeVars);
 
       // the context node for the quantifier as a whole shouldn't have _all_ of these
       // free vars; specifically, it should not include the vars that are being
@@ -393,6 +400,36 @@ export class ForgeExprFreeVariableFinder
 
 
 
+  /**
+   * Whether `identifier`, used at `ctx`, is in the scope of a quantifier or
+   * comprehension that binds it.
+   *
+   * A binder's variables are in scope in its body but not in its own
+   * declaration list: the domains are evaluated before anything is bound, so
+   * in `{Node: Node | ...}` the domain `Node` is still the type.
+   */
+  private isBoundByEnclosingBinder(ctx: NameContext, identifier: string): boolean {
+    let child: ParseTree = ctx;
+    let node: ParseTree | undefined = ctx.parent;
+    while (node !== undefined) {
+      const isBinder =
+        (node instanceof ExprContext && node.quant() !== undefined) ||
+        (node instanceof Expr18Context && node.LEFT_CURLY_TOK() !== undefined);
+      if (isBinder && !(child instanceof QuantDeclListContext)) {
+        const declarations = (node as ExprContext | Expr18Context).quantDeclList();
+        if (
+          declarations !== undefined &&
+          this.getQuantDeclListVarNames(declarations).has(identifier)
+        ) {
+          return true;
+        }
+      }
+      child = node;
+      node = node.parent;
+    }
+    return false;
+  }
+
   visitName(ctx: NameContext): FreeVariables {
     const identifier = getIdentifierName(ctx);
 
@@ -402,7 +439,18 @@ export class ForgeExprFreeVariableFinder
     }
 
 
-    // if it is a type, then it is not a free variable
+    // A name bound by an enclosing quantifier or comprehension is a variable,
+    // whatever else shares its name. The evaluator resolves names through the
+    // environment first, so `{Node: Node | some Node.edge}` reads the bound
+    // `Node` in its body; if the type of the same name won here instead, the
+    // body would look closed and its first value would be reused for every
+    // binding.
+    if (this.isBoundByEnclosingBinder(ctx, identifier)) {
+      const boundVariable = this.defaultResult();
+      boundVariable.set(ctx, new Set<string>([identifier]));
+      return boundVariable;
+    }
+
     // if it is a type, then it is not a free variable
     const typeNames = this.instanceData.getTypes().map(t => t.id);
     if (typeNames.includes(identifier)) {

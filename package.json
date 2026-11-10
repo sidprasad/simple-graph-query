@@ -35,6 +35,7 @@
     "prepublishOnly": "npm run build:full",
     "serve": "python3 -m http.server 8080",
     "test": "jest",
+    "bench": "tsc && node scripts/bench.mjs",
     "docs": "npm run docs:lang && npm run docs:manifest",
     "docs:lang": "node scripts/generate-lang-ref.mjs",
     "docs:manifest": "node scripts/generate-language-manifest.mjs",

@@ -495,3 +495,43 @@ These optimizations significantly improve performance without sacrificing code c
 - Demonstrates that understanding query structure allows targeted optimizations
 
 All changes are backwards compatible and all existing tests pass without modification.
+
+## Quantifier Hot Paths
+
+Queries with a quantifier or comprehension evaluate their body once per
+binding, so any work in the body that does not depend on the bound variables
+is multiplied by the size of the product. Four such costs are now paid once
+per relation value or once per evaluator instead of once per binding:
+
+1. **Membership Sets** (`ensureKeySet`). `x->y in edge` built a `Set` over all
+   of `edge` for every binding; the keys were cached but the Set was not.
+2. **Name resolution** (`globalNameCache`). Resolving a type, atom, relation,
+   or builtin name scanned every type and atom. The result depends only on
+   the instance, so it is memoized per evaluator.
+3. **Closed subexpressions** (`closedResults`, in `visit`). Results were cached
+   only for nodes of the `expr` grammar rule, so the `^edge` in
+   `{x: Node | some x.^edge}` was recomputed for every `x`, while
+   `x.(^edge)` was not. Any operator node with no free variables is now
+   computed once.
+4. **Join indexes** (`ensureFirstColumnIndex`). A join whose right operand was
+   a computed relation re-indexed it on every evaluation.
+
+The membership Sets and join indexes follow the same rules as `relationKeys`:
+keyed on the identity of the relation's outer array, and registered only for
+relations of at least `KEY_REGISTER_MIN` tuples. All of these rely on relation
+values never being mutated after creation.
+
+Run `npm run bench` to measure. On a 300-node, 900-edge graph (Node 16, one
+machine, best of three, fresh evaluator per run):
+
+| Query | Before | After |
+|---|---|---|
+| `{x, y: Node \| x->y in edge}` | 3091 ms | 621 ms |
+| `{x, y: Node \| y.id = add[x.id, 1]}` | 1496 ms | 612 ms |
+| `{x: Node \| some x.^edge}` | 6829 ms | 49 ms |
+| `{x: Node \| some x.(^edge)}` | 460 ms | 50 ms |
+| `all x: Node \| x.edge in Node` | 38 ms | 6 ms |
+
+What remains in the two-variable comprehensions is per-binding interpreter
+overhead: building the cache key in `visitExpr`, walking the precedence chain,
+and materializing the full product in `getCombinations`.

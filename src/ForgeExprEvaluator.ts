@@ -37,6 +37,7 @@ import {
   FreeVariables,
 } from "./ForgeExprFreeVariableFinder";
 import { ParseTree } from "antlr4ts/tree/ParseTree";
+import { RuleNode } from "antlr4ts/tree/RuleNode";
 import {
   detectNumericComparisonPattern,
   areAllNumericSets,
@@ -164,6 +165,48 @@ function ensureKeys(tuples: Tuple[]): string[] {
   return keys;
 }
 
+// Membership Sets over a relation's canonical keys, cached per relation value
+// under the same rules as `relationKeys` (outer-array identity, bulk only).
+// Without this, `x->y in edge` inside a quantifier rebuilt a Set over all of
+// `edge` for every binding, even though the keys themselves were cached.
+const relationKeySets = new WeakMap<Tuple[], Set<string>>();
+
+function ensureKeySet(tuples: Tuple[]): Set<string> {
+  let keySet = relationKeySets.get(tuples);
+  if (keySet === undefined) {
+    keySet = new Set(ensureKeys(tuples));
+    if (tuples.length >= KEY_REGISTER_MIN) {
+      relationKeySets.set(tuples, keySet);
+    }
+  }
+  return keySet;
+}
+
+// First-column indexes for joins, cached per relation value under the same
+// rules. A join whose right operand is a computed relation (e.g. `x.(^edge)`)
+// otherwise re-indexed that whole relation on every evaluation.
+const relationFirstColumnIndexes = new WeakMap<Tuple[], Map<SingleValue, Tuple[]>>();
+
+function ensureFirstColumnIndex(tuples: Tuple[]): Map<SingleValue, Tuple[]> {
+  let index = relationFirstColumnIndexes.get(tuples);
+  if (index === undefined) {
+    index = new Map<SingleValue, Tuple[]>();
+    for (const tuple of tuples) {
+      const key = tuple[0];
+      const bucket = index.get(key);
+      if (bucket === undefined) {
+        index.set(key, [tuple]);
+      } else {
+        bucket.push(tuple);
+      }
+    }
+    if (tuples.length >= KEY_REGISTER_MIN) {
+      relationFirstColumnIndexes.set(tuples, index);
+    }
+  }
+  return index;
+}
+
 function areTuplesEqual(a: Tuple, b: Tuple): boolean {
   return a.length === b.length && a.every((val, i) => val === b[i]);
 }
@@ -178,7 +221,7 @@ function isTupleArraySubset(a: Tuple[], b: Tuple[]): boolean {
     return a.every((tupleA) => bSet.has(tupleToKey(tupleA)));
   }
   // Optimize using Set for O(n) lookup instead of O(n²)
-  const bSet = new Set(ensureKeys(b));
+  const bSet = ensureKeySet(b);
   const aKeys = ensureKeys(a);
   for (let i = 0; i < a.length; i++) {
     if (!bSet.has(aKeys[i])) {
@@ -460,10 +503,22 @@ export class ForgeExprEvaluator
   
   // Cache for relation lookups to avoid O(n) scans
   private relationCache: Map<string, Tuple[]> | null = null;
-  
-  // Index for relations: Map<relationName, Map<firstElement, Tuple[]>>
-  // This allows O(1) lookup for patterns like atom.field
-  private relationIndexCache: Map<string, Map<SingleValue, Tuple[]>> | null = null;
+
+  // Resolution of names that are not bound variables (types, atoms,
+  // relations, builtins), memoized per evaluator. The instance is fixed for
+  // an evaluator's lifetime, and resolving a name scans every type and atom,
+  // which is quadratic when the name sits inside a quantifier body.
+  private globalNameCache: Map<string, EvalResult> = new Map();
+  // Names known to resolve to nothing in this instance. They still raise
+  // their diagnostic on every evaluation; only the rescan is skipped.
+  private unresolvedNames: Set<string> = new Set();
+
+  // Values of closed (variable-free) operator nodes below the `expr` rule,
+  // which `cachedResults` does not cover. See `visit`.
+  private closedResults: Map<ParseTree, { value: EvalResult }> = new Map();
+  // Bumped on every unresolved-name report, including repeats, so `visit` can
+  // tell whether a subtree raised a diagnostic it would need to replay.
+  private unresolvedReportCount = 0;
 
   // Diagnostics accumulated during the current evaluation, keyed by name so a
   // name referenced many times (e.g. inside a comprehension body) reports once.
@@ -502,6 +557,7 @@ export class ForgeExprEvaluator
    * exactly the frames where a set happens to be empty.
    */
   private reportUnresolvedName(name: string): void {
+    this.unresolvedReportCount++;
     if (this.diagnostics.has(name)) {
       return;
     }
@@ -558,7 +614,6 @@ export class ForgeExprEvaluator
     }
     
     this.relationCache = new Map();
-    this.relationIndexCache = new Map();
     const relations = this.instanceData.getRelations();
 
     for (const relation of relations) {
@@ -574,22 +629,6 @@ export class ForgeExprEvaluator
       // overwriting silently erases all but the last. https://github.com/sidprasad/simple-graph-query/issues/55
       const existing = this.relationCache.get(relation.name);
       this.relationCache.set(relation.name, existing ? existing.concat(relationAtoms) : relationAtoms);
-    }
-
-    // Build first-element indexes from the merged (union'd) tuples, so an index
-    // never reflects only a subset of a name's relations.
-    for (const [name, tuples] of this.relationCache.entries()) {
-      const relationIndex = new Map<SingleValue, Tuple[]>();
-      for (const tuple of tuples) {
-        if (tuple.length > 0) {
-          const key = tuple[0];
-          if (!relationIndex.has(key)) {
-            relationIndex.set(key, []);
-          }
-          relationIndex.get(key)!.push(tuple);
-        }
-      }
-      this.relationIndexCache.set(name, relationIndex);
     }
   }
 
@@ -755,27 +794,13 @@ export class ForgeExprEvaluator
   }
 
   // Optimized dotJoin that can use pre-built relation indexes
-  private dotJoin(left: EvalResult, right: EvalResult, rightRelationName?: string): EvalResult {
+  private dotJoin(left: EvalResult, right: EvalResult): EvalResult {
     const leftExpr = asTupleArray(left);
     const rightExpr = asTupleArray(right);
 
-    // Try to use pre-built index if available
-    let rightIndex: Map<SingleValue, Tuple[]> | undefined;
-    if (rightRelationName && this.relationIndexCache) {
-      rightIndex = this.relationIndexCache.get(rightRelationName);
-    }
-    
-    // If no pre-built index, build one on the fly
-    if (!rightIndex) {
-      rightIndex = new Map<SingleValue, Tuple[]>();
-      for (const rightTuple of rightExpr) {
-        const key = rightTuple[0];
-        if (!rightIndex.has(key)) {
-          rightIndex.set(key, []);
-        }
-        rightIndex.get(key)!.push(rightTuple);
-      }
-    }
+    // Indexed by first column; cached per relation value, so both instance
+    // relations and computed relations are indexed at most once.
+    const rightIndex = ensureFirstColumnIndex(rightExpr);
 
     const result: Tuple[] = [];
     for (const leftTuple of leftExpr) {
@@ -838,6 +863,50 @@ export class ForgeExprEvaluator
         const value = this.atomValue(atom.id);
         result.push([value, value]);
       });
+    }
+    return result;
+  }
+
+  /**
+   * Evaluate a node, reusing the value of closed operator nodes.
+   *
+   * `visitExpr` caches per free-variable binding, but only for nodes of the
+   * `expr` rule. A closed subexpression that is not itself an `expr` -- the
+   * `^edge` in `{x: Node | some x.^edge}` -- was therefore recomputed for every
+   * binding of the enclosing quantifier. Such a node has no free variables, so
+   * its value depends only on the instance and can be computed once.
+   *
+   * Only nodes with more than one child are considered: the single-child nodes
+   * that make up the precedence chain do no work of their own.
+   */
+  visit(tree: ParseTree): EvalResult {
+    if (tree.childCount > 1 && !(tree instanceof ExprContext)) {
+      const freeVars = this.freeVariables.get(tree);
+      if (freeVars !== undefined && freeVars.size === 0) {
+        const cached = this.closedResults.get(tree);
+        if (cached !== undefined) {
+          return cached.value;
+        }
+        const reportsBefore = this.unresolvedReportCount;
+        const value = tree.accept(this);
+        // A subtree that raised a diagnostic must be re-evaluated so the
+        // diagnostic is raised again; one that did not is safe to reuse.
+        if (this.unresolvedReportCount === reportsBefore) {
+          this.closedResults.set(tree, { value });
+        }
+        return value;
+      }
+    }
+    return tree.accept(this);
+  }
+
+  // Same as the inherited implementation, except that children are routed
+  // through `visit` so closed nodes reached this way are reused too.
+  visitChildren(node: RuleNode): EvalResult {
+    let result = this.defaultResult();
+    const n = node.childCount;
+    for (let i = 0; i < n; i++) {
+      result = this.aggregateResult(result, this.visit(node.getChild(i)));
     }
     return result;
   }
@@ -939,6 +1008,7 @@ export class ForgeExprEvaluator
         // cache hit! Replay the diagnostics this subtree produced, so a repeat
         // evaluation reports the same warnings as the first one.
         for (const diagnostic of cached.diagnostics) {
+          this.unresolvedReportCount++;
           if (!this.diagnostics.has(diagnostic.name)) {
             this.diagnostics.set(diagnostic.name, diagnostic);
           }
@@ -967,8 +1037,8 @@ export class ForgeExprEvaluator
         throw new Error("Expected the quantifier to have a quantDeclList!");
       }
 
-      const quantifierFreeVars = this.freeVariableFinder.visit(ctx);
-      this.updateFreeVariables(quantifierFreeVars);
+      // The free variables of this node and everything below it were recorded
+      // at the top of this method, so there is nothing to recompute here.
 
       const varQuantifiedSets = this.getQuantDeclListValues(
         ctx.quantDeclList()!
@@ -1667,7 +1737,7 @@ export class ForgeExprEvaluator
         if (leftChildValue[0].length === rightChildValue[0].length) {
           // Optimize set difference using Set for O(n+m) instead of O(n*m),
           // reusing canonical keys instead of re-serializing each side.
-          const rightSet = new Set(ensureKeys(rightChildValue));
+          const rightSet = ensureKeySet(rightChildValue);
           const leftKeys = ensureKeys(leftChildValue);
           const result: Tuple[] = [];
           const resultKeys: string[] = [];
@@ -1780,7 +1850,7 @@ export class ForgeExprEvaluator
         if (leftChildValue[0].length === rightChildValue[0].length) {
           // Optimize set intersection using Set for O(n+m) instead of O(n*m),
           // reusing canonical keys instead of re-serializing each side.
-          const rightSet = new Set(ensureKeys(rightChildValue));
+          const rightSet = ensureKeySet(rightChildValue);
           const leftKeys = ensureKeys(leftChildValue);
           const result: Tuple[] = [];
           const resultKeys: string[] = [];
@@ -1944,22 +2014,8 @@ export class ForgeExprEvaluator
 
       const beforeDotExpr = this.visit(ctx.expr15()!);
       const afterDotExpr = this.visit(ctx.expr17()!);
-      
-      // Try to extract the relation name if the right side is a simple identifier/relation name
-      let rightRelationName: string | undefined;
-      // Simple heuristic: check if it's a tuple array (likely a relation)
-      // and if so, try to find which relation it matches
-      if (isTupleArray(afterDotExpr) && this.relationCache) {
-        // Check if this matches any cached relation
-        for (const [relName, relTuples] of this.relationCache.entries()) {
-          if (relTuples === afterDotExpr) {
-            rightRelationName = relName;
-            break;
-          }
-        }
-      }
 
-      return this.dotJoin(beforeDotExpr, afterDotExpr, rightRelationName);
+      return this.dotJoin(beforeDotExpr, afterDotExpr);
     }
 
     if (ctx.LEFT_SQUARE_TOK()) {
@@ -2207,8 +2263,10 @@ export class ForgeExprEvaluator
         throw new Error("expected a quantDeclList in the set comprehension!");
       }
 
-      const quantifierFreeVars = this.freeVariableFinder.visit(ctx);
-      this.updateFreeVariables(quantifierFreeVars);
+      // Normally recorded already, when an enclosing `expr` was analysed.
+      if (!this.freeVariables.has(ctx)) {
+        this.updateFreeVariables(this.freeVariableFinder.visit(ctx));
+      }
 
       const varQuantifiedSets = this.getQuantDeclListValues(
         ctx.quantDeclList()!
@@ -2334,7 +2392,9 @@ export class ForgeExprEvaluator
       if (isSingleValue(headValue)) {
         results.push([headValue]);
       } else {
-        results = headValue;
+        // Copy: relation values are shared (name cache, closed-node cache) and
+        // must never be mutated in place.
+        results = headValue.slice();
       }
       if (isTupleArray(tailValues)) {
         results = results.concat(tailValues);
@@ -2374,6 +2434,16 @@ export class ForgeExprEvaluator
       if (currEnv.type === "predArgs") {
         break; // can't go further back
       }
+    }
+
+    // Not a bound variable, so the answer depends only on the instance.
+    const cachedGlobal = this.globalNameCache.get(identifier);
+    if (cachedGlobal !== undefined) {
+      return cachedGlobal;
+    }
+    if (this.unresolvedNames.has(identifier)) {
+      this.reportUnresolvedName(identifier);
+      return [];
     }
 
     let result: EvalResult | undefined = undefined;
@@ -2446,15 +2516,20 @@ export class ForgeExprEvaluator
     // check if it is a relation - use cache for faster lookups
     this.buildRelationCache();
     if (this.relationCache!.has(identifier)) {
-      return this.relationCache!.get(identifier)!;
+      const relationTuples = this.relationCache!.get(identifier)!;
+      this.globalNameCache.set(identifier, relationTuples);
+      return relationTuples;
     }
 
     if (result !== undefined) {
-      return result.map((tuple) => tuple.map((value) => this.atomValue(value)));
+      const resolved = result.map((tuple) => tuple.map((value) => this.atomValue(value)));
+      this.globalNameCache.set(identifier, resolved);
+      return resolved;
     }
 
     // return identifier;
     if (SUPPORTED_BUILTINS.includes(identifier)) {
+      this.globalNameCache.set(identifier, identifier);
       return identifier;
     }
 
@@ -2465,6 +2540,7 @@ export class ForgeExprEvaluator
     // `reportUnresolvedName`.
     //
     // Note this is NOT how string literals are written — use `"..."`.
+    this.unresolvedNames.add(identifier);
     this.reportUnresolvedName(identifier);
     return [];
   }
