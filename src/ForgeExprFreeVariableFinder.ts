@@ -348,12 +348,19 @@ export class ForgeExprFreeVariableFinder
           "expected a bar followed by an expr in the set comprehension!"
         );
       }
-      let allFreeVars: FreeVariables;
+      // The domains can mention outer variables too: in
+      // `{x: y.edge | ...}`, y is free in the comprehension. Leaving these out
+      // made the comprehension look closed, so its first value was reused for
+      // every binding of y.
+      const quantDeclListFreeVars = this.visit(ctx.quantDeclList()!);
+
+      let bodyFreeVars: FreeVariables;
       if (blockOrBar.block() !== undefined) {
-        allFreeVars = this.visit(blockOrBar.block()!);
+        bodyFreeVars = this.visit(blockOrBar.block()!);
       } else {
-        allFreeVars = this.visit(blockOrBar.expr()!);
+        bodyFreeVars = this.visit(blockOrBar.expr()!);
       }
+      const allFreeVars = this.aggregateResult(bodyFreeVars, quantDeclListFreeVars);
 
       // the context node for the quantifier as a whole shouldn't have _all_ of these
       // free vars; specifically, it should not include the vars that are being
