@@ -170,3 +170,60 @@ describe("quantifier hot-path caches", () => {
     expect(tuples(evaluator.evaluateExpression("^edge"), [[node(0), node(1)]])).toBe(true);
   });
 });
+
+// A bound variable may share its name with a type or relation. The evaluator
+// reads the variable, so the caches must treat it as one too.
+describe("bound variables that shadow instance names", () => {
+  let evaluator: SimpleGraphQueryEvaluator;
+  beforeEach(() => {
+    evaluator = new SimpleGraphQueryEvaluator(graph(N, chain));
+  });
+  const withOutgoingEdge: Tuple[] = chain.map(([a]) => [node(a)]);
+
+  it("a comprehension variable named after a type", () => {
+    for (const query of [
+      "{Node: Node | some Node.edge}",
+      "{Node: Node | (some Node.edge)}",
+    ]) {
+      expect(tuples(evaluator.evaluateExpression(query), withOutgoingEdge)).toBe(true);
+    }
+  });
+
+  it("a comprehension variable named after a relation", () => {
+    for (const query of [
+      "{next: Node | some next.edge}",
+      "{next: Node | (some next.edge)}",
+      "{next: Node | some next.^edge}",
+    ]) {
+      expect(tuples(evaluator.evaluateExpression(query), withOutgoingEdge)).toBe(true);
+    }
+  });
+
+  it("a quantifier variable named after a type", () => {
+    // False for the last node of the chain, so not true of all of them.
+    expect(evaluator.evaluateExpression("all Node: Node | (some Node.edge)")).toBe(false);
+    expect(evaluator.evaluateExpression("some Node: Node | (no Node.edge)")).toBe(true);
+    expect(evaluator.evaluateExpression("one Node: Node | (no Node.edge)")).toBe(true);
+  });
+
+  it("the binder's own domain still refers to the instance name", () => {
+    // `Node` after the colon is the type; only the body sees the variable.
+    const result = evaluator.evaluateExpression("{Node: Node | Node in Node}");
+    expect(Array.isArray(result) && result.length).toBe(N);
+  });
+
+  it("the name means the instance again outside the binder", () => {
+    const result = evaluator.evaluateExpression(
+      "{x: Node | (some Node: Node | Node = x) and x in Node and some x.edge}"
+    );
+    expect(tuples(result, withOutgoingEdge)).toBe(true);
+    expect(evaluator.evaluateExpression("#Node")).toBe(N);
+  });
+
+  it("an inner binder shadowing a name leaves closed siblings reusable", () => {
+    const result = evaluator.evaluateExpression(
+      "{x: Node | (some edge: Node | edge = x) and some x.^edge}"
+    );
+    expect(tuples(result, withOutgoingEdge)).toBe(true);
+  });
+});

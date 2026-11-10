@@ -1037,8 +1037,8 @@ export class ForgeExprEvaluator
         throw new Error("Expected the quantifier to have a quantDeclList!");
       }
 
-      const quantifierFreeVars = this.freeVariableFinder.visit(ctx);
-      this.updateFreeVariables(quantifierFreeVars);
+      // The free variables of this node and everything below it were recorded
+      // at the top of this method, so there is nothing to recompute here.
 
       const varQuantifiedSets = this.getQuantDeclListValues(
         ctx.quantDeclList()!
@@ -2263,8 +2263,10 @@ export class ForgeExprEvaluator
         throw new Error("expected a quantDeclList in the set comprehension!");
       }
 
-      const quantifierFreeVars = this.freeVariableFinder.visit(ctx);
-      this.updateFreeVariables(quantifierFreeVars);
+      // Normally recorded already, when an enclosing `expr` was analysed.
+      if (!this.freeVariables.has(ctx)) {
+        this.updateFreeVariables(this.freeVariableFinder.visit(ctx));
+      }
 
       const varQuantifiedSets = this.getQuantDeclListValues(
         ctx.quantDeclList()!
